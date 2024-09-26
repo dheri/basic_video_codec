@@ -7,3 +7,4 @@ if __name__ == "__main__":
     height = 288
 
     ex1.main(input_file, output_file, width, height)
+
