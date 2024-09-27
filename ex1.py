@@ -1,8 +1,6 @@
 import os
 import numpy as np
-from numpy.ma.core import floor
 from scipy.ndimage import zoom
-from PIL import Image
 
 
 # Function to upscale U and V planes
@@ -72,11 +70,14 @@ def create_noise_mask(height, width, noise_percent):
     return mask
 
 
-def apply_mask(channel, mask, strategy='turn_off'):
+def apply_mask(channel, mask, strategy='randomize'):
     if strategy == 'turn_off':
         return np.where(mask == 1, 0, channel)
     elif strategy == 'flip_value':
         return np.where(mask == 1, 128 + (128 - channel), channel)
+    elif strategy == 'randomize':
+        random_values = np.random.randint(0, 256, size=channel.shape, dtype=np.uint8)
+        return np.where(mask == 1, random_values, channel)
     return channel
 
 
@@ -148,7 +149,7 @@ def main(input_file, output_file, width, height):
 
             # Prepare channels
             channels = {
-                'M': np.ones((height, width), dtype=np.uint8),
+                'M': np.ones((height, width), dtype=np.uint8) * 128,
                 'Y': y_plane,
                 'U': u_444,
                 'V': v_444,
@@ -163,5 +164,5 @@ def main(input_file, output_file, width, height):
             # Save grid to bitstream in YUV 4:4:4 format (saving Y plane only)
             f_out.write(grid.tobytes())
 
-            if frame_index >= 10:  # Optional: limit frames for testing
+            if frame_index >= 50:  # Optional: limit frames for testing
                 break
