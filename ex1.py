@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from numpy.ma.core import floor
 from scipy.ndimage import zoom
 from PIL import Image
 
@@ -94,13 +95,16 @@ def pad_or_resize_channel(channel, target_height, target_width):
     return channel
 
 
-def construct_grid(channels, masks, original_width, grid_unit_size, half_border, spacing):
+def construct_grid(channels, masks, original_width, original_height, half_border, spacing):
+    grid_unit_x = int(original_width * 1.0625)
+    grid_unit_y = int(original_height * 1.0625)
+
     """Construct a grid with padding and spacing, returns as a raw byte buffer."""
     num_masks = len(masks)
 
     # Calculate total grid size based on channels and masks
-    grid_height = (len(channels) * grid_unit_size) + ((len(channels) - 1) * spacing) + 2 * half_border
-    grid_width = (num_masks * grid_unit_size) + ((num_masks - 1) * spacing) + 2 * half_border
+    grid_height = (len(channels) * grid_unit_y) + ((len(channels) - 1) * spacing) + 2 * half_border
+    grid_width = (num_masks * grid_unit_x) + ((num_masks - 1) * spacing) + 2 * half_border
 
     print(f"Total grid dimensions: Height = {grid_height}, Width = {grid_width}")
 
@@ -114,14 +118,14 @@ def construct_grid(channels, masks, original_width, grid_unit_size, half_border,
             masked_channel = apply_mask(channel_data, mask)
 
             # Resize or pad the masked channel to fit the grid unit size
-            padded_channel = pad_or_resize_channel(masked_channel, grid_unit_size, grid_unit_size)
+            padded_channel = pad_or_resize_channel(masked_channel, grid_unit_y, grid_unit_x)
 
             # Calculate position in grid
-            start_x = half_border + j * (grid_unit_size + spacing)
-            start_y = half_border + i * (grid_unit_size + spacing)
+            start_x = half_border + j * (grid_unit_x + spacing)
+            start_y = half_border + i * (grid_unit_y + spacing)
 
             # Place the padded channel into the grid
-            grid[start_y:start_y + grid_unit_size, start_x:start_x + grid_unit_size] = padded_channel
+            grid[start_y:start_y + grid_unit_y, start_x:start_x + grid_unit_x] = padded_channel
 
     return grid
 
@@ -130,10 +134,8 @@ def main(input_file, output_file, width, height):
     noise_percents = [0, 1, 2, 4, 8]
     masks = [create_noise_mask(height, width, p) for p in noise_percents]
 
-    # Externalize frame dimensions and spacing calculations
     grid_unit_size = width  # Base unit size (width of original video)
-    half_border = grid_unit_size // 2
-    spacing = grid_unit_size // 8
+    half_border = grid_unit_size // 8
 
     with open(output_file, 'wb') as f_out:  # Use 'wb' to clear existing data
         pass  # Just open the file to clear contents
@@ -154,7 +156,7 @@ def main(input_file, output_file, width, height):
             }
 
             # Construct the grid with masked channels
-            grid = construct_grid(channels, masks, width, grid_unit_size, half_border, spacing)
+            grid = construct_grid(channels, masks, width, height, half_border, 0)
 
             # Save grid to bitstream in YUV 4:4:4 format (saving Y plane only)
             f_out.write(grid.tobytes())
