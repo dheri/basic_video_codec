@@ -94,12 +94,9 @@ def pad_or_resize_channel(channel, target_height, target_width):
     return channel
 
 
-def construct_grid(channels, masks, original_width):
+def construct_grid(channels, masks, original_width, grid_unit_size, half_border, spacing):
     """Construct a grid with padding and spacing, returns as a raw byte buffer."""
     num_masks = len(masks)
-    grid_unit_size = original_width  # Define the base unit size (width of original video)
-    half_border = grid_unit_size // 2
-    spacing = grid_unit_size // 8
 
     # Calculate total grid size based on channels and masks
     grid_height = (len(channels) * grid_unit_size) + ((len(channels) - 1) * spacing) + 2 * half_border
@@ -132,6 +129,14 @@ def main(input_file, output_file, width, height):
     num_frames = calculate_num_frames(input_file, width, height)
     noise_percents = [0, 1, 2, 4, 8]
     masks = [create_noise_mask(height, width, p) for p in noise_percents]
+
+    # Externalize frame dimensions and spacing calculations
+    grid_unit_size = width  # Base unit size (width of original video)
+    half_border = grid_unit_size // 2
+    spacing = grid_unit_size // 8
+
+    with open(output_file, 'wb') as f_out:  # Use 'wb' to clear existing data
+        pass  # Just open the file to clear contents
     with open(output_file, 'ab') as f_out:
         for frame_index, (y_plane, u_plane, v_plane) in enumerate(read_yuv420(input_file, width, height, num_frames)):
             # Upscale chroma planes
@@ -149,7 +154,7 @@ def main(input_file, output_file, width, height):
             }
 
             # Construct the grid with masked channels
-            grid = construct_grid(channels, masks, width)
+            grid = construct_grid(channels, masks, width, grid_unit_size, half_border, spacing)
 
             # Save grid to bitstream in YUV 4:4:4 format (saving Y plane only)
             f_out.write(grid.tobytes())
