@@ -65,7 +65,8 @@ def yuv_to_rgb(y_plane, u_plane, v_plane):
 
 def create_noise_mask(height, width, noise_percent):
     mask = np.zeros((height, width), dtype=np.uint8)
-    num_noise_pixels = int(noise_percent / 100.0 * height * width)
+    num_noise_pixels = int((noise_percent / 100.0) * height * width)
+    print(f"Creating {num_noise_pixels} / {height * width}  noise pixels")
     noise_indices = np.random.choice(height * width, num_noise_pixels, replace=False)
     mask.flat[noise_indices] = 1
     return mask
@@ -75,7 +76,7 @@ def apply_mask(channel, mask, strategy='turn_off'):
     if strategy == 'turn_off':
         return np.where(mask == 1, 0, channel)
     elif strategy == 'flip_value':
-        return np.where(mask == 1, 255 - channel, channel)
+        return np.where(mask == 1, 128 + (128 - channel), channel)
     return channel
 
 
@@ -103,8 +104,8 @@ def construct_grid(channels, masks, original_width, original_height, half_border
     num_masks = len(masks)
 
     # Calculate total grid size based on channels and masks
-    grid_height = (len(channels) * grid_unit_y) + ((len(channels) - 1) * spacing) + 2 * half_border
-    grid_width = (num_masks * grid_unit_x) + ((num_masks - 1) * spacing) + 2 * half_border
+    grid_height = (num_masks * grid_unit_y) + ((num_masks - 1) * spacing) + 2 * half_border
+    grid_width = (len(channels) * grid_unit_x) + ((len(channels) - 1) * spacing) + 2 * half_border
 
     print(f"Total grid dimensions: Height = {grid_height}, Width = {grid_width}")
 
@@ -120,9 +121,9 @@ def construct_grid(channels, masks, original_width, original_height, half_border
             # Resize or pad the masked channel to fit the grid unit size
             padded_channel = pad_or_resize_channel(masked_channel, grid_unit_y, grid_unit_x)
 
-            # Calculate position in grid
-            start_x = half_border + j * (grid_unit_x + spacing)
-            start_y = half_border + i * (grid_unit_y + spacing)
+            # Calculate position in grid (shift down for each channel)
+            start_x = half_border + i * (grid_unit_x + spacing)  # Shift right for each channel
+            start_y = half_border + j * (grid_unit_y + spacing)  # Shift down for each mask
 
             # Place the padded channel into the grid
             grid[start_y:start_y + grid_unit_y, start_x:start_x + grid_unit_x] = padded_channel
@@ -131,7 +132,7 @@ def construct_grid(channels, masks, original_width, original_height, half_border
 
 def main(input_file, output_file, width, height):
     num_frames = calculate_num_frames(input_file, width, height)
-    noise_percents = [0, 1, 2, 4, 8]
+    noise_percents = [0, 1, 2, 4, 90]
     masks = [create_noise_mask(height, width, p) for p in noise_percents]
 
     grid_unit_size = width  # Base unit size (width of original video)
@@ -147,6 +148,7 @@ def main(input_file, output_file, width, height):
 
             # Prepare channels
             channels = {
+                'M': np.ones((height, width), dtype=np.uint8),
                 'Y': y_plane,
                 'U': u_444,
                 'V': v_444,
