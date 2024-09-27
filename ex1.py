@@ -1,5 +1,8 @@
 import os
+from webbrowser import Error
+
 import numpy as np
+from numpy.ma.core import masked_values
 from scipy.ndimage import zoom
 
 
@@ -70,14 +73,20 @@ def create_noise_mask(height, width, noise_percent):
     return mask
 
 
-def apply_mask(channel, mask, strategy='randomize'):
+def generate_random_values(height, width):
+    return np.random.randint(0, 256, size=(height, width), dtype=np.uint8)
+
+
+def apply_mask(channel, mask, strategy='randomize', random_values=None):
     if strategy == 'turn_off':
         return np.where(mask == 1, 0, channel)
     elif strategy == 'flip_value':
         return np.where(mask == 1, 128 + (128 - channel), channel)
     elif strategy == 'randomize':
-        random_values = np.random.randint(0, 256, size=channel.shape, dtype=np.uint8)
-        return np.where(mask == 1, random_values, channel)
+        if random_values is None:
+            Error('random_values must be provided when strategy is randomize')
+        return np.where(mask == 1, random_values, channel)  # Use the precomputed random values
+
     return channel
 
 
@@ -97,7 +106,7 @@ def pad_or_resize_channel(channel, target_height, target_width):
     return channel
 
 
-def construct_grid(channels, masks, original_width, original_height, half_border, spacing):
+def construct_grid(channels, masks, original_width, original_height, half_border, spacing, random_values):
     grid_unit_x = int(original_width * 1.0625)
     grid_unit_y = int(original_height * 1.0625)
 
@@ -117,7 +126,7 @@ def construct_grid(channels, masks, original_width, original_height, half_border
     for i, (channel_name, channel_data) in enumerate(channels.items()):
         for j, mask in enumerate(masks):
             # Apply the mask to the channel
-            masked_channel = apply_mask(channel_data, mask)
+            masked_channel = apply_mask(channel_data, mask, 'randomize', random_values)
 
             # Resize or pad the masked channel to fit the grid unit size
             padded_channel = pad_or_resize_channel(masked_channel, grid_unit_y, grid_unit_x)
@@ -135,6 +144,7 @@ def main(input_file, output_file, width, height):
     num_frames = calculate_num_frames(input_file, width, height)
     noise_percents = [0, 1, 2, 4, 90]
     masks = [create_noise_mask(height, width, p) for p in noise_percents]
+    random_values = generate_random_values(height, width)
 
     grid_unit_size = width  # Base unit size (width of original video)
     half_border = grid_unit_size // 8
@@ -159,7 +169,7 @@ def main(input_file, output_file, width, height):
             }
 
             # Construct the grid with masked channels
-            grid = construct_grid(channels, masks, width, height, half_border, 0)
+            grid = construct_grid(channels, masks, width, height, half_border, 0, random_values)
 
             # Save grid to bitstream in YUV 4:4:4 format (saving Y plane only)
             f_out.write(grid.tobytes())
