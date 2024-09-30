@@ -1,8 +1,5 @@
 import os
-from webbrowser import Error
-
 import numpy as np
-from numpy.ma.core import masked_values
 from scipy.ndimage import zoom
 
 
@@ -14,26 +11,25 @@ def upscale_chroma(u_plane, v_plane):
 
 
 # Function to read YUV420 frames
-def read_yuv420(file_path, width, height, num_frames):
+def read_yuv420(file, width, height):
     y_size = width * height
     uv_size = (width // 2) * (height // 2)
 
-    with open(file_path, 'rb') as file:
-        for _ in range(num_frames):
-            # Read Y plane
-            y_plane = np.frombuffer(file.read(y_size), dtype=np.uint8).reshape((height, width))
+    # Read Y plane
+    y_plane = np.frombuffer(file.read(y_size), dtype=np.uint8).reshape((height, width))
 
-            # Read U and V planes
-            u_plane = np.frombuffer(file.read(uv_size), dtype=np.uint8).reshape((height // 2, width // 2))
-            v_plane = np.frombuffer(file.read(uv_size), dtype=np.uint8).reshape((height // 2, width // 2))
+    # Read U and V planes
+    u_plane = np.frombuffer(file.read(uv_size), dtype=np.uint8).reshape((height // 2, width // 2))
+    v_plane = np.frombuffer(file.read(uv_size), dtype=np.uint8).reshape((height // 2, width // 2))
 
-            yield y_plane, u_plane, v_plane
+    return y_plane, u_plane, v_plane
 
 
 def calculate_num_frames(file_path, width, height):
     file_size = os.path.getsize(file_path)
     frame_size = width * height + 2 * (width // 2) * (height // 2)
     return file_size // frame_size
+
 
 # Function to convert YUV 4:4:4 to RGB
 def yuv_to_rgb(y_plane, u_plane, v_plane):
@@ -48,7 +44,7 @@ def yuv_to_rgb(y_plane, u_plane, v_plane):
                   [1.164, -0.392, -0.813],
                   [1.164, 2.017, 0.0]])
 
-    # Normalize YUV values (from 0-255 to the correct YUV range)
+    # Normalize YUV values
     y_plane = y_plane.astype(np.float32) - 16
     u_plane = u_plane.astype(np.float32) - 128
     v_plane = v_plane.astype(np.float32) - 128
@@ -64,10 +60,10 @@ def yuv_to_rgb(y_plane, u_plane, v_plane):
 
     return rgb_stack
 
+
 def create_noise_mask(height, width, noise_percent):
     mask = np.zeros((height, width), dtype=np.uint8)
     num_noise_pixels = int((noise_percent / 100.0) * height * width)
-    print(f"Creating {num_noise_pixels} / {height * width}  noise pixels")
     noise_indices = np.random.choice(height * width, num_noise_pixels, replace=False)
     mask.flat[noise_indices] = 1
     return mask
@@ -84,9 +80,8 @@ def apply_mask(channel, mask, strategy='randomize', random_values=None):
         return np.where(mask == 1, 128 + (128 - channel), channel)
     elif strategy == 'randomize':
         if random_values is None:
-            Error('random_values must be provided when strategy is randomize')
+            raise ValueError('random_values must be provided when strategy is randomize')
         return np.where(mask == 1, random_values, channel)  # Use the precomputed random values
-
     return channel
 
 
@@ -110,19 +105,14 @@ def construct_grid(channels, masks, original_width, original_height, half_border
     grid_unit_x = int(original_width * 1.0625)
     grid_unit_y = int(original_height * 1.0625)
 
-    """Construct a grid with padding and spacing, returns as a raw byte buffer."""
     num_masks = len(masks)
-
-    # Calculate total grid size based on channels and masks
     grid_height = (num_masks * grid_unit_y) + ((num_masks - 1) * spacing) + 2 * half_border
     grid_width = (len(channels) * grid_unit_x) + ((len(channels) - 1) * spacing) + 2 * half_border
 
     print(f"Total grid dimensions: Height = {grid_height}, Width = {grid_width}")
-
     # Initialize the grid buffer
     grid = np.zeros((grid_height, grid_width), dtype=np.uint8)
 
-    # Iterate through each channel and mask, placing the results into the grid
     for i, (channel_name, channel_data) in enumerate(channels.items()):
         for j, mask in enumerate(masks):
             # Apply the mask to the channel
@@ -140,39 +130,43 @@ def construct_grid(channels, masks, original_width, original_height, half_border
 
     return grid
 
+
 def main(input_file, output_file, width, height):
     num_frames = calculate_num_frames(input_file, width, height)
     noise_percents = [0, 1, 2, 4, 90]
     masks = [create_noise_mask(height, width, p) for p in noise_percents]
     random_values = generate_random_values(height, width)
 
-    grid_unit_size = width  # Base unit size (width of original video)
+    grid_unit_size = width
     half_border = grid_unit_size // 8
 
-    with open(output_file, 'wb') as f_out:  # Use 'wb' to clear existing data
-        pass  # Just open the file to clear contents
-    with open(output_file, 'ab') as f_out:
-        for frame_index, (y_plane, u_plane, v_plane) in enumerate(read_yuv420(input_file, width, height, num_frames)):
-            # Upscale chroma planes
-            u_444, v_444 = upscale_chroma(u_plane, v_plane)
-            rgb_image = yuv_to_rgb(y_plane, u_444, v_444)
+    with open(input_file, 'rb') as f_in, open(output_file, 'wb') as f_out:
+        for frame_index in range(num_frames):
+            try:
+                # Read one frame (YUV420)
+                y_plane, u_plane, v_plane = read_yuv420(f_in, width, height)
 
-            # Prepare channels
-            channels = {
-                'M': np.ones((height, width), dtype=np.uint8) * 128,
-                'Y': y_plane,
-                'U': u_444,
-                'V': v_444,
-                'R': rgb_image[:, :, 0],  # Red channel from RGB
-                'G': rgb_image[:, :, 1],  # Green channel from RGB
-                'B': rgb_image[:, :, 2]   # Blue channel from RGB
-            }
+                # Upscale chroma planes
+                u_444, v_444 = upscale_chroma(u_plane, v_plane)
+                rgb_image = yuv_to_rgb(y_plane, u_444, v_444)
 
-            # Construct the grid with masked channels
-            grid = construct_grid(channels, masks, width, height, half_border, 0, random_values)
+                # Prepare channels
+                channels = {
+                    'M': np.ones((height, width), dtype=np.uint8) * 128,
+                    'Y': y_plane,
+                    'U': u_444,
+                    'V': v_444,
+                    'R': rgb_image[:, :, 0],  # Red channel from RGB
+                    'G': rgb_image[:, :, 1],  # Green channel from RGB
+                    'B': rgb_image[:, :, 2]   # Blue channel from RGB
+                }
 
-            # Save grid to bitstream in YUV 4:4:4 format (saving Y plane only)
-            f_out.write(grid.tobytes())
+                # Construct the grid with masked channels
+                grid = construct_grid(channels, masks, width, height, half_border, 0, random_values)
 
-            if frame_index >= 50:  # Optional: limit frames for testing
+                # Write grid to the output file
+                f_out.write(grid.tobytes())
+
+            except Exception as e:
+                print(f"Error processing frame {frame_index}: {e}")
                 break
