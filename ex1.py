@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from scipy.ndimage import zoom
+from common import calculate_num_frames
 
 
 # Function to upscale U and V planes
@@ -23,13 +24,6 @@ def read_yuv420(file, width, height):
     v_plane = np.frombuffer(file.read(uv_size), dtype=np.uint8).reshape((height // 2, width // 2))
 
     return y_plane, u_plane, v_plane
-
-
-def calculate_num_frames(file_path, width, height):
-    file_size = os.path.getsize(file_path)
-    frame_size = width * height + 2 * (width // 2) * (height // 2)
-    return file_size // frame_size
-
 
 # Function to convert YUV 4:4:4 to RGB
 def yuv_to_rgb(y_plane, u_plane, v_plane):
@@ -109,7 +103,7 @@ def construct_grid(channels, masks, original_width, original_height, half_border
     grid_height = (num_masks * grid_unit_y) + ((num_masks - 1) * spacing) + 2 * half_border
     grid_width = (len(channels) * grid_unit_x) + ((len(channels) - 1) * spacing) + 2 * half_border
 
-    print(f"Total grid dimensions: Height = {grid_height}, Width = {grid_width}")
+    # print(f"Total grid dimensions: Height = {grid_height}, Width = {grid_width}")
     # Initialize the grid buffer
     grid = np.zeros((grid_height, grid_width), dtype=np.uint8)
 
@@ -140,6 +134,17 @@ def main(input_file, output_file, width, height):
     grid_unit_size = width
     half_border = grid_unit_size // 8
 
+    grid_unit_x = int(width * 1.0625)
+    grid_unit_y = int(height * 1.0625)
+    num_masks = len(masks)
+
+    channels = ['M', 'Y', 'U', 'V', 'R', 'G', 'B']
+    spacing = 0
+
+    grid_height = (num_masks * grid_unit_y) + ((num_masks - 1) * spacing) + 2 * half_border
+    grid_width = (len(channels) * grid_unit_x) + ((len(channels) - 1) * spacing) + 2 * half_border
+    print(f"{output_file} dimensions: Height = {grid_height}, Width = {grid_width}")
+
     with open(input_file, 'rb') as f_in, open(output_file, 'wb') as f_out:
         for frame_index in range(num_frames):
             try:
@@ -162,7 +167,8 @@ def main(input_file, output_file, width, height):
                 }
 
                 # Construct the grid with masked channels
-                grid = construct_grid(channels, masks, width, height, half_border, 0, random_values)
+                grid = construct_grid(channels, masks, width, height, half_border, spacing, random_values)
+
 
                 # Write grid to the output file
                 f_out.write(grid.tobytes())
