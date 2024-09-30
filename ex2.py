@@ -1,5 +1,8 @@
 import os
 import numpy as np
+from matplotlib import pyplot as plt
+from skimage.metrics import peak_signal_noise_ratio as psnr, structural_similarity as ssim
+
 from common import calculate_num_frames
 
 import logging
@@ -120,9 +123,79 @@ def process_y_frames(input_file, width, height, block_sizes):
     for handle in file_handles.values():
         handle.close()
 
+def calculate_psnr_ssim(original_file, averaged_file, width, height):
+    num_frames = calculate_num_frames(original_file, width, height)
+    psnr_values = []
+    ssim_values = []
+
+    with open(original_file, 'rb') as orig, open(averaged_file, 'rb') as avg:
+        frame_index = 0
+        while True:
+            orig_frame = orig.read(width * height)
+            avg_frame = avg.read(width * height)
+            if not orig_frame or not avg_frame:
+                break  # End of file
+
+            orig_y_plane = np.frombuffer(orig_frame, dtype=np.uint8).reshape((height, width))
+            avg_y_plane = np.frombuffer(avg_frame, dtype=np.uint8).reshape((height, width))
+
+            # Calculate PSNR and SSIM
+            current_psnr = psnr(orig_y_plane, avg_y_plane)
+            current_ssim = ssim(orig_y_plane, avg_y_plane)
+
+            psnr_values.append(current_psnr)
+            ssim_values.append(current_ssim)
+
+            logger.info(f"Frame {frame_index}: PSNR = {current_psnr}, SSIM = {current_ssim}")
+            frame_index += 1
+
+    average_psnr = np.mean(psnr_values)
+    average_ssim = np.mean(ssim_values)
+
+    logger.info(f"Average PSNR: {average_psnr}, Average SSIM: {average_ssim}")
+    return average_psnr, average_ssim
+
+# g. Plot graphs
+def plot_quality_metrics(block_sizes, psnr_values, ssim_values):
+    plt.figure(figsize=(12, 6))
+    plt.subplot(1, 2, 1)
+    plt.plot(block_sizes, psnr_values, marker='o', label='PSNR')
+    plt.title('PSNR vs Block Size')
+    plt.xlabel('Block Size')
+    plt.ylabel('PSNR (dB)')
+    plt.grid()
+    plt.legend()
+
+    plt.subplot(1, 2, 2)
+    plt.plot(block_sizes, ssim_values, marker='o', label='SSIM', color='orange')
+    plt.title('SSIM vs Block Size')
+    plt.xlabel('Block Size')
+    plt.ylabel('SSIM')
+    plt.grid()
+    plt.legend()
+
+    plt.tight_layout()
+    plt.show()
+
+
 def main(input_file, width, height):
     y_only_file = 'data/foreman_cif_y.y'
     save_y_frames(input_file, y_only_file, width, height)
 
-    block_sizes = [2, 8, 64]  # Block sizes to process
-    process_y_frames(y_only_file, width, height, block_sizes)
+    block_sizes = [2, 8, 16, 64]  # Block sizes to process
+    # process_y_frames(y_only_file, width, height, block_sizes)
+
+    for block_size in block_sizes:
+        averaged_file = f'data/foreman_cif_y-{block_size}block.y'
+        average_psnr, average_ssim = calculate_psnr_ssim(y_only_file, averaged_file, width, height)
+
+        # Store results for plotting
+        if 'psnr_results' not in locals():
+            psnr_results = []
+            ssim_results = []
+        psnr_results.append(average_psnr)
+        ssim_results.append(average_ssim)
+
+    plot_quality_metrics(block_sizes, psnr_results, ssim_results)
+
+
