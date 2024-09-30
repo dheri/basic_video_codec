@@ -2,6 +2,14 @@ import os
 import numpy as np
 from common import calculate_num_frames
 
+import logging
+
+logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-7s [%(filename)s:%(lineno)d] %(message)s',
+    datefmt='%H:%M:%S',
+    level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+
 # Function to read YUV420 frames and return only Y-plane
 def read_y_component(file_path, width, height, num_frames):
     y_size = width * height
@@ -9,7 +17,6 @@ def read_y_component(file_path, width, height, num_frames):
 
     with open(file_path, 'rb') as file:
         for _ in range(num_frames):
-            # Read Y plane
             y_plane = np.frombuffer(file.read(y_size), dtype=np.uint8).reshape((height, width))
 
             # Skip U and V planes
@@ -23,7 +30,7 @@ def read_y_component(file_path, width, height, num_frames):
 def save_y_frames(input_file, output_file, width, height):
     num_frames = calculate_num_frames(input_file, width, height)
     if os.path.exists(output_file):
-        print(f"y only {output_file} already exists. skipping...")
+        logger.info(f"y only {output_file} already exists. skipping...")
         return
     with open(input_file, 'rb') as f_in, open(output_file, 'wb') as f_out:
         for frame_index, y_plane in enumerate(read_y_component(input_file, width, height, num_frames)):
