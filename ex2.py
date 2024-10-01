@@ -124,7 +124,6 @@ def process_y_frames(input_file, width, height, block_sizes):
         handle.close()
 
 def calculate_psnr_ssim(original_file, averaged_file, width, height):
-    num_frames = calculate_num_frames(original_file, width, height)
     psnr_values = []
     ssim_values = []
 
@@ -179,16 +178,16 @@ def plot_quality_metrics(block_sizes, psnr_values, ssim_values):
 
 
 def main(input_file, width, height):
-    y_only_file = 'data/foreman_cif_y.y'
+    file_prefix = os.path.splitext(input_file)[0]
+    y_only_file = f'{file_prefix}.y'
     save_y_frames(input_file, y_only_file, width, height)
 
     block_sizes = [2, 8, 16, 64]  # Block sizes to process
-    # process_y_frames(y_only_file, width, height, block_sizes)
+    process_y_frames(y_only_file, width, height, block_sizes)
 
     for block_size in block_sizes:
-        averaged_file = f'data/foreman_cif_y-{block_size}block.y'
+        averaged_file = f'{file_prefix}-{block_size}block.y'
         average_psnr, average_ssim = calculate_psnr_ssim(y_only_file, averaged_file, width, height)
-
         # Store results for plotting
         if 'psnr_results' not in locals():
             psnr_results = []
