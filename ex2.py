@@ -3,7 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from skimage.metrics import peak_signal_noise_ratio as psnr, structural_similarity as ssim
 
-from common import calculate_num_frames
+from common import calculate_num_frames, pad_frame, split_into_blocks
 
 import logging
 
@@ -38,26 +38,6 @@ def save_y_frames(input_file, output_file, width, height):
     with open(input_file, 'rb') as f_in, open(output_file, 'wb') as f_out:
         for frame_index, y_plane in enumerate(read_y_component(input_file, width, height, num_frames)):
             f_out.write(y_plane.tobytes())
-
-
-def pad_frame(frame, block_size, pad_value=128):
-    height, width = frame.shape
-    pad_height = (block_size - (height % block_size)) % block_size
-    pad_width = (block_size - (width % block_size)) % block_size
-
-    if pad_height > 0 or pad_width > 0:
-        padded_frame = np.full((height + pad_height, width + pad_width), pad_value, dtype=np.uint8)
-        padded_frame[:height, :width] = frame
-        return padded_frame
-    return frame
-
-
-# Function to split the frame into blocks of size (block_size x block_size)
-def split_into_blocks(frame, block_size):
-    height, width = frame.shape
-    return (frame.reshape(height // block_size, block_size, -1, block_size)
-                 .swapaxes(1, 2)
-                 .reshape(-1, block_size, block_size))
 
 
 def calculate_block_average(block):
@@ -182,7 +162,7 @@ def main(input_file, width, height):
     y_only_file = f'{file_prefix}.y'
     save_y_frames(input_file, y_only_file, width, height)
 
-    block_sizes = [2, 8, 16, 64]  # Block sizes to process
+    block_sizes = [1, 2, 8, 16, 64]  # Block sizes to process
     process_y_frames(y_only_file, width, height, block_sizes)
 
     for block_size in block_sizes:
