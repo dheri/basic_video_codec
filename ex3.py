@@ -2,6 +2,7 @@ import concurrent
 import logging
 import os
 import time
+from io import BufferedWriter
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -13,7 +14,7 @@ logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-7s [%(filename)
     level=logging.DEBUG)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-def find_lowest_mae_block(curr_block, prev_partial_frame, block_size):
+def find_lowest_mae_block(curr_block, prev_partial_frame, block_size, n=1):
     """Find the block with the lowest MAE from a smaller previous partial frame."""
     height, width = prev_partial_frame.shape
     min_mae = float('inf')
@@ -33,9 +34,11 @@ def find_lowest_mae_block(curr_block, prev_partial_frame, block_size):
 
 
     residual = np.subtract(curr_block, ref_block)
-    return best_mv, min_mae, residual
+    approx_residual = np.round(residual / (2**n)) * (2**n)
 
-def motion_estimation(curr_frame, prev_frame, block_size, search_range):
+    return best_mv, min_mae, approx_residual
+
+def motion_estimation(curr_frame, prev_frame, block_size, search_range, residual_approx_factor):
     if curr_frame.shape != prev_frame.shape:
         raise ValueError("Motion estimation got mismatch in frame shapes")
     height, width = curr_frame.shape
@@ -56,7 +59,7 @@ def motion_estimation(curr_frame, prev_frame, block_size, search_range):
         prev_partial_frame = prev_frame[prev_partial_frame_y_start_idx:prev_partial_frame_y_end_idx,
                                         prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
 
-        best_mv, mae_value, residual = find_lowest_mae_block(curr_block, prev_partial_frame, block_size)
+        best_mv, mae_value, residual = find_lowest_mae_block(curr_block, prev_partial_frame, block_size, residual_approx_factor)
 
         # # Adjust the motion vector based on the search window's starting position
         # mv_x = best_mv[0] + prev_partial_frame_x_start_idx - x
@@ -86,20 +89,26 @@ def motion_estimation(curr_frame, prev_frame, block_size, search_range):
     return mv_field, avg_mae, residuals
 
 
-def plot_metrics(insights, file_prefix):
+def plot_metrics(insights, file_prefix, block_size, search_range):
     avg_mae_values = [insight['avg_mae'] for insight in insights]  # Extract avg_mae for each frame
     frame_numbers = range(1, len(avg_mae_values) + 1)  # Generate frame numbers
 
     plt.figure(figsize=(10, 6))
     plt.plot(frame_numbers, avg_mae_values, marker='o', linestyle='-', color='b', label='Avg MAE')
 
-    plt.title('Average MAE per Frame')
+    plt.title(f'MAE per Frame, i = {block_size}, r = {search_range}')
     plt.xlabel('Frame Number')
     plt.ylabel('Average MAE')
     plt.grid(True)
     plt.legend(loc='upper right')
     plt.tight_layout()
-    plt.savefig(f'{file_prefix}_mae_plot.png')
+    plt.savefig(f'{file_prefix}_mae.png')
+
+def write_to_file(file_handle : BufferedWriter , frame_idx , data, new_line_per_block = False):
+    file_handle.write(f'\nFrame: {frame_idx}\n')
+    new_line_char = f'\n' if new_line_per_block else ''
+    for k in sorted(data.keys()):
+        file_handle.write(f'{new_line_char}{k}:{data[k]}|')
 
 def main(input_file, width, height):
     start_time = time.time()
@@ -107,12 +116,12 @@ def main(input_file, width, height):
     file_prefix = os.path.splitext(input_file)[0]
     input_file = f'{file_prefix}.y'
 
-    search_ranges = [1, 4, 8]  # Search ranges to test
+    search_ranges = [1, 2, 4, 8]  # Search ranges to test
     block_sizes = [2, 8, 16, 64]  # Block sizes to process
     search_range = search_ranges[1]
     block_size = block_sizes[1]  # Block sizes to process 'i'
-
-    frames_to_process = 22
+    residual_approx_factor = 4
+    frames_to_process = 3
 
     # Assuming a previous frame of all 128 (as specified for the first frame)
     prev_frame = np.full((height, width), 128, dtype=np.uint8)
@@ -120,8 +129,13 @@ def main(input_file, width, height):
     y_size = width * height
     insights = list()
 
+    file_identifier = f'{block_size}_{search_range}_{residual_approx_factor}'
+
+    mv_output_file = f'{file_prefix}_{file_identifier}_mv.txt'
+    residual_output_file = f'{file_prefix}_{file_identifier}_residual.txt'
+
     # Open the input file containing Y frames
-    with open(input_file, 'rb') as f_in:
+    with open(input_file, 'rb') as f_in, open(mv_output_file, 'wt') as mv_out, open(residual_output_file, 'wt') as residual_out:
         frame_index = 0
         while True:
             frame_index += 1
@@ -135,28 +149,28 @@ def main(input_file, width, height):
             padded_frame = pad_frame(y_plane, block_size)
 
             logger.info(f"Frame {frame_index }, Block Size {block_size}x{block_size}, Search Range {search_range}")
-            insights_dict['mv_field'], insights_dict['avg_mae'], insights_dict['residual'] = motion_estimation(padded_frame, prev_frame, block_size, search_range)
+            mv_field, avg_mae, residual = motion_estimation(padded_frame, prev_frame, block_size, search_range,residual_approx_factor)
+            write_to_file(mv_out, frame_index, mv_field)
+            write_to_file(residual_out, frame_index, residual, True)
 
-            # Save the motion vectors and MAE for the current frame, block size, and search range
-            # # mv_output_file = f'{file_prefix}_frame{frame_index}_block{block_size}_search{search_range}_mv.txt'
-            # with open(mv_output_file, 'w') as mv_out:
-            #     for mv in mv_field:
-            #         mv_out.write(f'{mv[0]} {mv[1]} {mv[2]} {mv[3]}\n')  # (x, y, dx, dy)
-            #     mv_out.write(f'Average MAE: {avg_mae}\n')
 
+            insights_dict['mv_field'], insights_dict['avg_mae'], insights_dict['residual'] = mv_field, avg_mae, residual
             logger.info(f"Average MAE for Block Size {block_size} and Search Range {search_range}: {insights_dict['avg_mae']}")
-
+            insights.append(insights_dict)
             # Set the current frame as the previous frame for the next iteration
             prev_frame = y_plane
-            insights.append(insights_dict)
 
 
-    plot_metrics(insights, file_prefix)
     end_time = time.time()
     elapsed_time = end_time - start_time
+    plot_metrics(insights, f'{file_prefix}_{file_identifier}', block_size, search_range)
 
-    result = str(f"{frames_to_process/elapsed_time:.2f} | {elapsed_time:.3f} | {frames_to_process} | {block_size} | {search_range}\n")
+    num_of_blocks = (height // block_size) * (width // block_size)
+    num_of_comparisons = num_of_blocks * (2 * search_range + 1) ** 2
+    result = str(f"{num_of_comparisons/elapsed_time:.3f} | {num_of_comparisons} | {num_of_blocks/elapsed_time:.3f} |  {num_of_blocks} | {frames_to_process/elapsed_time:.2f} | {frames_to_process} | {elapsed_time:.3f} | {block_size} | {search_range} |\n")
     print(result)
     with open('results.csv', 'at') as f_in:
         f_in.write(result)
     print('end')
+
+
