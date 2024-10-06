@@ -1,4 +1,8 @@
-fps | secs | frames | block_size | search_range |
+fps | secs | frames | block_size | search_range | comments
 2.41 | 9.145 | 22 | 8 | 2
 2.48 | 8.866 | 22 | 8 | 2
 2.35 | 9.376 | 22 | 8 | 2
+
+0.08 | 275.053 | 22 | 8 | 2 | GPU unoptimized
+0.11 | 201.268 | 22 | 8 | 2 | GPU - load all frames to the GPU at once and process them there if memory allows.
+

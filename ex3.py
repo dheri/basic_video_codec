@@ -1,7 +1,6 @@
 import concurrent
 import logging
 import os
-import sys
 import time
 
 import numpy as np
@@ -57,7 +56,7 @@ def motion_estimation(curr_frame, prev_frame, block_size, search_range):
         return (x, y, best_mv[0], best_mv[1]), mae_value
 
     # Use ThreadPoolExecutor to parallelize the processing of blocks
-    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
         futures = []
         for y in range(0, height, block_size):
             for x in range(0, width, block_size):
@@ -73,7 +72,7 @@ def motion_estimation(curr_frame, prev_frame, block_size, search_range):
     return mv_field, avg_mae
 
 
-def plot_metrics(insights):
+def plot_metrics(insights, file_prefix):
     avg_mae_values = [insight['avg_mae'] for insight in insights]  # Extract avg_mae for each frame
     frame_numbers = range(1, len(avg_mae_values) + 1)  # Generate frame numbers
 
@@ -85,11 +84,8 @@ def plot_metrics(insights):
     plt.ylabel('Average MAE')
     plt.grid(True)
     plt.legend(loc='upper right')
-
     plt.tight_layout()
-    # plt.show()
-    plt.savefig('mae_per_frame.png')
-    # plt.imsave()
+    plt.savefig(f'{file_prefix}_mae_plot.png')
 
 def main(input_file, width, height):
     start_time = time.time()
@@ -97,10 +93,10 @@ def main(input_file, width, height):
     file_prefix = os.path.splitext(input_file)[0]
     input_file = f'{file_prefix}.y'
 
-    # search_ranges = [1, 4, 8]  # Search ranges to test
-    # block_sizes = [2, 8, 16, 64]  # Block sizes to process
-    search_ranges = [ 2]  # Search ranges to test 'r'
-    block_sizes = [8]  # Block sizes to process 'i'
+    search_ranges = [1, 4, 8]  # Search ranges to test
+    block_sizes = [2, 8, 16, 64]  # Block sizes to process
+    search_range = search_ranges[1]
+    block_size = block_sizes[2]  # Block sizes to process 'i'
 
     frames_to_process = 22
 
@@ -122,29 +118,25 @@ def main(input_file, width, height):
             logger.debug(f"Processing frame {frame_index}/{frames_to_process}")
             y_plane = np.frombuffer(y_frame, dtype=np.uint8).reshape((height, width))
 
-            for block_size in block_sizes:
-                # Pad the frame if necessary
-                padded_frame = pad_frame(y_plane, block_size)
+            padded_frame = pad_frame(y_plane, block_size)
 
-                for search_range in search_ranges:
-                    logger.info(f"Frame {frame_index }, Block Size {block_size}x{block_size}, Search Range {search_range}")
+            logger.info(f"Frame {frame_index }, Block Size {block_size}x{block_size}, Search Range {search_range}")
+            insights_dict['mv_field'], insights_dict['avg_mae'] = motion_estimation(padded_frame, prev_frame, block_size, search_range)
+            # Save the motion vectors and MAE for the current frame, block size, and search range
+            # # mv_output_file = f'{file_prefix}_frame{frame_index}_block{block_size}_search{search_range}_mv.txt'
+            # with open(mv_output_file, 'w') as mv_out:
+            #     for mv in mv_field:
+            #         mv_out.write(f'{mv[0]} {mv[1]} {mv[2]} {mv[3]}\n')  # (x, y, dx, dy)
+            #     mv_out.write(f'Average MAE: {avg_mae}\n')
 
-                    insights_dict['mv_field'], insights_dict['avg_mae'] = motion_estimation(padded_frame, prev_frame, block_size, search_range)
-
-                    # Save the motion vectors and MAE for the current frame, block size, and search range
-                    # # mv_output_file = f'{file_prefix}_frame{frame_index}_block{block_size}_search{search_range}_mv.txt'
-                    # with open(mv_output_file, 'w') as mv_out:
-                    #     for mv in mv_field:
-                    #         mv_out.write(f'{mv[0]} {mv[1]} {mv[2]} {mv[3]}\n')  # (x, y, dx, dy)
-                    #     mv_out.write(f'Average MAE: {avg_mae}\n')
-
-                    logger.info(f"Average MAE for Block Size {block_size} and Search Range {search_range}: {insights_dict['avg_mae']}")
+            logger.info(f"Average MAE for Block Size {block_size} and Search Range {search_range}: {insights_dict['avg_mae']}")
 
             # Set the current frame as the previous frame for the next iteration
             prev_frame = y_plane
             insights.append(insights_dict)
 
-    plot_metrics(insights)
+
+    plot_metrics(insights, file_prefix)
     end_time = time.time()
     elapsed_time = end_time - start_time
 
