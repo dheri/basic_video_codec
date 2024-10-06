@@ -43,18 +43,18 @@ def motion_estimation(curr_frame, prev_frame, block_size, search_range):
 
     # Function to process each block (for threading)
     def process_block(y, x):
-    curr_block = curr_frame[y:y + block_size, x:x + block_size]
+        curr_block = curr_frame[y:y + block_size, x:x + block_size]
 
-    prev_partial_frame_y_start_idx = max(y - search_range, 0)
-    prev_partial_frame_x_start_idx = max(x - search_range, 0)
+        prev_partial_frame_y_start_idx = max(y - search_range, 0)
+        prev_partial_frame_x_start_idx = max(x - search_range, 0)
         prev_partial_frame_y_end_idx = min(y + block_size + search_range, height)
         prev_partial_frame_x_end_idx = min(x + block_size + search_range, width)
 
-    prev_partial_frame = prev_frame[prev_partial_frame_y_start_idx:prev_partial_frame_y_end_idx,
-                                    prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
+        prev_partial_frame = prev_frame[prev_partial_frame_y_start_idx:prev_partial_frame_y_end_idx,
+                                        prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
 
-    best_mv, mae_value = find_lowest_mae_block(curr_block, prev_partial_frame, block_size)
-    return (x, y, best_mv[0], best_mv[1]), mae_value
+        best_mv, mae_value = find_lowest_mae_block(curr_block, prev_partial_frame, block_size)
+        return (x, y, best_mv[0], best_mv[1]), mae_value
 
     # Use ThreadPoolExecutor to parallelize the processing of blocks
     with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
@@ -148,8 +148,8 @@ def main(input_file, width, height):
     end_time = time.time()
     elapsed_time = end_time - start_time
 
-    result = str(f"{frames_to_process/elapsed_time:.2f} fps \t| {elapsed_time:.3f} sec \t| {frames_to_process} f \t| i={block_size} \t| r={search_range}\n")
+    result = str(f"{frames_to_process/elapsed_time:.2f} | {elapsed_time:.3f} | {frames_to_process} | {block_size} | {search_range}\n")
     print(result)
-    with open('results', 'at') as f_in:
+    with open('results.csv', 'at') as f_in:
         f_in.write(result)
     print('end')
