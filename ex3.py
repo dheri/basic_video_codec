@@ -69,7 +69,7 @@ def motion_estimation(curr_frame, prev_frame, block_size, search_range, residual
         mv_x = 0 if x - search_range < 0 else best_mv[0]
         mv_y = 0 if y - search_range < 0 else best_mv[1]
 
-        return (x, y), (mv_x, mv_y), mae_value, residual  # Return global motion vector
+        return (x, y), (mv_x, mv_y), mae_value, residual
 
     # Use ThreadPoolExecutor to parallelize the processing of blocks
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
@@ -80,9 +80,9 @@ def motion_estimation(curr_frame, prev_frame, block_size, search_range, residual
 
         # Collect the results as they complete
         for future in concurrent.futures.as_completed(futures):
-            block_coords, mv, mae_value, residual = future.result()
-            mv_field[block_coords] = mv
-            residuals[block_coords] = residual
+            block_cords, mv, mae_value, residual = future.result()
+            mv_field[block_cords] = mv
+            residuals[block_cords] = residual
             avg_mae += mae_value
 
     avg_mae /= num_of_blocks
