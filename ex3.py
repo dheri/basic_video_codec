@@ -1,18 +1,19 @@
+import concurrent
 import logging
 import os
 import sys
+import time
 
 import numpy as np
 from matplotlib import pyplot as plt
-from numpy.ma.core import shape
 
-from common import mae, pad_frame, split_into_blocks
-from ex2 import read_y_component
+from common import mae, pad_frame
 
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-7s [%(filename)s:%(lineno)d] %(message)s',
     datefmt='%H:%M:%S',
     level=logging.DEBUG)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 def find_lowest_mae_block(curr_block, prev_partial_frame, block_size):
     """Find the block with the lowest MAE from a smaller previous partial frame."""
     height, width = prev_partial_frame.shape
@@ -34,27 +35,38 @@ def find_lowest_mae_block(curr_block, prev_partial_frame, block_size):
 
 def motion_estimation(curr_frame, prev_frame, block_size, search_range):
     if curr_frame.shape != prev_frame.shape:
-        sys.exit("Motion estimation got mismatch in frame shapes")
+        raise ValueError("Motion estimation got mismatch in frame shapes")
     height, width = curr_frame.shape
     num_of_blocks = (height // block_size) * (width // block_size)
-    mv_field = []  # store motion vectors for each block
+    mv_field = []
     avg_mae = 0
 
-    for y in range(0, height, block_size):
-        for x in range(0, width, block_size):
+    # Function to process each block (for threading)
+    def process_block(y, x):
+    curr_block = curr_frame[y:y + block_size, x:x + block_size]
 
-            curr_block = curr_frame[y:y + block_size, x:x + block_size]
+    prev_partial_frame_y_start_idx = max(y - search_range, 0)
+    prev_partial_frame_x_start_idx = max(x - search_range, 0)
+        prev_partial_frame_y_end_idx = min(y + block_size + search_range, height)
+        prev_partial_frame_x_end_idx = min(x + block_size + search_range, width)
 
-            prev_partial_frame_y_start_idx = max(y - search_range, 0)
-            prev_partial_frame_x_start_idx = max(x - search_range, 0)
-            prev_partial_frame_y_end_idx = min(y + block_size + search_range, height)
-            prev_partial_frame_x_end_idx = min(x + block_size + search_range, width)
+    prev_partial_frame = prev_frame[prev_partial_frame_y_start_idx:prev_partial_frame_y_end_idx,
+                                    prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
 
-            prev_partial_frame = prev_frame[prev_partial_frame_y_start_idx : prev_partial_frame_y_end_idx,
-                                 prev_partial_frame_x_start_idx : prev_partial_frame_x_end_idx]
+    best_mv, mae_value = find_lowest_mae_block(curr_block, prev_partial_frame, block_size)
+    return (x, y, best_mv[0], best_mv[1]), mae_value
 
-            best_mv, mae_value = find_lowest_mae_block(curr_block, prev_partial_frame, block_size)
-            mv_field.append((x, y, best_mv[0], best_mv[1]))  # store motion vector (block coordinates + motion vector)
+    # Use ThreadPoolExecutor to parallelize the processing of blocks
+    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
+        futures = []
+        for y in range(0, height, block_size):
+            for x in range(0, width, block_size):
+                futures.append(executor.submit(process_block, y, x))
+
+        # Collect the results as they complete
+        for future in concurrent.futures.as_completed(futures):
+            mv, mae_value = future.result()
+            mv_field.append(mv)
             avg_mae += mae_value
 
     avg_mae /= num_of_blocks
@@ -75,18 +87,22 @@ def plot_metrics(insights):
     plt.legend(loc='upper right')
 
     plt.tight_layout()
-    plt.show()
+    # plt.show()
+    plt.savefig('mae_per_frame.png')
+    # plt.imsave()
 
 def main(input_file, width, height):
+    start_time = time.time()
+
     file_prefix = os.path.splitext(input_file)[0]
     input_file = f'{file_prefix}.y'
 
     # search_ranges = [1, 4, 8]  # Search ranges to test
     # block_sizes = [2, 8, 16, 64]  # Block sizes to process
-    search_ranges = [ 1]  # Search ranges to test 'r'
+    search_ranges = [ 2]  # Search ranges to test 'r'
     block_sizes = [8]  # Block sizes to process 'i'
 
-    frames_to_process = 1300
+    frames_to_process = 22
 
     # Assuming a previous frame of all 128 (as specified for the first frame)
     prev_frame = np.full((height, width), 128, dtype=np.uint8)
@@ -101,7 +117,7 @@ def main(input_file, width, height):
             frame_index += 1
             insights_dict = dict()
             y_frame = f_in.read(y_size)
-            if not y_frame or frame_index >= frames_to_process:
+            if not y_frame or frame_index > frames_to_process:
                 break  # End of file or end of frames
             logger.debug(f"Processing frame {frame_index}/{frames_to_process}")
             y_plane = np.frombuffer(y_frame, dtype=np.uint8).reshape((height, width))
@@ -113,7 +129,6 @@ def main(input_file, width, height):
                 for search_range in search_ranges:
                     logger.info(f"Frame {frame_index }, Block Size {block_size}x{block_size}, Search Range {search_range}")
 
-                    #TODO: parallelize this
                     insights_dict['mv_field'], insights_dict['avg_mae'] = motion_estimation(padded_frame, prev_frame, block_size, search_range)
 
                     # Save the motion vectors and MAE for the current frame, block size, and search range
@@ -130,3 +145,11 @@ def main(input_file, width, height):
             insights.append(insights_dict)
 
     plot_metrics(insights)
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+
+    result = str(f"{frames_to_process/elapsed_time:.2f} fps \t| {elapsed_time:.3f} sec \t| {frames_to_process} f \t| i={block_size} \t| r={search_range}\n")
+    print(result)
+    with open('results', 'at') as f_in:
+        f_in.write(result)
+    print('end')
