@@ -20,6 +20,7 @@ def find_lowest_mae_block(curr_block, prev_partial_frame, block_size):
     best_mv = (0, 0)  # motion vector (dx, dy)
 
     # Loop through all possible positions in the previous partial frame
+
     for ref_y in range(0, height - block_size + 1):
         for ref_x in range(0, width - block_size + 1):
             ref_block = prev_partial_frame[ref_y:ref_y + block_size, ref_x:ref_x + block_size]
@@ -28,16 +29,19 @@ def find_lowest_mae_block(curr_block, prev_partial_frame, block_size):
             # Update best match if a lower MAE is found, breaking ties as described
             if error < min_mae or (error == min_mae and abs(ref_x) + abs(ref_y) < abs(best_mv[0]) + abs(best_mv[1])):
                 min_mae = error
-                best_mv = (ref_x, ref_y)
+                best_mv = (ref_x - curr_block.shape[1], ref_y - curr_block.shape[0])  # (dx, dy)
 
-    return best_mv, min_mae
+
+    residual = np.subtract(curr_block, ref_block)
+    return best_mv, min_mae, residual
 
 def motion_estimation(curr_frame, prev_frame, block_size, search_range):
     if curr_frame.shape != prev_frame.shape:
         raise ValueError("Motion estimation got mismatch in frame shapes")
     height, width = curr_frame.shape
     num_of_blocks = (height // block_size) * (width // block_size)
-    mv_field = []
+    mv_field = {}
+    residuals = {}
     avg_mae = 0
 
     # Function to process each block (for threading)
@@ -52,8 +56,17 @@ def motion_estimation(curr_frame, prev_frame, block_size, search_range):
         prev_partial_frame = prev_frame[prev_partial_frame_y_start_idx:prev_partial_frame_y_end_idx,
                                         prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
 
-        best_mv, mae_value = find_lowest_mae_block(curr_block, prev_partial_frame, block_size)
-        return (x, y, best_mv[0], best_mv[1]), mae_value
+        best_mv, mae_value, residual = find_lowest_mae_block(curr_block, prev_partial_frame, block_size)
+
+        # # Adjust the motion vector based on the search window's starting position
+        # mv_x = best_mv[0] + prev_partial_frame_x_start_idx - x
+        # mv_y = best_mv[1] + prev_partial_frame_y_start_idx - y
+
+        # Ensure that the motion vector cannot be negative for boundary blocks
+        mv_x = 0 if x - search_range < 0 else best_mv[0]
+        mv_y = 0 if y - search_range < 0 else best_mv[1]
+
+        return (x, y), (mv_x, mv_y), mae_value, residual  # Return global motion vector
 
     # Use ThreadPoolExecutor to parallelize the processing of blocks
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
@@ -64,12 +77,13 @@ def motion_estimation(curr_frame, prev_frame, block_size, search_range):
 
         # Collect the results as they complete
         for future in concurrent.futures.as_completed(futures):
-            mv, mae_value = future.result()
-            mv_field.append(mv)
+            block_coords, mv, mae_value, residual = future.result()
+            mv_field[block_coords] = mv
+            residuals[block_coords] = residual
             avg_mae += mae_value
 
     avg_mae /= num_of_blocks
-    return mv_field, avg_mae
+    return mv_field, avg_mae, residuals
 
 
 def plot_metrics(insights, file_prefix):
@@ -96,7 +110,7 @@ def main(input_file, width, height):
     search_ranges = [1, 4, 8]  # Search ranges to test
     block_sizes = [2, 8, 16, 64]  # Block sizes to process
     search_range = search_ranges[1]
-    block_size = block_sizes[2]  # Block sizes to process 'i'
+    block_size = block_sizes[1]  # Block sizes to process 'i'
 
     frames_to_process = 22
 
@@ -121,7 +135,8 @@ def main(input_file, width, height):
             padded_frame = pad_frame(y_plane, block_size)
 
             logger.info(f"Frame {frame_index }, Block Size {block_size}x{block_size}, Search Range {search_range}")
-            insights_dict['mv_field'], insights_dict['avg_mae'] = motion_estimation(padded_frame, prev_frame, block_size, search_range)
+            insights_dict['mv_field'], insights_dict['avg_mae'], insights_dict['residual'] = motion_estimation(padded_frame, prev_frame, block_size, search_range)
+
             # Save the motion vectors and MAE for the current frame, block size, and search range
             # # mv_output_file = f'{file_prefix}_frame{frame_index}_block{block_size}_search{search_range}_mv.txt'
             # with open(mv_output_file, 'w') as mv_out:
