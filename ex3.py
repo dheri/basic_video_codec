@@ -34,11 +34,11 @@ def find_lowest_mae_block(curr_block, prev_partial_frame, block_size, n=1):
 
 
     residual = np.subtract(curr_block, ref_block)
-    approx_residual = np.round(residual / (2**n)) * (2**n)
+    approx_residual = round_to_nearest_multiple(residual, n)
 
     return best_mv, min_mae, approx_residual
 
-def motion_estimation(curr_frame, prev_frame, block_size, search_range, residual_approx_factor):
+def process_frame(curr_frame, prev_frame, block_size, search_range, residual_approx_factor):
     if curr_frame.shape != prev_frame.shape:
         raise ValueError("Motion estimation got mismatch in frame shapes")
     height, width = curr_frame.shape
@@ -50,7 +50,6 @@ def motion_estimation(curr_frame, prev_frame, block_size, search_range, residual
     # Function to process each block (for threading)
     def process_block(y, x):
         curr_block = curr_frame[y:y + block_size, x:x + block_size]
-        reconstructed_frame = np.zeros_like(curr_frame)
 
         prev_partial_frame_y_start_idx = max(y - search_range, 0)
         prev_partial_frame_x_start_idx = max(x - search_range, 0)
@@ -60,29 +59,21 @@ def motion_estimation(curr_frame, prev_frame, block_size, search_range, residual
         prev_partial_frame = prev_frame[prev_partial_frame_y_start_idx:prev_partial_frame_y_end_idx,
                                         prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
 
-        best_mv_wrt_ppf, mae_value, residual = find_lowest_mae_block(curr_block, prev_partial_frame, block_size, residual_approx_factor)
+        best_mv_wrt_ppf, mae_value, residual_block = find_lowest_mae_block(curr_block, prev_partial_frame, block_size, residual_approx_factor)
 
-        # Ensure that the motion vector cannot be negative for boundary blocks
-        # mv_x = 0 if x - search_range < 0 else best_mv[0]
-        # mv_y = 0 if y - search_range < 0 else best_mv[1]
+        # change mv to curr block's frame of reference
 
         best_mv = [prev_partial_frame_x_start_idx + best_mv_wrt_ppf[0] - x,
                    prev_partial_frame_y_start_idx + best_mv_wrt_ppf[1] - y]
 
 
-        reconstructed_block = reconstruct_block(curr_block, x,y, best_mv, prev_frame, block_size, residual_approx_factor)
+        reconstructed_block = reconstruct_block(x,y, curr_block, residual_block, best_mv, prev_frame, block_size, residual_approx_factor)
 
-        # Save the reconstructed block in the corresponding position in the reconstructed frame
-        reconstructed_frame[y:y + block_size, x:x + block_size] = reconstructed_block
-
-        # # Adjust the motion vector based on the search window's starting position
-        # mv_x = best_mv[0] + prev_partial_frame_x_start_idx - x
-        # mv_y = best_mv[1] + prev_partial_frame_y_start_idx - y
+        return (x, y), best_mv, mae_value, residual_block, reconstructed_block
 
 
-        return (x, y), best_mv, mae_value, residual, reconstructed_frame
-
-    # Use ThreadPoolExecutor to parallelize the processing of blocks
+    reconstructed_frame = np.zeros_like(curr_frame)
+    residual_frame = np.zeros_like(curr_frame)
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
         futures = []
         for y in range(0, height, block_size):
@@ -91,13 +82,19 @@ def motion_estimation(curr_frame, prev_frame, block_size, search_range, residual
 
         # Collect the results as they complete
         for future in concurrent.futures.as_completed(futures):
-            block_cords, mv, mae_value, residual, reconstructed_frame = future.result()
+            block_cords, mv, mae_value, residual_b, reconstructed_b = future.result()
+            x=block_cords[0]
+            y=block_cords[1]
+
+            reconstructed_frame[y:y + block_size, x:x + block_size] = reconstructed_b
+            residual_frame[y:y + block_size, x:x + block_size] = residual_b
+
             mv_field[block_cords] = mv
-            residuals[block_cords] = residual
+            residuals[block_cords] = residual_b
             avg_mae += mae_value
 
     avg_mae /= num_of_blocks
-    return mv_field, avg_mae, residuals, reconstructed_frame
+    return mv_field, avg_mae, residuals, reconstructed_frame, residual_frame
 
 
 def plot_metrics(insights, file_prefix, block_size, search_range):
@@ -121,7 +118,7 @@ def write_to_file(file_handle : BufferedWriter , frame_idx , data, new_line_per_
     for k in sorted(data.keys()):
         file_handle.write(f'{new_line_char}{k}:{data[k]}|')
 
-def reconstruct_block(curr_block, x, y, best_mv, prev_frame, block_size, n):
+def reconstruct_block(x, y, curr_block, residual_block, best_mv, prev_frame, block_size, n):
     """Reconstruct the block by adding the approximated residual to the predicted block."""
     ref_x = best_mv[0] +  x
     ref_y = best_mv[1] +  y
@@ -129,25 +126,15 @@ def reconstruct_block(curr_block, x, y, best_mv, prev_frame, block_size, n):
     # Predictor block from the previous frame based on the motion vector
     predictor_block = prev_frame[ref_y:ref_y + block_size, ref_x:ref_x + block_size]
 
-    # Residual block
-    residual_block = curr_block - predictor_block
-
-    # Approximate residual block (rounding to the nearest multiple of 2^n)
-    approximated_residual = round_to_nearest_multiple(residual_block, n)
-
-    # Reconstructed block: predictor block + approximated residual
-    reconstructed_block = predictor_block + approximated_residual
+    reconstructed_block = predictor_block + residual_block
     return reconstructed_block
 
 def round_to_nearest_multiple(arr, n):
-    """Round every element in arr to the nearest multiple of 2^n."""
     multiple = 2 ** n
     return np.round(arr / multiple) * multiple
 
 def write_y_only_reconstructed_frame(file_handle, reconstructed_frame):
-    """Write the Y-only reconstructed frame to a file."""
-    file_handle.write(reconstructed_frame.tobytes())  # Write the raw Y frame to file
-
+    file_handle.write(reconstructed_frame.tobytes())
 
 def main(input_file, width, height):
     start_time = time.time()
@@ -171,11 +158,12 @@ def main(input_file, width, height):
     file_identifier = f'{block_size}_{search_range}_{residual_approx_factor}'
 
     mv_output_file = f'{file_prefix}_{file_identifier}_mv.txt'
-    residual_output_file = f'{file_prefix}_{file_identifier}_residual.txt'
+    residual_txt_file = f'{file_prefix}_{file_identifier}_residuals.txt'
+    residual_yuv_file = f'{file_prefix}_{file_identifier}_residuals.yuv'
     reconstructed_file = f'{file_prefix}_{file_identifier}_recons.yuv'
 
     # Open the input file containing Y frames
-    with open(input_file, 'rb') as f_in, open(mv_output_file, 'wt') as mv_fh, open(residual_output_file, 'wt') as residual_fh, open(reconstructed_file, 'wb') as reconstructed_fh:
+    with open(input_file, 'rb') as f_in, open(mv_output_file, 'wt') as mv_fh, open(residual_txt_file, 'wt') as residual_txt_fh, open(residual_yuv_file, 'wb') as residual_yuv_fh, open(reconstructed_file, 'wb') as reconstructed_fh:
         frame_index = 0
         while True:
             frame_index += 1
@@ -189,11 +177,12 @@ def main(input_file, width, height):
 
             logger.info(f"Frame {frame_index }, Block Size {block_size}x{block_size}, Search Range {search_range}")
             # mv_field, avg_mae, residual = motion_estimation(padded_frame, prev_frame, block_size, search_range,residual_approx_factor)
-            mv_field, avg_mae, residual, reconstructed_frame = motion_estimation(padded_frame, prev_frame, block_size, search_range,residual_approx_factor)
+            mv_field, avg_mae, residual, reconstructed_frame, residual_frame = process_frame(padded_frame, prev_frame, block_size, search_range, residual_approx_factor)
 
             write_to_file(mv_fh, frame_index, mv_field)
-            write_to_file(residual_fh, frame_index, residual, True)
+            write_to_file(residual_txt_fh, frame_index, residual, True)
             write_y_only_reconstructed_frame(reconstructed_fh, reconstructed_frame)
+            write_y_only_reconstructed_frame(residual_yuv_fh, residual_frame)
 
 
             insights_dict['mv_field'], insights_dict['avg_mae'], insights_dict['residual'] = mv_field, avg_mae, residual
