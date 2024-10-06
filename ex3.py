@@ -1,8 +1,8 @@
 import concurrent
 import logging
 import os
-import sys
 import time
+import cupy as cp
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -14,6 +14,7 @@ logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-7s [%(filename)
     level=logging.DEBUG)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
 def find_lowest_mae_block(curr_block, prev_partial_frame, block_size):
     """Find the block with the lowest MAE from a smaller previous partial frame."""
     height, width = prev_partial_frame.shape
@@ -26,47 +27,67 @@ def find_lowest_mae_block(curr_block, prev_partial_frame, block_size):
             ref_block = prev_partial_frame[ref_y:ref_y + block_size, ref_x:ref_x + block_size]
             error = mae(curr_block, ref_block)
 
-            # Update best match if a lower MAE is found, breaking ties as described
             if error < min_mae or (error == min_mae and abs(ref_x) + abs(ref_y) < abs(best_mv[0]) + abs(best_mv[1])):
                 min_mae = error
                 best_mv = (ref_x, ref_y)
 
     return best_mv, min_mae
 
+def find_lowest_mae_block_gpu(curr_block, prev_partial_frame, block_size):
+    """Find the block with the lowest MAE from a smaller previous partial frame, using GPU."""
+    height, width = prev_partial_frame.shape
+    min_mae = float('inf')
+    best_mv = (0, 0)  # motion vector (dx, dy)
+
+    # Prepare for vectorized operations
+    curr_block_gpu = cp.asarray(curr_block)
+
+    # Loop through all possible positions in the previous partial frame on the GPU
+    for ref_y in range(0, height - block_size + 1):
+        for ref_x in range(0, width - block_size + 1):
+            ref_block_gpu = prev_partial_frame[ref_y:ref_y + block_size, ref_x:ref_x + block_size]
+
+            # Calculate MAE using CuPy's vectorized operations
+            error_gpu = cp.mean(cp.abs(curr_block_gpu - ref_block_gpu))
+
+            # Update best match if a lower MAE is found
+            if error_gpu < min_mae:
+                min_mae = error_gpu
+                best_mv = (ref_x, ref_y)
+
+    return best_mv, min_mae
+
+def get_prev_partial_frame(prev_frame_gpu, y, x, block_size, search_range, height, width):
+    prev_partial_frame_y_start_idx = max(y - search_range, 0)
+    prev_partial_frame_x_start_idx = max(x - search_range, 0)
+    prev_partial_frame_y_end_idx = min(y + block_size + search_range, height)
+    prev_partial_frame_x_end_idx = min(x + block_size + search_range, width)
+
+    return prev_frame_gpu[prev_partial_frame_y_start_idx:prev_partial_frame_y_end_idx,
+                           prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
+
+
 def motion_estimation(curr_frame, prev_frame, block_size, search_range):
     if curr_frame.shape != prev_frame.shape:
         raise ValueError("Motion estimation got mismatch in frame shapes")
+
     height, width = curr_frame.shape
     num_of_blocks = (height // block_size) * (width // block_size)
     mv_field = []
     avg_mae = 0
 
-    # Function to process each block (for threading)
-    def process_block(y, x):
-        curr_block = curr_frame[y:y + block_size, x:x + block_size]
+    # Convert frames to CuPy arrays to minimize data transfers
+    curr_frame_gpu = cp.asarray(curr_frame)
+    prev_frame_gpu = cp.asarray(prev_frame)
 
-        prev_partial_frame_y_start_idx = max(y - search_range, 0)
-        prev_partial_frame_x_start_idx = max(x - search_range, 0)
-        prev_partial_frame_y_end_idx = min(y + block_size + search_range, height)
-        prev_partial_frame_x_end_idx = min(x + block_size + search_range, width)
+    # Process each block on the GPU
+    for y in range(0, height, block_size):
+        for x in range(0, width, block_size):
+            curr_block = curr_frame_gpu[y:y + block_size, x:x + block_size]
+            prev_partial_frame = get_prev_partial_frame(prev_frame_gpu, y, x, block_size, search_range, height, width)
 
-        prev_partial_frame = prev_frame[prev_partial_frame_y_start_idx:prev_partial_frame_y_end_idx,
-                                        prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
-
-        best_mv, mae_value = find_lowest_mae_block(curr_block, prev_partial_frame, block_size)
-        return (x, y, best_mv[0], best_mv[1]), mae_value
-
-    # Use ThreadPoolExecutor to parallelize the processing of blocks
-    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
-        futures = []
-        for y in range(0, height, block_size):
-            for x in range(0, width, block_size):
-                futures.append(executor.submit(process_block, y, x))
-
-        # Collect the results as they complete
-        for future in concurrent.futures.as_completed(futures):
-            mv, mae_value = future.result()
-            mv_field.append(mv)
+            best_mv, mae_value = find_lowest_mae_block_gpu(curr_block, prev_partial_frame, block_size)
+            mv_field.append((x, y, best_mv[0], best_mv[1]))
             avg_mae += mae_value
 
     avg_mae /= num_of_blocks
