@@ -125,17 +125,18 @@ def plot_metrics(avg_mae, file_prefix, block_size, search_range):
 
 
 def write_to_file(file_handle : BufferedWriter , frame_idx , data, new_line_per_block = False):
-    file_handle.write(f'\nFrame: {frame_idx}\n')
+    # file_handle.write(f'\nFrame: {frame_idx}\n')
     new_line_char = f'\n' if new_line_per_block else ''
     for k in sorted(data.keys()):
-        file_handle.write(f'{new_line_char}{k}:{data[k]}|')
+        file_handle.write(f'{new_line_char}{k[0]},{k[1]}:{data[k][0]},{data[k][1]}|')
+    file_handle.write('\n')
 
 
 def round_to_nearest_multiple(arr, n):
     multiple = 2 ** n
     return np.round(arr / multiple) * multiple
 
-def write_y_only_reconstructed_frame(file_handle, reconstructed_frame):
+def write_y_only_frame(file_handle, reconstructed_frame):
     file_handle.write(reconstructed_frame.tobytes())
 
 def encoder(input_file, mv_output_file, residual_txt_file, residual_yuv_file, reconstructed_file, frames_to_process, height, width, block_size, search_range, residual_approx_factor):
@@ -147,7 +148,6 @@ def encoder(input_file, mv_output_file, residual_txt_file, residual_yuv_file, re
         frame_index = 0
         while True:
             frame_index += 1
-            insights_dict = dict()
             y_frame = f_in.read(y_size)
             if not y_frame or frame_index > frames_to_process:
                 break  # End of file or end of frames
@@ -159,9 +159,9 @@ def encoder(input_file, mv_output_file, residual_txt_file, residual_yuv_file, re
             mv_field, avg_mae, residual, reconstructed_frame, residual_frame = process_frame(padded_frame, prev_frame, block_size, search_range, residual_approx_factor)
 
             write_to_file(mv_fh, frame_index, mv_field)
-            write_to_file(residual_txt_fh, frame_index, residual, True)
-            write_y_only_reconstructed_frame(reconstructed_fh, reconstructed_frame)
-            write_y_only_reconstructed_frame(residual_yuv_fh, residual_frame)
+            # write_to_file(residual_txt_fh, frame_index, residual, True)
+            write_y_only_frame(reconstructed_fh, reconstructed_frame)
+            write_y_only_frame(residual_yuv_fh, residual_frame)
 
             logger.info(f"Average MAE for Block Size {block_size} and Search Range {search_range}: {avg_mae}")
             avg_mae_per_frame.append(avg_mae)
@@ -177,11 +177,61 @@ def encoder(input_file, mv_output_file, residual_txt_file, residual_yuv_file, re
     print(result)
     with open('results.csv', 'at') as f_in:
         f_in.write(result)
-    print('encoding end')
+    print('end encoding')
     return  avg_mae_per_frame
 
-def decoder():
-    pass
+def parse_mv(mv_str: str):
+    mv_field = {}
+    mv_blocks = mv_str.strip().split('|')
+    for b in mv_blocks[:-1]: # ignore last element which will be empty
+        kv_pairs = b.split(':')
+        cords_txt = kv_pairs[0].split(',')
+        mv_txt = kv_pairs[1].split(',')
+        cords = (int(cords_txt[0]), int(cords_txt[1]))
+        mv = [int(mv_txt[0]), int(mv_txt[1])]
+        mv_field[cords] = mv
+    return mv_field
+
+
+def find_predicted_block(mv, x, y, prev_frame, block_size):
+    predicted_block = prev_frame[y + mv[1]:y + mv[1] + block_size, x + mv[0]:x + mv[0] + block_size]
+    return predicted_block
+
+def decode_frame(residual_frame, prev_frame, mv_frame, height, width, block_size):
+    decoded_frame = np.zeros_like(prev_frame)
+
+    for y in range(0, height, block_size):
+        for x in range(0, width, block_size):
+            residual_block = residual_frame[y:y + block_size, x:x + block_size]
+            predicted_b = find_predicted_block(mv_frame[(x,y)], x,y,prev_frame, block_size)
+
+            decoded_block = residual_block + predicted_b
+            
+            decoded_frame[y:y + block_size, x:x + block_size] = decoded_block
+    return decoded_frame
+
+
+def decoder(residual_yuv_file, mv_txt_file, block_size, decoded_yuv, height, width, frames_to_process):
+    frame_size = width * height
+    prev_frame = np.full((height, width), 128, dtype=np.uint8)
+
+    with open(residual_yuv_file, 'rb') as residual_yuv_fh, open(mv_txt_file,'rt') as mv_txt_fh, open(decoded_yuv, 'wb') as decoded_fh:
+        frame_index = 0
+        while True:
+            frame_index += 1
+            y_frame = residual_yuv_fh.read(frame_size)
+            mv_txt =  mv_txt_fh.readline()
+            if not y_frame or frame_index > frames_to_process or not mv_txt:
+                break  # End of file or end of frames
+            logger.debug(f"Decoding frame {frame_index}/{frames_to_process}")
+            residual_frame = np.frombuffer(y_frame, dtype=np.uint8).reshape((height, width))
+            mv = parse_mv(mv_txt)
+
+            decoded_frame = decode_frame(residual_frame, prev_frame, mv, height, width, block_size)
+            write_y_only_frame(decoded_fh, decoded_frame)
+
+            prev_frame = decoded_frame
+    print('end decoding')
 
 def main(input_file, width, height):
 
@@ -190,10 +240,10 @@ def main(input_file, width, height):
 
     search_ranges = [1, 2, 4, 8]  # Search ranges to test
     block_sizes = [2, 8, 16, 64]  # Block sizes to process
-    search_range = search_ranges[2]
+    search_range = search_ranges[1]
     block_size = block_sizes[1]  # Block sizes to process 'i'
-    residual_approx_factor = 0
-    frames_to_process = 3
+    residual_approx_factor = 5
+    frames_to_process = 11
 
     # Assuming a previous frame of all 128 (as specified for the first frame)
 
@@ -204,8 +254,14 @@ def main(input_file, width, height):
     residual_txt_file = f'{file_prefix}_{file_identifier}_residuals.txt'
     residual_yuv_file = f'{file_prefix}_{file_identifier}_residuals.yuv'
     reconstructed_file = f'{file_prefix}_{file_identifier}_recons.yuv'
+    decoded_yuv = f'{file_prefix}_{file_identifier}_decoded.yuv'
 
-    avg_mae_per_frame = encoder(input_file, mv_output_file, residual_txt_file, residual_yuv_file, reconstructed_file, frames_to_process, height, width, block_size, search_range, residual_approx_factor)
-    plot_metrics(avg_mae_per_frame, f'{file_prefix}_{file_identifier}', block_size, search_range)
+    if os.path.exists(residual_yuv_file):
+        logger.info(f" {residual_yuv_file} already exists. skipping encoding..")
+    else:
+        avg_mae_per_frame = encoder(input_file, mv_output_file, residual_txt_file, residual_yuv_file, reconstructed_file, frames_to_process, height, width, block_size, search_range, residual_approx_factor)
+        plot_metrics(avg_mae_per_frame, f'{file_prefix}_{file_identifier}', block_size, search_range)
+
+    decoder(residual_yuv_file, mv_output_file, block_size, decoded_yuv, height, width, frames_to_process)
 
 
