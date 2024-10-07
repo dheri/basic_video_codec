@@ -1,4 +1,5 @@
 import concurrent
+import csv
 import logging
 import os
 import time
@@ -100,8 +101,8 @@ def process_frame(curr_frame, prev_frame, block_size, search_range, residual_app
     return mv_field, avg_mae, residuals, reconstructed_frame, residual_frame
 
 
-def plot_metrics(insights, file_prefix, block_size, search_range):
-    avg_mae_values = [insight['avg_mae'] for insight in insights]  # Extract avg_mae for each frame
+def plot_metrics(avg_mae, file_prefix, block_size, search_range):
+    avg_mae_values = avg_mae  # Extract avg_mae for each frame
     frame_numbers = range(1, len(avg_mae_values) + 1)  # Generate frame numbers
 
     plt.figure(figsize=(10, 6))
@@ -114,6 +115,14 @@ def plot_metrics(insights, file_prefix, block_size, search_range):
     plt.legend(loc='upper right')
     plt.tight_layout()
     plt.savefig(f'{file_prefix}_mae.png')
+
+    plt.close()
+    # Write the MAE values to a CSV file
+    csv_file = f'{file_prefix}_mae.csv'
+    with open(csv_file, 'wt') as f:
+        for frame, mae in zip(frame_numbers, avg_mae_values):
+            f.write(f'{frame}, {mae}\n')  # Write frame number and corresponding MAE value
+
 
 def write_to_file(file_handle : BufferedWriter , frame_idx , data, new_line_per_block = False):
     file_handle.write(f'\nFrame: {frame_idx}\n')
@@ -129,33 +138,11 @@ def round_to_nearest_multiple(arr, n):
 def write_y_only_reconstructed_frame(file_handle, reconstructed_frame):
     file_handle.write(reconstructed_frame.tobytes())
 
-def main(input_file, width, height):
+def encoder(input_file, mv_output_file, residual_txt_file, residual_yuv_file, reconstructed_file, frames_to_process, height, width, block_size, search_range, residual_approx_factor):
     start_time = time.time()
-
-    file_prefix = os.path.splitext(input_file)[0]
-    input_file = f'{file_prefix}.y'
-
-    search_ranges = [1, 2, 4, 8]  # Search ranges to test
-    block_sizes = [2, 8, 16, 64]  # Block sizes to process
-    search_range = search_ranges[2]
-    block_size = block_sizes[1]  # Block sizes to process 'i'
-    residual_approx_factor = 0
-    frames_to_process = 32
-
-    # Assuming a previous frame of all 128 (as specified for the first frame)
-    prev_frame = np.full((height, width), 128, dtype=np.uint8)
-
     y_size = width * height
-    insights = list()
-
-    file_identifier = f'{block_size}_{search_range}_{residual_approx_factor}'
-
-    mv_output_file = f'{file_prefix}_{file_identifier}_mv.txt'
-    residual_txt_file = f'{file_prefix}_{file_identifier}_residuals.txt'
-    residual_yuv_file = f'{file_prefix}_{file_identifier}_residuals.yuv'
-    reconstructed_file = f'{file_prefix}_{file_identifier}_recons.yuv'
-
-    # Open the input file containing Y frames
+    prev_frame = np.full((height, width), 128, dtype=np.uint8)
+    avg_mae_per_frame = list()
     with open(input_file, 'rb') as f_in, open(mv_output_file, 'wt') as mv_fh, open(residual_txt_file, 'wt') as residual_txt_fh, open(residual_yuv_file, 'wb') as residual_yuv_fh, open(reconstructed_file, 'wb') as reconstructed_fh:
         frame_index = 0
         while True:
@@ -176,17 +163,13 @@ def main(input_file, width, height):
             write_y_only_reconstructed_frame(reconstructed_fh, reconstructed_frame)
             write_y_only_reconstructed_frame(residual_yuv_fh, residual_frame)
 
-
-            insights_dict['mv_field'], insights_dict['avg_mae'], insights_dict['residual'] = mv_field, avg_mae, residual
-            logger.info(f"Average MAE for Block Size {block_size} and Search Range {search_range}: {insights_dict['avg_mae']}")
-            insights.append(insights_dict)
-
+            logger.info(f"Average MAE for Block Size {block_size} and Search Range {search_range}: {avg_mae}")
+            avg_mae_per_frame.append(avg_mae)
             prev_frame = reconstructed_frame
 
 
     end_time = time.time()
     elapsed_time = end_time - start_time
-    plot_metrics(insights, f'{file_prefix}_{file_identifier}', block_size, search_range)
 
     num_of_blocks = (height // block_size) * (width // block_size)
     num_of_comparisons = num_of_blocks * (2 * search_range + 1) ** 2
@@ -194,6 +177,35 @@ def main(input_file, width, height):
     print(result)
     with open('results.csv', 'at') as f_in:
         f_in.write(result)
-    print('end')
+    print('encoding end')
+    return  avg_mae_per_frame
+
+def decoder():
+    pass
+
+def main(input_file, width, height):
+
+    file_prefix = os.path.splitext(input_file)[0]
+    input_file = f'{file_prefix}.y'
+
+    search_ranges = [1, 2, 4, 8]  # Search ranges to test
+    block_sizes = [2, 8, 16, 64]  # Block sizes to process
+    search_range = search_ranges[2]
+    block_size = block_sizes[1]  # Block sizes to process 'i'
+    residual_approx_factor = 0
+    frames_to_process = 3
+
+    # Assuming a previous frame of all 128 (as specified for the first frame)
+
+
+    file_identifier = f'{block_size}_{search_range}_{residual_approx_factor}'
+
+    mv_output_file = f'{file_prefix}_{file_identifier}_mv.txt'
+    residual_txt_file = f'{file_prefix}_{file_identifier}_residuals.txt'
+    residual_yuv_file = f'{file_prefix}_{file_identifier}_residuals.yuv'
+    reconstructed_file = f'{file_prefix}_{file_identifier}_recons.yuv'
+
+    avg_mae_per_frame = encoder(input_file, mv_output_file, residual_txt_file, residual_yuv_file, reconstructed_file, frames_to_process, height, width, block_size, search_range, residual_approx_factor)
+    plot_metrics(avg_mae_per_frame, f'{file_prefix}_{file_identifier}', block_size, search_range)
 
 
