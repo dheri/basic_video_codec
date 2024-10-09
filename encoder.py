@@ -13,12 +13,12 @@ logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-7s [%(filename)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-def encode(input_file, mv_output_file, residual_txt_file, residual_yuv_file, reconstructed_file, frames_to_process, height, width, block_size, search_range, residual_approx_factor):
+def encode(input_file, mv_output_file, residual_yuv_file, reconstructed_file, frames_to_process, height, width, block_size, search_range, residual_approx_factor):
     start_time = time.time()
     y_size = width * height
     prev_frame = np.full((height, width), 128, dtype=np.uint8)
     avg_mae_per_frame = list()
-    with open(input_file, 'rb') as f_in, open(mv_output_file, 'wt') as mv_fh, open(residual_txt_file, 'wt') as residual_txt_fh, open(residual_yuv_file, 'wb') as residual_yuv_fh, open(reconstructed_file, 'wb') as reconstructed_fh:
+    with open(input_file, 'rb') as f_in, open(mv_output_file, 'wt') as mv_fh, open(residual_yuv_file, 'wb') as residual_yuv_fh, open(reconstructed_file, 'wb') as reconstructed_fh:
         frame_index = 0
         while True:
             frame_index += 1
@@ -30,7 +30,7 @@ def encode(input_file, mv_output_file, residual_txt_file, residual_yuv_file, rec
             padded_frame = pad_frame(y_plane, block_size)
 
             logger.info(f"Frame {frame_index }, Block Size {block_size}x{block_size}, Search Range {search_range}")
-            mv_field, avg_mae, residual, reconstructed_frame, residual_frame = process_frame(padded_frame, prev_frame, block_size, search_range, residual_approx_factor)
+            mv_field, avg_mae, residual, reconstructed_frame, residual_frame = encode_frame(padded_frame, prev_frame, block_size, search_range, residual_approx_factor)
 
             write_to_file(mv_fh, frame_index, mv_field)
             # write_to_file(residual_txt_fh, frame_index, residual, True)
@@ -78,7 +78,7 @@ def find_lowest_mae_block(curr_block, prev_partial_frame, block_size):
     return best_mv, min_mae, ref_block
 
 
-def process_frame(curr_frame, prev_frame, block_size, search_range, residual_approx_factor):
+def encode_frame(curr_frame, prev_frame, block_size, search_range, residual_approx_factor):
     if curr_frame.shape != prev_frame.shape:
         raise ValueError("Motion estimation got mismatch in frame shapes")
     height, width = curr_frame.shape
