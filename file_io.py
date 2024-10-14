@@ -15,4 +15,4 @@ def write_y_only_frame(file_handle, reconstructed_frame):
 def get_file_name(original_file, suffix,  block_size, search_range, residual_approx_factor, ):
     file_prefix = os.path.splitext(original_file)[0]
     file_identifier = f'{block_size}_{search_range}_{residual_approx_factor}'
-    return f'{file_prefix}_{file_identifier}_{suffix}'
+    return f'{file_prefix}/{file_identifier}/{suffix}'

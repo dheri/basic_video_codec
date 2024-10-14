@@ -63,12 +63,10 @@ class Test(TestCase):
                     curr_f = np.roll(curr_f, -1 * marker_y_tx, axis=0)  # Vertical shift
 
                     # Encode the frame to get motion vectors, residuals, and reconstructed frame
-                    mv_field, avg_mae, residuals, reconstructed_frame, residual_frame = encode_frame(curr_f, prev_f,
-                                                                                                     block_size,
-                                                                                                     search_range, 0)
-
-                    # Now decode the frame using the motion vectors and residuals
-                    decoded_frame = decode_frame(residual_frame, prev_f, mv_field, f_size, f_size, block_size)
+                    encoded_frame = encode_frame(curr_f, prev_f,block_size,search_range, 0)
+                    mv_field = encoded_frame['mv_field']
+                    residuals_with_mc = encoded_frame['residual_frame_with_mc']
+                    decoded_frame = decode_frame(residuals_with_mc, prev_f, mv_field, f_size, f_size, block_size)
 
                     # Validate that the decoded frame matches the current frame
                     self.assertTrue(np.array_equal(decoded_frame, curr_f),

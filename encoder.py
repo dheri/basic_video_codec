@@ -65,8 +65,8 @@ def encode_frame(curr_frame, prev_frame, block_size, search_range, residual_appr
     height, width = curr_frame.shape
     num_of_blocks = (height // block_size) * (width // block_size)
     mv_field = {}
-    residuals = {}
-    avg_mae = 0
+    # residuals = {}
+    mae_of_blocks = 0
 
     # Function to process each block (for threading)
     def process_block(y, x):
@@ -88,18 +88,39 @@ def encode_frame(curr_frame, prev_frame, block_size, search_range, residual_appr
                          best_mv_within_search_window[1] + prev_partial_frame_y_start_idx - y]
 
         mv_field[(x, y)] = motion_vector
-        predicted_block = prev_frame[y + motion_vector[1]:y + motion_vector[1] + block_size,
-                                     x + motion_vector[0]:x + motion_vector[0] + block_size]
+        # Generate the predicted block by shifting the previous frame based on the motion vector
+        predicted_block_with_mc = prev_frame[y + motion_vector[1]:y + motion_vector[1] + block_size,
+                                             x + motion_vector[0]:x + motion_vector[0] + block_size]
 
-        # Reconstruct the block and compute the residual
-        residual_block = np.subtract(curr_block, predicted_block)
-        approx_residual_w_predicted_b = round_to_nearest_multiple(residual_block, residual_approx_factor)
-        reconstructed_block = approx_residual_w_predicted_b + predicted_block
+        # Residuals with motion compensation
+        residual_block_with_mc = np.subtract(curr_block, predicted_block_with_mc)
 
-        return (x, y), motion_vector, best_match_mae, approx_residual_w_predicted_b, reconstructed_block
+        # Residuals without motion compensation (using the same position in previous frame)
+        prev_block_no_mc = prev_frame[y:y + block_size, x:x + block_size]
+        residual_block_without_mc = np.subtract(curr_block, prev_block_no_mc)
 
-    reconstructed_frame = np.zeros_like(curr_frame)
-    residual_frame = np.zeros_like(curr_frame)
+        # Optionally apply residual approximation to both
+        approx_residual_with_mc = round_to_nearest_multiple(residual_block_with_mc, residual_approx_factor)
+        approx_residual_without_mc = round_to_nearest_multiple(residual_block_without_mc, residual_approx_factor)
+
+        # Reconstruct the block using both methods
+        reconstructed_block_with_mc = approx_residual_with_mc + predicted_block_with_mc
+        reconstructed_block_without_mc = approx_residual_without_mc + prev_block_no_mc
+
+        return {
+            'block_coords': (x, y),
+            'motion_vector': motion_vector,
+            'mae': best_match_mae,
+            'residual_with_mc': approx_residual_with_mc,
+            'reconstructed_with_mc': reconstructed_block_with_mc,
+            'residual_without_mc': approx_residual_without_mc,
+            'reconstructed_without_mc': reconstructed_block_without_mc,
+        }
+
+    reconstructed_frame_with_mc = np.zeros_like(curr_frame)
+    reconstructed_frame_without_mc = np.zeros_like(curr_frame)
+    residual_frame_with_mc = np.zeros_like(curr_frame)
+    residual_frame_without_mc = np.zeros_like(curr_frame)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
         futures = []
@@ -109,20 +130,35 @@ def encode_frame(curr_frame, prev_frame, block_size, search_range, residual_appr
 
         # Collect the results as they complete
         for future in concurrent.futures.as_completed(futures):
-            block_cords, mv, mae_value, residual_b, reconstructed_b = future.result()
+            block_data = future.result()
+            block_cords  = block_data['block_coords']
             x = block_cords[0]
             y = block_cords[1]
+            mv =  block_data['motion_vector']
+
 
             # Update reconstructed and residual frames
-            reconstructed_frame[y:y + block_size, x:x + block_size] = reconstructed_b
-            residual_frame[y:y + block_size, x:x + block_size] = residual_b
+            reconstructed_frame_with_mc[y:y + block_size, x:x + block_size] = block_data['reconstructed_with_mc']
+            reconstructed_frame_without_mc[y:y + block_size, x:x + block_size] = block_data['reconstructed_without_mc']
+
+            residual_frame_with_mc[y:y + block_size, x:x + block_size] = block_data['residual_with_mc']
+            residual_frame_without_mc[y:y + block_size, x:x + block_size] = block_data['residual_without_mc']
+
 
             mv_field[block_cords] = mv
-            residuals[block_cords] = residual_b
-            avg_mae += mae_value
+            # residuals[block_cords] = mc_residual_b
+            mae_of_blocks += block_data['mae']
 
-    avg_mae /= num_of_blocks
-    return mv_field, avg_mae, residuals, reconstructed_frame, residual_frame
+    avg_mae = mae_of_blocks /num_of_blocks
+    # return mv_field, avg_mae, residuals, reconstructed_frame, residual_frame
+    return {
+        'mv_field': mv_field,
+        'avg_mae': avg_mae,
+        'residual_frame_with_mc': residual_frame_with_mc,
+        'residual_frame_without_mc': residual_frame_without_mc,
+        'reconstructed_frame_with_mc': reconstructed_frame_with_mc,
+        'reconstructed_frame_without_mc': reconstructed_frame_without_mc,
+    }
 
 
 def round_to_nearest_multiple(arr, n):
