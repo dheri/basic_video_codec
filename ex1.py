@@ -126,7 +126,8 @@ def construct_grid(channels, masks, original_width, original_height, half_border
 
 
 def main(input_file, width, height):
-    output_file = 'data/foreman_cif_noizy.yuv'
+    file_prefix = os.path.splitext(input_file)[0]
+    output_file = f'{file_prefix}_noizy.yuv'
     num_frames = calculate_num_frames(input_file, width, height)
     noise_percents = [0, 1, 2, 4, 90]
     masks = [create_noise_mask(height, width, p) for p in noise_percents]
