@@ -22,8 +22,8 @@ def main(input_file, width, height):
     block_sizes = [2, 8, 16, 64]  # Block sizes to process
     search_range = search_ranges[1]
     block_size = block_sizes[1]  # Block sizes to process 'i'
-    residual_approx_factor = 5
-    frames_to_process = 11
+    residual_approx_factor = 3
+    frames_to_process = 16
 
 
     mv_txt_file = get_file_name(input_file, 'mv.txt', block_size, search_range, residual_approx_factor)
@@ -31,7 +31,7 @@ def main(input_file, width, height):
     reconstructed_file = get_file_name(input_file, 'recons.yuv', block_size, search_range, residual_approx_factor)
     decoded_file = get_file_name(input_file, '_decoded.yuv', block_size, search_range, residual_approx_factor)
 
-    if os.path.exists(residual_yuv_file):
+    if os.path.exists(residual_yuv_file) and False:
         logger.info(f" {residual_yuv_file} already exists. skipping encoding..")
     else:
         avg_mae_per_frame = encode(input_file, mv_txt_file, residual_yuv_file, reconstructed_file, frames_to_process, height, width, block_size, search_range, residual_approx_factor)

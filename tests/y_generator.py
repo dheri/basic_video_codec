@@ -86,7 +86,7 @@ def calculate_shift_value(frame_number):
     - shift_value: The calculated pixel shift for this frame.
     """
     # Define the shift pattern
-    shift_pattern = [0, 2, 4, 8, 16, 32, 32, 15, 7, 3, 1]
+    shift_pattern = [0, 2, 4, 8, 16, 32, 32, 15, 7, 3, 1, 0, 0, 0, 0]
 
     # Calculate the shift based on the frame number, cycling through the pattern
     shift_value = shift_pattern[frame_number % len(shift_pattern)]
