@@ -12,7 +12,6 @@ if __name__ == "__main__":
     # ex2.main(input_file, width, height)
 
     # generate_sample_file(input_file, num_frames=300)
-    # ex2.save_y_frames(input_file,y_only_file,352, 288)
 
     input_params = InputParameters(
         y_only_file ='data/foreman_cif.y',
@@ -23,6 +22,6 @@ if __name__ == "__main__":
         residual_approx_factor= 3,
         frames_to_process = 25
     )
-
+    ex2.save_y_frames_to_file(input_params)
     ex3.main(input_params)
 

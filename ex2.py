@@ -3,9 +3,13 @@ import numpy as np
 from matplotlib import pyplot as plt
 from skimage.metrics import peak_signal_noise_ratio as psnr, structural_similarity as ssim
 
+import file_io
 from common import calculate_num_frames, pad_frame, split_into_blocks
 
 import logging
+
+from file_io import FileIOHelper
+from input_parameters import InputParameters
 
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-7s [%(filename)s:%(lineno)d] %(message)s',
     datefmt='%H:%M:%S',
@@ -30,13 +34,21 @@ def read_y_component(file_path, width, height, num_frames):
 
 
 # Function to save Y-only frames to individual files
-def save_y_frames(input_file, output_file, width, height):
-    num_frames = calculate_num_frames(input_file, width, height)
-    if os.path.exists(output_file):
+def save_y_frames_to_file(params : InputParameters, frames_to_extract=None):
+    if params.yuv_file is None:
+        guessed_yuv_file_name = FileIOHelper(params).get_yuv_file_name()
+        logger.info(f"No yuv file provided, assuming yuv = [{guessed_yuv_file_name}] ")
+        params.yuv_file = guessed_yuv_file_name
+
+    input_file = params.yuv_file
+
+    output_file= params.y_only_file
+    num_frames = frames_to_extract if frames_to_extract else calculate_num_frames(params.yuv_file, params.width, params.height)
+    if os.path.exists(params.yuv_file):
         logger.info(f"y only {output_file} already exists. skipping...")
         return
     with open(input_file, 'rb') as f_in, open(output_file, 'wb') as f_out:
-        for frame_index, y_plane in enumerate(read_y_component(input_file, width, height, num_frames)):
+        for frame_index, y_plane in enumerate(read_y_component(input_file, params.width, params.height, num_frames)):
             f_out.write(y_plane.tobytes())
 
 
@@ -160,7 +172,7 @@ def plot_quality_metrics(block_sizes, psnr_values, ssim_values):
 def main(input_file, width, height):
     file_prefix = os.path.splitext(input_file)[0]
     y_only_file = f'{file_prefix}.y'
-    save_y_frames(input_file, y_only_file, width, height)
+    save_y_frames_to_file(input_file, y_only_file, width, height)
 
     block_sizes = [1, 2, 8, 16, 64]  # Block sizes to process
     process_y_frames(y_only_file, width, height, block_sizes)
