@@ -1,6 +1,7 @@
 import concurrent
 import logging
 import time
+from contextlib import ExitStack
 
 import numpy as np
 import concurrent.futures
@@ -20,8 +21,15 @@ def encode(input_file, mv_output_file, residual_yuv_file, reconstructed_file, fr
     y_size = width * height
     prev_frame = np.full((height, width), 128, dtype=np.uint8)
     avg_mae_per_frame = list()
-    with open(input_file, 'rb') as f_in, open(mv_output_file, 'wt') as mv_fh, open(residual_yuv_file, 'wb') as residual_yuv_fh, open(reconstructed_file, 'wb') as reconstructed_fh:
+    with ExitStack() as stack:
+        # Open all the files inside the stack
+        f_in = stack.enter_context(open(input_file, 'rb'))
+        mv_fh = stack.enter_context(open(mv_output_file, 'wt'))
+        residual_yuv_fh = stack.enter_context(open(residual_yuv_file, 'wb'))
+        reconstructed_fh = stack.enter_context(open(reconstructed_file, 'wb'))
+
         frame_index = 0
+
         while True:
             frame_index += 1
             y_frame = f_in.read(y_size)
@@ -33,16 +41,20 @@ def encode(input_file, mv_output_file, residual_yuv_file, reconstructed_file, fr
             # padded_frame = y_plane
 
             logger.info(f"Frame {frame_index }, Block Size {block_size}x{block_size}, Search Range {search_range}")
-            mv_field, avg_mae, residual, reconstructed_frame, residual_frame = encode_frame(padded_frame, prev_frame, block_size, search_range, residual_approx_factor)
-
+            # mv_field, avg_mae, residual, reconstructed_frame, residual_frame = encode_frame(padded_frame, prev_frame, block_size, search_range, residual_approx_factor)
+            encoded_frame = encode_frame(padded_frame, prev_frame, block_size, search_range, residual_approx_factor)
+            mv_field = encoded_frame['mv_field']
+            avg_mae = encoded_frame['avg_mae']
+            reconstructed_with_mc = encoded_frame['reconstructed_frame_with_mc']
+            residual_frame_with_mc = encoded_frame['residual_frame_with_mc']
             write_to_file(mv_fh, frame_index, mv_field)
             # write_to_file(residual_txt_fh, frame_index, residual, True)
-            write_y_only_frame(reconstructed_fh, reconstructed_frame)
-            write_y_only_frame(residual_yuv_fh, residual_frame)
+            write_y_only_frame(reconstructed_fh, reconstructed_with_mc)
+            write_y_only_frame(residual_yuv_fh, residual_frame_with_mc)
 
             logger.info(f"Average MAE for Block Size {block_size} and Search Range {search_range}: {avg_mae}")
             avg_mae_per_frame.append(avg_mae)
-            prev_frame = reconstructed_frame
+            prev_frame = reconstructed_with_mc
 
 
     end_time = time.time()
