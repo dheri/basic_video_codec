@@ -6,7 +6,7 @@ import ex3
 from tests.y_generator import generate_sample_file
 
 if __name__ == "__main__":
-    input_file = 'data/foreman_cif.y'
+    input_file = 'data/benchmark.y'
     y_only_file = f'{os.path.splitext(input_file)[0]}.y'
     width, height = 352, 288
 

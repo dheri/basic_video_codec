@@ -3,7 +3,7 @@ import os
 
 from decoder import decode
 from encoder import encode
-from file_io import get_file_name
+from file_io import FileIOHelper
 from metrics import plot_metrics
 
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-7s [%(filename)s:%(lineno)d] %(message)s',
@@ -20,23 +20,19 @@ def main(input_file, width, height):
 
     search_ranges = [1, 2, 4, 8]  # Search ranges to test
     block_sizes = [2, 8, 16, 64]  # Block sizes to process
-    search_range = search_ranges[3]
+    search_range = search_ranges[1]
     block_size = block_sizes[1]  # Block sizes to process 'i'
     residual_approx_factor = 3
     frames_to_process = 25
 
-    os.makedirs(os.path.dirname(get_file_name(input_file, '', block_size, search_range, residual_approx_factor)), exist_ok=True)
-    mv_txt_file = get_file_name(input_file, 'mv.txt', block_size, search_range, residual_approx_factor)
-    residual_yuv_file = get_file_name(input_file, 'residuals.yuv', block_size, search_range, residual_approx_factor)
-    reconstructed_file = get_file_name(input_file, 'reconstructed.yuv', block_size, search_range, residual_approx_factor)
-    decoded_file = get_file_name(input_file, 'decoded.yuv', block_size, search_range, residual_approx_factor)
+    file_io = FileIOHelper(input_file, block_size, search_range, residual_approx_factor)
 
-    if os.path.exists(residual_yuv_file) and False:
-        logger.info(f" {residual_yuv_file} already exists. skipping encoding..")
+    if os.path.exists(file_io.get_mc_residual_file_name()) and False:
+        logger.info(f" {file_io.get_mc_residual_file_name()} already exists. skipping encoding..")
     else:
-        avg_mae_per_frame = encode(input_file, mv_txt_file, residual_yuv_file, reconstructed_file, frames_to_process, height, width, block_size, search_range, residual_approx_factor)
-        plot_metrics(avg_mae_per_frame, input_file , block_size, search_range, residual_approx_factor)
+        avg_mae_per_frame = encode(input_file, frames_to_process, height, width, block_size, search_range, residual_approx_factor)
+        plot_metrics(file_io , block_size, search_range, residual_approx_factor)
 
-    decode(residual_yuv_file, mv_txt_file, block_size, decoded_file, height, width, frames_to_process)
+    decode(file_io, block_size, height, width, frames_to_process)
 
 

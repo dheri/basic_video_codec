@@ -1,4 +1,5 @@
 import concurrent
+import csv
 import logging
 import time
 from contextlib import ExitStack
@@ -8,7 +9,7 @@ import concurrent.futures
 
 from block_predictor import predict_block
 from common import pad_frame
-from file_io import write_to_file, write_y_only_frame
+from file_io import write_to_file, write_y_only_frame, FileIOHelper
 
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-7s [%(filename)s:%(lineno)d] %(message)s',
     datefmt='%H:%M:%S',
@@ -16,18 +17,22 @@ logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-7s [%(filename)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-def encode(input_file, mv_output_file, residual_yuv_file, reconstructed_file, frames_to_process, height, width, block_size, search_range, residual_approx_factor):
+def encode(input_file, frames_to_process, height, width, block_size, search_range, residual_approx_factor):
+    file_io = FileIOHelper(input_file, block_size, search_range, residual_approx_factor)
+
     start_time = time.time()
     y_size = width * height
     prev_frame = np.full((height, width), 128, dtype=np.uint8)
-    avg_mae_per_frame = list()
     with ExitStack() as stack:
         # Open all the files inside the stack
         f_in = stack.enter_context(open(input_file, 'rb'))
-        mv_fh = stack.enter_context(open(mv_output_file, 'wt'))
-        residual_yuv_fh = stack.enter_context(open(residual_yuv_file, 'wb'))
-        reconstructed_fh = stack.enter_context(open(reconstructed_file, 'wb'))
+        mv_fh = stack.enter_context(open(file_io.get_mv_file_name(), 'wt'))
+        residual_yuv_fh = stack.enter_context(open(file_io.get_mc_residual_file_name(), 'wb'))
+        reconstructed_fh = stack.enter_context(open(file_io.get_mc_reconstructed_file_name(), 'wb'))
 
+        mae_csv_fh = stack.enter_context(open(file_io.get_mae_csv_file_name(), 'w', newline=''))  # Open CSV file for writing MAE
+        csv_writer = csv.writer(mae_csv_fh)
+        csv_writer.writerow(['Frame Index', 'Average MAE'])
         frame_index = 0
 
         while True:
@@ -53,7 +58,7 @@ def encode(input_file, mv_output_file, residual_yuv_file, reconstructed_file, fr
             write_y_only_frame(residual_yuv_fh, residual_frame_with_mc)
 
             logger.info(f"Average MAE for Block Size {block_size} and Search Range {search_range}: {avg_mae}")
-            avg_mae_per_frame.append(avg_mae)
+            csv_writer.writerow([frame_index, avg_mae])
             prev_frame = reconstructed_with_mc
 
 
@@ -67,7 +72,7 @@ def encode(input_file, mv_output_file, residual_yuv_file, reconstructed_file, fr
     with open('results.csv', 'at') as f_in:
         f_in.write(result)
     print('end encoding')
-    return  avg_mae_per_frame
+    return
 
 
 def encode_frame(curr_frame, prev_frame, block_size, search_range, residual_approx_factor):
