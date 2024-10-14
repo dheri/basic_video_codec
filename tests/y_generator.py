@@ -1,6 +1,5 @@
 import numpy as np
 
-
 def generate_circle_quadrant(width, height):
     """Generates a smooth gradient circle quadrant with a radial fade, placed in the top-right corner."""
     radius = int(width / 3)  # Radius is 1/3 of the width
@@ -75,19 +74,29 @@ def generate_frame(width, height, frame_number):
     return frame
 
 
-def calculate_shift_value(frame_number, direction, full_loop_frames):
-    if direction in ['horizontal', 'vertical']:
-        shift_value = frame_number + 1  # Start from 1 and increase indefinitely
-    else:  # For diagonal shifting
-        shift_value = (frame_number % full_loop_frames) + 1  # Reset after a full loop
+def calculate_shift_value(frame_number):
+    """
+    Calculate the shift value based on a predefined sequence:
+    0, 2, 4, 8, 16, 32, 32, 15, 7, 3, 1, and then repeat.
+
+    Args:
+    - frame_number: Current frame number.
+
+    Returns:
+    - shift_value: The calculated pixel shift for this frame.
+    """
+    # Define the shift pattern
+    shift_pattern = [0, 2, 4, 8, 16, 32, 32, 15, 7, 3, 1]
+
+    # Calculate the shift based on the frame number, cycling through the pattern
+    shift_value = shift_pattern[frame_number % len(shift_pattern)]
 
     return shift_value
 
 
-def shift_frame(frame, frame_number, width, height, direction="horizontal", full_loop_frames=0):
-    shift_value = calculate_shift_value(frame_number, direction, full_loop_frames)  # Get shift value with continuous acceleration
-
+def shift_frame(frame, shift_value,  direction="horizontal", ):
     # Apply shift based on direction
+    shifted_frame = None
     if direction == "horizontal":
         shifted_frame = np.roll(frame, shift_value, axis=1)  # Shift along width
     elif direction == "vertical":
@@ -98,33 +107,56 @@ def shift_frame(frame, frame_number, width, height, direction="horizontal", full
 
     return shifted_frame
 
+def generate_video_stream(base_frame, width, height, num_frames=None):
+    # Total frames required for full horizontal, vertical, and diagonal loops
+    total_frames_for_full_loop = width + height + min(width, height)
+    total_frames = num_frames if num_frames is not None else total_frames_for_full_loop
+
+    byte_stream = bytearray()
+    frame_num = 0
+
+    # Define the order of directions
+    directions = ["horizontal", "vertical", "diagonal"]
+    direction_idx = 0
+    direction = directions[direction_idx]
+
+    current_direction_length = 0  # Track how far we are in the current direction
+    shift_value = 0
+    prev_frame = base_frame
+    while frame_num < total_frames:
+        # Update direction based on the current progress in the loop
+        if direction == "horizontal" and current_direction_length >= width:
+            direction_idx += 1
+            direction = directions[direction_idx]
+            current_direction_length = 0  # Reset for the next direction
+        elif direction == "vertical" and current_direction_length >= height:
+            direction_idx += 1
+            direction = directions[direction_idx]
+            current_direction_length = 0  # Reset for the next direction
+        elif direction == "diagonal" and current_direction_length >= min(width, height):
+            direction_idx = 0  # Loop back to horizontal
+            direction = directions[direction_idx]
+            current_direction_length = 0
+
+        # Calculate the shift value based on the frame number
+        shift_value = calculate_shift_value(frame_num)
+        # Shift the base frame by the calculated value
+        shifted_frame = shift_frame(prev_frame, shift_value, direction)
+        prev_frame = shifted_frame
+        # Convert the shifted frame to bytes and append to the byte stream
+        byte_stream.extend(shifted_frame.tobytes())
+
+        # Increment frame count and current direction length
+        frame_num += 1
+        current_direction_length += shift_value  # Progress based on shift value
+
+    return bytes(byte_stream)
+
+
 def generate_yuv_bytestream(width, height, num_frames=None):
-    """Generates the YUV byte stream for a given number of frames."""
-    frames = []
-    total_frames = num_frames if num_frames is not None else 100  # Default to 100 frames
-    shift_value = 1
-    increasing = True  # To control acceleration and deceleration
     base_frame = generate_frame(width, height, 1)
+    return generate_video_stream(base_frame, width, height, num_frames)
 
-    for frame_num in range(total_frames):
-
-        # Determine direction based on frame_num and how many frames to complete a full rotation
-        if frame_num < num_frames / 3:
-            direction = "horizontal"
-        elif frame_num < 2 * num_frames / 3:
-            direction = "vertical"
-        else:
-            direction = "diagonal"
-
-        # Full loop frames can be set based on width/height
-        full_loop_frames = width if direction == "horizontal" else height
-
-        shifted_frame = shift_frame(base_frame, frame_num, width, height, direction, full_loop_frames)
-
-        # Convert frame to bytes and store
-        frames.append(shifted_frame.tobytes())
-
-    return b''.join(frames)
 
 def save_yuv_to_file(filename, width, height, num_frames=None):
     """Saves the generated YUV byte stream to a file."""
