@@ -68,16 +68,24 @@ def reconstruct_frame_from_blocks(blocks, frame_shape, block_size):
 
 
 # Function to process Y-only files and split them into blocks
-def process_y_frames(input_file, width, height, block_sizes):
+def process_y_frames(params : InputParameters, block_sizes):
+    input_file = params.y_only_file
+    width = params.width
+    height = params.height
     logger.info(f"Processing file: {input_file}")
-    file_prefix = os.path.splitext(input_file)[0]
+    file_io_h = FileIOHelper(params)
 
     file_handles = {}
 
     # Open output files dynamically based on block sizes
     for block_size in block_sizes:
-        file_name = f'{file_prefix}-{block_size}block.y'
+        file_name = file_io_h.get_file_name_wo_identifier(f'{block_size}b.y')
+        if os.path.exists(file_name):
+            continue
         file_handles[block_size] = open(file_name, 'wb')
+
+    if len(file_handles) < 1:
+        return
 
     y_size = width * height
 
@@ -166,19 +174,22 @@ def plot_quality_metrics(block_sizes, psnr_values, ssim_values):
     plt.legend()
 
     plt.tight_layout()
-    plt.show()
+    # plt.show()
 
 
-def main(input_file, width, height):
-    file_prefix = os.path.splitext(input_file)[0]
-    y_only_file = f'{file_prefix}.y'
-    save_y_frames_to_file(input_file, y_only_file, width, height)
+def main(params: InputParameters):
+    width = params.width
+    height = params.height
+    file_io = FileIOHelper(params)
+
+    y_only_file = params.y_only_file
+    save_y_frames_to_file(params)
 
     block_sizes = [1, 2, 8, 16, 64]  # Block sizes to process
-    process_y_frames(y_only_file, width, height, block_sizes)
+    process_y_frames(params, block_sizes)
 
     for block_size in block_sizes:
-        averaged_file = f'{file_prefix}-{block_size}block.y'
+        averaged_file = file_io.get_file_name_wo_identifier(f'{block_size}b.y')
         average_psnr, average_ssim = calculate_psnr_ssim(y_only_file, averaged_file, width, height)
         # Store results for plotting
         if 'psnr_results' not in locals():

@@ -20,6 +20,9 @@ class FileIOHelper:
     def get_file_name(self, suffix):
         return f'{self.file_prefix}/{self.file_identifier}/{suffix}'
 
+    def get_file_name_wo_identifier(self, suffix):
+        return f'{self.file_prefix}/{suffix}'
+
     def get_y_file_name(self):
         return  f'{self.file_prefix}.y'
 
