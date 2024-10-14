@@ -1,4 +1,6 @@
 ﻿__pycache__
 data
+!data/foreman_cif.yuv
+!data/benchmark.y
 .idea
 
