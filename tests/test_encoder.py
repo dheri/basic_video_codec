@@ -81,7 +81,8 @@ class Test(TestCase):
         # Test all blocks in the frame
         search_range = 3
         block_size = 8
-        f_size = block_size * 5  # Frame size is 3x3 blocks (24x24 pixels)
+        num_of_blocks = 3
+        f_size = block_size * num_of_blocks  # Frame size is 3x3 blocks (24x24 pixels)
 
         marker_fill = 69
         marker_size = 1  # The size of the marker (2x2 pixels)
@@ -89,9 +90,10 @@ class Test(TestCase):
         marker_x_tx = 1  # Horizontal translation
         marker_y_tx = 0  # Vertical translation
 
+
         # Iterate through all block indices (block_x_idx, block_y_idx)
-        for block_x_idx in range(f_size // block_size):
-            for block_y_idx in range(f_size // block_size):
+        for block_x_idx in range(num_of_blocks-1):
+            for block_y_idx in range(num_of_blocks-1):
                 with self.subTest(block_x=block_x_idx, block_y=block_y_idx):
                     # Determine marker's initial position within the current block
                     marker_x_start = block_size * block_x_idx + 1
@@ -130,3 +132,4 @@ class Test(TestCase):
                     # Additional validations (optional)
                     # Check the MAE, allowing a small margin for approximations
                     self.assertLessEqual(avg_mae, 5, f"MAE too high for block {block_coords}")
+

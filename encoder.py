@@ -73,10 +73,10 @@ def encode_frame(curr_frame, prev_frame, block_size, search_range, residual_appr
         curr_block = curr_frame[y:y + block_size, x:x + block_size]
 
         # Adjust search range to avoid going out of frame boundaries
-        prev_partial_frame_y_start_idx = max(y - search_range, 0)
         prev_partial_frame_x_start_idx = max(x - search_range, 0)
-        prev_partial_frame_y_end_idx = min(y + block_size + search_range, height)
         prev_partial_frame_x_end_idx = min(x + block_size + search_range, width)
+        prev_partial_frame_y_start_idx = max(y - search_range, 0)
+        prev_partial_frame_y_end_idx = min(y + block_size + search_range, height)
 
         prev_partial_frame = prev_frame[prev_partial_frame_y_start_idx:prev_partial_frame_y_end_idx,
                              prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
