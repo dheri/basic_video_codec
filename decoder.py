@@ -12,8 +12,14 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 def find_predicted_block(mv, x, y, prev_frame, block_size):
-    predicted_block = prev_frame[y + mv[1]:y + mv[1] + block_size, x + mv[0]:x + mv[0] + block_size]
+    # Calculate the predicted block coordinates
+    pred_x = x + mv[0]
+    pred_y = y + mv[1]
+
+
+    predicted_block = prev_frame[pred_y:pred_y + block_size, pred_x:pred_x + block_size]
     return predicted_block
+
 
 
 def decode_frame(residual_frame, prev_frame, mv_frame, height, width, block_size):

@@ -81,21 +81,22 @@ def encode_frame(curr_frame, prev_frame, block_size, search_range, residual_appr
         prev_partial_frame = prev_frame[prev_partial_frame_y_start_idx:prev_partial_frame_y_end_idx,
                              prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
 
-        best_mv_wrt_ppf, predicted_block_mae, predicted_block = predict_block(curr_block, prev_partial_frame,
-                                                                              block_size)
+        best_mv_within_search_window, best_match_mae, best_match_block  = predict_block(curr_block, prev_partial_frame, block_size)
 
         # Ensure motion vector is calculated relative to the entire frame
-        best_mv = [best_mv_wrt_ppf[0] + prev_partial_frame_x_start_idx - x,
-                   best_mv_wrt_ppf[1] + prev_partial_frame_y_start_idx - y]
+        motion_vector = [best_mv_within_search_window[0] + prev_partial_frame_x_start_idx - x,
+                         best_mv_within_search_window[1] + prev_partial_frame_y_start_idx - y]
 
-        best_mv = np.multiply(best_mv, -1)  # Invert the motion vector for correct frame of reference
+        mv_field[(x, y)] = motion_vector
+        predicted_block = prev_frame[y + motion_vector[1]:y + motion_vector[1] + block_size,
+                                     x + motion_vector[0]:x + motion_vector[0] + block_size]
 
         # Reconstruct the block and compute the residual
         residual_block = np.subtract(curr_block, predicted_block)
         approx_residual_w_predicted_b = round_to_nearest_multiple(residual_block, residual_approx_factor)
         reconstructed_block = approx_residual_w_predicted_b + predicted_block
 
-        return (x, y), best_mv, predicted_block_mae, approx_residual_w_predicted_b, reconstructed_block
+        return (x, y), motion_vector, best_match_mae, approx_residual_w_predicted_b, reconstructed_block
 
     reconstructed_frame = np.zeros_like(curr_frame)
     residual_frame = np.zeros_like(curr_frame)
