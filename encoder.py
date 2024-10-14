@@ -7,9 +7,12 @@ from contextlib import ExitStack
 import numpy as np
 import concurrent.futures
 
+from skimage.metrics import peak_signal_noise_ratio
+
 from block_predictor import predict_block
 from common import pad_frame
-from file_io import write_to_file, write_y_only_frame, FileIOHelper
+from file_io import write_mv_to_file, write_y_only_frame, FileIOHelper
+from input_parameters import InputParameters
 
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-7s [%(filename)s:%(lineno)d] %(message)s',
     datefmt='%H:%M:%S',
@@ -17,22 +20,29 @@ logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-7s [%(filename)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-def encode(input_file, frames_to_process, height, width, block_size, search_range, residual_approx_factor):
-    file_io = FileIOHelper(input_file, block_size, search_range, residual_approx_factor)
+def encode(params: InputParameters):
+    file_io = FileIOHelper(params)
 
     start_time = time.time()
-    y_size = width * height
-    prev_frame = np.full((height, width), 128, dtype=np.uint8)
+    y_size = params.width * params.height
+    prev_frame = np.full((params.height, params.width), 128, dtype=np.uint8)
     with ExitStack() as stack:
-        # Open all the files inside the stack
-        f_in = stack.enter_context(open(input_file, 'rb'))
+        f_in = stack.enter_context(open(params.y_only_file, 'rb'))
         mv_fh = stack.enter_context(open(file_io.get_mv_file_name(), 'wt'))
         residual_yuv_fh = stack.enter_context(open(file_io.get_mc_residual_file_name(), 'wb'))
         reconstructed_fh = stack.enter_context(open(file_io.get_mc_reconstructed_file_name(), 'wb'))
 
-        mae_csv_fh = stack.enter_context(open(file_io.get_mae_csv_file_name(), 'w', newline=''))  # Open CSV file for writing MAE
-        csv_writer = csv.writer(mae_csv_fh)
-        csv_writer.writerow(['Frame Index', 'Average MAE'])
+        metrics_csv_fh = stack.enter_context(open(file_io.get_metrics_csv_file_name(), 'wt', newline=''))
+        frames_to_process = params.frames_to_process
+        height = params.height
+        width = params.width
+        block_size = params.block_size
+        search_range = params.search_range
+        residual_approx_factor = params.residual_approx_factor
+
+
+        metrics_csv_writer = csv.writer(metrics_csv_fh)
+        metrics_csv_writer.writerow(['Frame Index', 'Average MAE', 'PSNR'])
         frame_index = 0
 
         while True:
@@ -45,20 +55,24 @@ def encode(input_file, frames_to_process, height, width, block_size, search_rang
             padded_frame = pad_frame(y_plane, block_size)
             # padded_frame = y_plane
 
-            logger.info(f"Frame {frame_index }, Block Size {block_size}x{block_size}, Search Range {search_range}")
+            # logger.info(f"Frame {frame_index }, Block Size {block_size}x{block_size}, Search Range {search_range}")
             # mv_field, avg_mae, residual, reconstructed_frame, residual_frame = encode_frame(padded_frame, prev_frame, block_size, search_range, residual_approx_factor)
             encoded_frame = encode_frame(padded_frame, prev_frame, block_size, search_range, residual_approx_factor)
             mv_field = encoded_frame['mv_field']
             avg_mae = encoded_frame['avg_mae']
             reconstructed_with_mc = encoded_frame['reconstructed_frame_with_mc']
             residual_frame_with_mc = encoded_frame['residual_frame_with_mc']
-            write_to_file(mv_fh, frame_index, mv_field)
+            psnr = peak_signal_noise_ratio(padded_frame, reconstructed_with_mc)
+
+
+            logger.info(f"{frame_index:2}: i={block_size} r={search_range}, mae [{round(avg_mae,2):7.2f}] psnr [{round(psnr,2):6.2f}]")
+            write_mv_to_file(mv_fh, mv_field)
             # write_to_file(residual_txt_fh, frame_index, residual, True)
             write_y_only_frame(reconstructed_fh, reconstructed_with_mc)
             write_y_only_frame(residual_yuv_fh, residual_frame_with_mc)
 
-            logger.info(f"Average MAE for Block Size {block_size} and Search Range {search_range}: {avg_mae}")
-            csv_writer.writerow([frame_index, avg_mae])
+
+            metrics_csv_writer.writerow([frame_index, avg_mae, psnr])
             prev_frame = reconstructed_with_mc
 
 
