@@ -2,7 +2,8 @@ import logging
 
 import numpy as np
 
-from file_io import write_y_only_frame
+from file_io import write_y_only_frame, FileIOHelper
+from input_parameters import InputParameters
 from motion_vector import parse_mv
 
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-7s [%(filename)s:%(lineno)d] %(message)s',
@@ -36,7 +37,16 @@ def decode_frame(residual_frame, prev_frame, mv_frame, height, width, block_size
     return decoded_frame
 
 
-def decode(residual_yuv_file, mv_txt_file, block_size, decoded_yuv, height, width, frames_to_process):
+def decode(params: InputParameters):
+    file_io = FileIOHelper(params)
+    frames_to_process = params.frames_to_process
+    height = params.height
+    width = params.width
+    block_size = params.block_size
+    mv_txt_file = file_io.get_mv_file_name()
+    residual_yuv_file = file_io.get_mc_residual_file_name()
+    decoded_yuv = file_io.get_mc_decoded_file_name()
+
     frame_size = width * height
     prev_frame = np.full((height, width), 128, dtype=np.uint8)
 

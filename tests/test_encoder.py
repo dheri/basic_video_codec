@@ -60,9 +60,12 @@ class Test(TestCase):
         # print('prev_f', '\n', prev_f)
         # print('curr_f', '\n', curr_f)
 
-        mv_field, avg_mae, residuals, reconstructed_frame, residual_frame = encode_frame(curr_f, prev_f, block_size,
-                                                                                         search_range, 0)
+        # mv_field, avg_mae, residuals, reconstructed_frame, residual_frame
         # print(mv_field)
+        encoded_frame = encode_frame(curr_f, prev_f, block_size, search_range, 0)
+        mv_field = encoded_frame['mv_field']
+        avg_mae = encoded_frame['avg_mae']
+        reconstructed_with_mc = encoded_frame['reconstructed_frame_with_mc']
 
         # Test the motion vector for the block that was rolled by (2, 2)
         self.assertIn((block_size, block_size), mv_field)  # Check if block at (8, 8) has a motion vector
@@ -73,7 +76,7 @@ class Test(TestCase):
 
         # Additional validations
         self.assertAlmostEqual(avg_mae, 0)  # MAE should be 0 if the block is perfectly predicted
-        self.assertTrue(np.array_equal(reconstructed_frame, curr_f))  # Reconstructed frame should match curr_f
+        self.assertTrue(np.array_equal(reconstructed_with_mc, curr_f))  # Reconstructed frame should match curr_f
 
         # self.assertEqual(best_mv, [2,2])
 
@@ -113,9 +116,10 @@ class Test(TestCase):
                     curr_f = np.roll(curr_f, -1 * marker_y_tx, axis=0)  # Vertical shift
 
                     # Perform motion estimation with encode_frame
-                    mv_field, avg_mae, residuals, reconstructed_frame, residual_frame = encode_frame(curr_f, prev_f,
-                                                                                                     block_size,
-                                                                                                     search_range, 0)
+                    encoded_frame = encode_frame(curr_f, prev_f, block_size, search_range, 0)
+                    mv_field = encoded_frame['mv_field']
+                    avg_mae = encoded_frame['avg_mae']
+                    reconstructed_with_mc = encoded_frame['reconstructed_frame_with_mc']
 
                     # Validate the motion vector for the current block
                     block_coords = (block_size * block_x_idx, block_size * block_y_idx)
@@ -129,7 +133,7 @@ class Test(TestCase):
                     self.assertEqual(mv[1], marker_y_tx, f"Incorrect vertical MV for block {block_coords}")
 
                     # Validate reconstructed frame (optional but useful)
-                    self.assertTrue(np.array_equal(reconstructed_frame, curr_f),
+                    self.assertTrue(np.array_equal(reconstructed_with_mc, curr_f),
                                     f"Reconstructed frame does not match current frame for block {block_coords}")
 
                     # Additional validations (optional)
@@ -141,7 +145,7 @@ class Test(TestCase):
         # Test all blocks in the frame
         search_range = 3
         block_size = 8
-        num_of_blocks = 2
+        num_of_blocks = 4
         f_size = block_size * num_of_blocks  # Frame size is 3x3 blocks (24x24 pixels)
 
         marker_fill = 42
@@ -176,9 +180,11 @@ class Test(TestCase):
 
 
                     # Perform motion estimation with encode_frame
-                    mv_field, avg_mae, residuals, reconstructed_frame, residual_frame = encode_frame(curr_f, prev_f,
-                                                                                                     block_size,
-                                                                                                     search_range, 0)
+                    encoded_frame = encode_frame(curr_f, prev_f, block_size, search_range, 0)
+                    mv_field = encoded_frame['mv_field']
+                    avg_mae = encoded_frame['avg_mae']
+                    reconstructed_with_mc = encoded_frame['reconstructed_frame_with_mc']
+                    residual_frame_with_mc = encoded_frame['residual_frame_with_mc']
 
                     # Validate the motion vector for the current block
                     block_coords = (block_size * block_x_idx, block_size * block_y_idx)
@@ -192,7 +198,7 @@ class Test(TestCase):
                     self.assertEqual(mv[1], marker_y_tx, f"Incorrect vertical MV for block {block_coords}")
 
                     # Validate reconstructed frame (optional but useful)
-                    self.assertTrue(np.array_equal(reconstructed_frame, curr_f),
+                    self.assertTrue(np.array_equal(reconstructed_with_mc, curr_f),
                                     f"Reconstructed frame does not match current frame for block {block_coords}")
 
                     # Additional validations (optional)
@@ -204,9 +210,9 @@ class Test(TestCase):
                     b_x_s = block_x_idx * block_size
                     b_x_e = b_x_s + block_size
 
-                    print('prev_f \n',prev_f[b_y_s:b_y_e, b_x_s:b_x_e])
-                    print('curr_f \n',curr_f[b_y_s:b_y_e, b_x_s:b_x_e])
-                    print('residual_frame \n', residual_frame[b_y_s:b_y_e, b_x_s:b_x_e])
-                    print('reconstructed_frame \n',reconstructed_frame[b_y_s:b_y_e, b_x_s:b_x_e])
-                    self.assertEqual(True, True)
+                    # print('prev_f \n',prev_f[b_y_s:b_y_e, b_x_s:b_x_e])
+                    # print('curr_f \n',curr_f[b_y_s:b_y_e, b_x_s:b_x_e])
+                    # print('residual_frame \n', residual_frame_with_mc[b_y_s:b_y_e, b_x_s:b_x_e])
+                    # print('reconstructed_frame \n',reconstructed_with_mc[b_y_s:b_y_e, b_x_s:b_x_e])
+                    # self.assertEqual(True, True)
 

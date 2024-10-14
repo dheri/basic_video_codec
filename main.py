@@ -3,17 +3,26 @@ import os
 import ex1
 import ex2
 import ex3
+from input_parameters import InputParameters
 from tests.y_generator import generate_sample_file
 
 if __name__ == "__main__":
-    input_file = 'data/foreman_cif.y'
-    y_only_file = f'{os.path.splitext(input_file)[0]}.y'
-    width, height = 352, 288
 
     # ex1.main(input_file, width, height)
     # ex2.main(input_file, width, height)
 
     # generate_sample_file(input_file, num_frames=300)
     # ex2.save_y_frames(input_file,y_only_file,352, 288)
-    ex3.main(input_file, width, height)
+
+    input_params = InputParameters(
+        y_only_file ='data/foreman_cif.y',
+        width  = 352,
+        height= 288,
+        block_size = 8,
+        search_range = 2,
+        residual_approx_factor= 3,
+        frames_to_process = 25
+    )
+
+    ex3.main(input_params)
 
