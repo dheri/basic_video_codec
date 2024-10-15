@@ -44,7 +44,7 @@ def save_y_frames_to_file(params : InputParameters, frames_to_extract=None):
 
     output_file= params.y_only_file
     num_frames = frames_to_extract if frames_to_extract else calculate_num_frames(params.yuv_file, params.width, params.height)
-    if os.path.exists(params.yuv_file):
+    if os.path.exists(params.y_only_file):
         logger.info(f"y only {output_file} already exists. skipping...")
         return
     with open(input_file, 'rb') as f_in, open(output_file, 'wb') as f_out:
