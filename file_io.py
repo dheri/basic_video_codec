@@ -7,9 +7,9 @@ class FileIOHelper:
     def __init__(self, params:InputParameters):
 
         self.y_only_file = params.y_only_file
-        self.block_size = params.block_size
-        self.search_range = params.search_range
-        self.residual_approx_factor = params.residual_approx_factor
+        self.block_size = params.encoder_parameters.block_size
+        self.search_range = params.encoder_parameters.search_range
+        self.residual_approx_factor = params.encoder_parameters.residual_approx_factor
         self.frames_to_process = params.frames_to_process
 
         self.file_identifier = f'{self.block_size}_{self.search_range}_{self.residual_approx_factor}'
