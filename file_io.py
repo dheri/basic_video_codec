@@ -7,12 +7,12 @@ class FileIOHelper:
     def __init__(self, params:InputParameters):
 
         self.y_only_file = params.y_only_file
-        self.block_size = params.block_size
-        self.search_range = params.search_range
-        self.residual_approx_factor = params.residual_approx_factor
+        self.block_size = params.encoder_parameters.block_size
+        self.search_range = params.encoder_parameters.search_range
+        self.quantization_factor = params.encoder_parameters.quantization_factor
         self.frames_to_process = params.frames_to_process
 
-        self.file_identifier = f'{self.block_size}_{self.search_range}_{self.residual_approx_factor}'
+        self.file_identifier = f'{self.block_size}_{self.search_range}_{self.quantization_factor}'
         self.file_prefix = os.path.splitext(self.y_only_file)[0]
 
         os.makedirs(os.path.dirname(self.get_file_name(suffix='')), exist_ok=True)
@@ -40,6 +40,10 @@ class FileIOHelper:
 
     def get_mc_residual_file_name(self):
         return self.get_file_name('mc_residuals.yuv')
+
+    def get_quant_dct_coff_fh_file_name(self):
+        return self.get_file_name('mc_quant_dct_coff.bin')
+
 
     def get_mc_reconstructed_file_name(self):
         return self.get_file_name('mc_reconstructed.yuv')

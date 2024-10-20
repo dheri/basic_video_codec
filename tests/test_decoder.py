@@ -2,11 +2,14 @@ from unittest import TestCase
 
 import numpy as np
 
-from decoder import decode_frame, find_predicted_block
-from encoder import encode_frame
+from decoder import decode_frame, find_predicted_block, logger
+from encoder.encoder import encode_frame
+from encoder.params import EncoderParameters, EncodedFrame
+from input_parameters import InputParameters
+from tests.y_generator import generate_marked_frame
 
 
-class Test(TestCase):
+class TestDecoder(TestCase):
     def test_find_predicted_block_within_bounds(self):
         # Create a 16x16 previous frame
         prev_frame = np.arange(16*16).reshape(16, 16)
@@ -34,42 +37,40 @@ class Test(TestCase):
     def test_decode_frame_right_down_motion(self):
         # Parameters for the test
         search_range = 3
-        block_size = 8
-        num_of_blocks = 3
-        f_size = block_size * num_of_blocks  # Frame size is 3x3 blocks (24x24 pixels)
+        block_size = 4
+        num_of_blocks = 4
+        f_size = block_size * num_of_blocks
+        quantization_factor = 8
 
-        marker_fill = 69
-        marker_size = 1  # The size of the marker (1x1 pixels)
+        marker_fill = 99
+        marker_size = 2  # The size of the marker (1x1 pixels)
 
         marker_x_tx = 1  # Horizontal translation
-        marker_y_tx = 1  # Vertical translation
+        marker_y_tx = 2  # Vertical translation
 
         # Iterate through all block indices (block_x_idx, block_y_idx)
-        for block_x_idx in range(1):
-            for block_y_idx in range(1):
+        for block_x_idx in range(num_of_blocks):
+            for block_y_idx in range(num_of_blocks):
                 with self.subTest(block_x=block_x_idx, block_y=block_y_idx):
-                    # Determine marker's initial position within the current block
-                    marker_x_start = block_size * block_x_idx + 1
-                    marker_y_start = block_size * block_y_idx + 2
+                    encoder_parameters = EncoderParameters(block_size, search_range, 0, quantization_factor)
+                    params = InputParameters(y_only_file=None, width=f_size, height=f_size,
+                                             encoder_parameters=encoder_parameters)
 
-                    # Create the previous frame with a marker in the given block
-                    prev_f = np.zeros((f_size, f_size), dtype=np.uint8)
-                    prev_f[marker_y_start:marker_y_start + marker_size,
-                    marker_x_start:marker_x_start + marker_size] = np.full(
-                        (marker_size, marker_size), marker_fill)
-
+                    prev_f = generate_marked_frame(f_size, block_size, block_x_idx, block_y_idx, marker_size, marker_fill)
                     # Create the current frame by shifting the previous frame
-                    curr_f = np.roll(prev_f, -1 * marker_x_tx, axis=1)  # Horizontal shift
-                    curr_f = np.roll(curr_f, -1 * marker_y_tx, axis=0)  # Vertical shift
+                    curr_f = np.roll(prev_f, 1 * marker_x_tx, axis=1)  # Horizontal shift
+                    curr_f = np.roll(curr_f, 1 * marker_y_tx, axis=0)  # Vertical shift
 
                     # Encode the frame to get motion vectors, residuals, and reconstructed frame
-                    encoded_frame = encode_frame(curr_f, prev_f,block_size,search_range, 0)
-                    mv_field = encoded_frame['mv_field']
-                    residuals_with_mc = encoded_frame['residual_frame_with_mc']
-                    decoded_frame = decode_frame(residuals_with_mc, prev_f, mv_field, f_size, f_size, block_size)
+                    encoded_frame : EncodedFrame = encode_frame(curr_f, prev_f,encoder_parameters)
+                    mv_field = encoded_frame.mv_field
+                    residuals_with_mc = encoded_frame.residual_frame_with_mc
+                    quat_dct_coffs_with_mc = encoded_frame.quat_dct_coffs_with_mc
 
-                    # Validate that the decoded frame matches the current frame
-                    self.assertTrue(np.array_equal(decoded_frame, curr_f),
-                                    f"Decoded frame does not match current frame for block ({block_x_idx}, {block_y_idx})")
+                    decoded_frame = decode_frame(quat_dct_coffs_with_mc, prev_f, mv_field, params)
 
-                    # Additional validations (optional)
+                    np.testing.assert_allclose(decoded_frame, encoded_frame.reconstructed_frame_with_mc,
+                                               atol=(2),
+                                               err_msg= f"Decoded frame does not match reconstructed_frame_with_mc"
+                                                        f" ({block_x_idx}, {block_y_idx})\n{decoded_frame}\n{encoded_frame.reconstructed_frame_with_mc}")
+
