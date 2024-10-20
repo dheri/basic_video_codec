@@ -7,9 +7,9 @@ from encoder.params import EncoderParameters
 if __name__ == "__main__":
 
     encoder_parameters = EncoderParameters(
-        block_size = 16,
+        block_size = 8,
         search_range=2,
-        quantization_factor=1,
+        quantization_factor=8,
         i_period=1,
     )
 
