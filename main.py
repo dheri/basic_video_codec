@@ -7,9 +7,9 @@ from encoder.params import EncoderParameters
 if __name__ == "__main__":
 
     encoder_parameters = EncoderParameters(
-        block_size = 8,
+        block_size = 16,
         search_range=2,
-        quantization_factor=8,
+        quantization_factor=1,
         i_period=1,
     )
 
@@ -18,7 +18,7 @@ if __name__ == "__main__":
         width  = 352,
         height= 288,
         encoder_parameters= encoder_parameters,
-        frames_to_process = 25
+        frames_to_process = 12
     )
 
     # ex2.main(input_params)

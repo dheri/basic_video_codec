@@ -15,8 +15,8 @@ def find_predicted_block(mv, x, y, prev_frame, block_size):
     pred_y = y + mv[1]
 
     # Clip the coordinates to ensure they are within bounds
-    pred_x = np.clip(pred_x, 0, prev_frame.shape[1] - block_size)
-    pred_y = np.clip(pred_y, 0, prev_frame.shape[0] - block_size)
+    # pred_x = np.clip(pred_x, 0, prev_frame.shape[1] - block_size)
+    # pred_y = np.clip(pred_y, 0, prev_frame.shape[0] - block_size)
 
     predicted_block = prev_frame[pred_y:pred_y + block_size, pred_x:pred_x + block_size]
     return predicted_block
