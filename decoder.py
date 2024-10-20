@@ -23,7 +23,7 @@ def decode_frame(quant_dct_coff_frame, prev_frame, mv_frame, input_parameters: I
     block_size = input_parameters.encoder_parameters.block_size
     quantization_factor =  input_parameters.encoder_parameters.quantization_factor
     height, width = input_parameters.height, input_parameters.width
-    decoded_frame = np.zeros_like(prev_frame)
+    decoded_frame = np.zeros_like(prev_frame, dtype=np.int16)  # Use higher precision for intermediate calculations
 
     # Generate the quantization matrix Q based on block size and QP
     Q = generate_quantization_matrix(block_size, quantization_factor)
@@ -37,13 +37,16 @@ def decode_frame(quant_dct_coff_frame, prev_frame, mv_frame, input_parameters: I
             rescaled_dct_coffs_block = rescale_block(dct_coffs_block, Q)
 
             # Apply inverse DCT to the rescaled residual block
-            idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block)
+            idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block).astype(np.int16)
 
             # Get the predicted block using the motion vector
-            predicted_b = find_predicted_block(mv_frame[(x, y)], x, y, prev_frame, block_size)
+            predicted_b = find_predicted_block(mv_frame[(x, y)], x, y, prev_frame, block_size).astype(np.int16)
 
             # Reconstruct the block by adding the predicted block and the rescaled residual
-            decoded_block =  np.round(idct_residual_block + predicted_b).astype(np.uint8)
+            decoded_block = np.round(idct_residual_block + predicted_b).astype(np.int16)
+
+            # Clip values to avoid overflow/underflow and convert back to uint8
+            decoded_block = np.clip(decoded_block, 0, 255).astype(np.uint8)
 
             # Place the reconstructed block in the decoded frame
             decoded_frame[y:y + block_size, x:x + block_size] = decoded_block

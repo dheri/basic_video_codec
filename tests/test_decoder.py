@@ -40,8 +40,9 @@ class TestDecoder(TestCase):
         block_size = 4
         num_of_blocks = 3
         f_size = block_size * num_of_blocks
+        quantization_factor = 0
 
-        marker_fill = 99
+        marker_fill = 36
         marker_size = 2  # The size of the marker (1x1 pixels)
 
         marker_x_tx = 1  # Horizontal translation
@@ -51,7 +52,7 @@ class TestDecoder(TestCase):
         for block_x_idx in range(num_of_blocks):
             for block_y_idx in range(num_of_blocks):
                 with self.subTest(block_x=block_x_idx, block_y=block_y_idx):
-                    encoder_parameters = EncoderParameters(block_size, search_range, 0, 3)
+                    encoder_parameters = EncoderParameters(block_size, search_range, 0, quantization_factor)
                     params = InputParameters(y_only_file=None, width=f_size, height=f_size,
                                              encoder_parameters=encoder_parameters)
 
