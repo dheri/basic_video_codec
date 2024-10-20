@@ -14,6 +14,9 @@ def find_predicted_block(mv, x, y, prev_frame, block_size):
     pred_x = x + mv[0]
     pred_y = y + mv[1]
 
+    # Clip the coordinates to ensure they are within bounds
+    pred_x = np.clip(pred_x, 0, prev_frame.shape[1] - block_size)
+    pred_y = np.clip(pred_y, 0, prev_frame.shape[0] - block_size)
 
     predicted_block = prev_frame[pred_y:pred_y + block_size, pred_x:pred_x + block_size]
     return predicted_block
@@ -37,7 +40,7 @@ def decode_frame(quant_dct_coff_frame, prev_frame, mv_frame, input_parameters: I
             rescaled_dct_coffs_block = rescale_block(dct_coffs_block, Q)
 
             # Apply inverse DCT to the rescaled residual block
-            idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block).astype(np.int16)
+            idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block)
 
             # Get the predicted block using the motion vector
             predicted_b = find_predicted_block(mv_frame[(x, y)], x, y, prev_frame, block_size).astype(np.int16)

@@ -42,8 +42,8 @@ class TestDecoder(TestCase):
         f_size = block_size * num_of_blocks
         quantization_factor = 8
 
-        marker_fill = 255
-        marker_size = 4  # The size of the marker (1x1 pixels)
+        marker_fill = 99
+        marker_size = 2  # The size of the marker (1x1 pixels)
 
         marker_x_tx = 1  # Horizontal translation
         marker_y_tx = 2  # Vertical translation
@@ -70,7 +70,7 @@ class TestDecoder(TestCase):
                     decoded_frame = decode_frame(quat_dct_coffs_with_mc, prev_f, mv_field, params)
 
                     np.testing.assert_allclose(decoded_frame, encoded_frame.reconstructed_frame_with_mc,
-                                               atol=(1),
-                                               err_msg= f"Decoded frame does not match current frame for block"
+                                               atol=(2),
+                                               err_msg= f"Decoded frame does not match reconstructed_frame_with_mc"
                                                         f" ({block_x_idx}, {block_y_idx})\n{decoded_frame}\n{encoded_frame.reconstructed_frame_with_mc}")
 

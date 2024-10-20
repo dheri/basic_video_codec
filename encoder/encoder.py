@@ -8,6 +8,7 @@ from skimage.metrics import peak_signal_noise_ratio
 
 from block_predictor import predict_block
 from common import pad_frame, get_logger
+from decoder import find_predicted_block
 from encoder.dct import *
 from encoder.params import EncoderParameters, EncodedFrame, EncodedBlock
 from file_io import write_mv_to_file, write_y_only_frame, FileIOHelper
@@ -60,7 +61,6 @@ def encode(params: InputParameters):
 
             logger.info(f"{frame_index:2}: i={block_size} r={search_range}, mae [{round(avg_mae,2):7.2f}] psnr [{round(psnr,2):6.2f}]")
             write_mv_to_file(mv_fh, mv_field)
-            # write_to_file(residual_txt_fh, frame_index, residual, True)
             write_y_only_frame(reconstructed_fh, encoded_frame.reconstructed_frame_with_mc)
             write_y_only_frame(residual_yuv_fh, encoded_frame.residual_frame_with_mc)
             write_y_only_frame(quant_dct_coff_fh, encoded_frame.quat_dct_coffs_with_mc)
@@ -96,7 +96,7 @@ def encode_frame(curr_frame, prev_frame, encoder_params: EncoderParameters):
 
     # Function to process each block
     def process_block(y, x):
-        curr_block = curr_frame[y:y + block_size, x:x + block_size]
+        curr_block = curr_frame[y:y + block_size, x:x + block_size].astype(np.int16)
 
         # Adjust search range to avoid going out of frame boundaries
         prev_partial_frame_x_start_idx = max(x - search_range, 0)
@@ -105,7 +105,7 @@ def encode_frame(curr_frame, prev_frame, encoder_params: EncoderParameters):
         prev_partial_frame_y_end_idx = min(y + block_size + search_range, height)
 
         prev_partial_frame = prev_frame[prev_partial_frame_y_start_idx:prev_partial_frame_y_end_idx,
-                             prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
+                                        prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
 
         best_mv_within_search_window, best_match_mae, best_match_block = predict_block(curr_block, prev_partial_frame, block_size)
 
@@ -116,38 +116,33 @@ def encode_frame(curr_frame, prev_frame, encoder_params: EncoderParameters):
         mv_field[(x, y)] = motion_vector
 
         # Generate the predicted block by shifting the previous frame based on the motion vector
-        predicted_block_with_mc = prev_frame[y + motion_vector[1]:y + motion_vector[1] + block_size,
-                                             x + motion_vector[0]:x + motion_vector[0] + block_size].astype(np.int16)
+        predicted_block_with_mc = find_predicted_block(motion_vector, x, y, prev_frame, block_size).astype(np.int16)
 
-        # Residuals with motion compensation, ensure they are computed in int16 to avoid wraparound
-        residual_block_with_mc = np.subtract(curr_block.astype(np.int16), predicted_block_with_mc)
+        # Residuals with motion compensation
+        residual_block_with_mc = np.subtract(curr_block, predicted_block_with_mc)
 
         # Apply 2D DCT to the residual block
         dct_coffs = apply_dct_2d(residual_block_with_mc)
 
+        # Quantization and reconstruction
         Q = generate_quantization_matrix(block_size, quantization_factor)
-
-        # Quantize the DCT coefficients
         quantized_dct_coffs = quantize_block(dct_coffs, Q)
-
-        # Rescale and reconstruct the block
         rescaled_dct_coffs = rescale_block(quantized_dct_coffs, Q)
         reconstructed_residual_block = apply_idct_2d(rescaled_dct_coffs)
 
         # Reconstruct the block using the predicted block and the reconstructed residual
         reconstructed_block_with_mc = np.round(reconstructed_residual_block + predicted_block_with_mc).astype(np.int16)
 
-        # Clip values to avoid overflow/underflow and convert back to uint8
+        # Clip values to avoid overflow/underflow and convert to uint8
         reconstructed_block_with_mc = np.clip(reconstructed_block_with_mc, 0, 255).astype(np.uint8)
 
         return EncodedBlock((x, y), motion_vector, best_match_mae, quantized_dct_coffs, reconstructed_residual_block, reconstructed_block_with_mc)
 
     # Process all blocks in the frame
     reconstructed_frame_with_mc = np.zeros_like(curr_frame, dtype=np.uint8)
-    residual_frame_with_mc = np.zeros_like(curr_frame, dtype=np.int16)
-    quat_dct_coffs_frame_with_mc = np.zeros_like(curr_frame, dtype=np.int16)
+    residual_frame_with_mc = np.zeros_like(curr_frame, dtype=np.uint8)
+    quat_dct_coffs_frame_with_mc = np.zeros_like(curr_frame, dtype=np.uint8)
 
-    # Collect the results from all blocks
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
         futures = [executor.submit(process_block, y, x) for y in range(0, height, block_size) for x in range(0, width, block_size)]
         for future in concurrent.futures.as_completed(futures):

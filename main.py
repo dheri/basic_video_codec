@@ -1,10 +1,7 @@
-import logging
-
 
 import ex4
 from input_parameters import InputParameters
 from encoder.params import EncoderParameters
-from tests.y_generator import generate_sample_file
 
 
 if __name__ == "__main__":
@@ -12,8 +9,8 @@ if __name__ == "__main__":
     encoder_parameters = EncoderParameters(
         block_size = 8,
         search_range=2,
+        quantization_factor=8,
         i_period=1,
-        quantization_factor=1,
     )
 
     input_params = InputParameters(
@@ -21,7 +18,7 @@ if __name__ == "__main__":
         width  = 352,
         height= 288,
         encoder_parameters= encoder_parameters,
-        frames_to_process = 12
+        frames_to_process = 25
     )
 
     # ex2.main(input_params)
