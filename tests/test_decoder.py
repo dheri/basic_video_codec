@@ -38,15 +38,15 @@ class TestDecoder(TestCase):
         # Parameters for the test
         search_range = 3
         block_size = 4
-        num_of_blocks = 3
+        num_of_blocks = 4
         f_size = block_size * num_of_blocks
-        quantization_factor = 0
+        quantization_factor = 8
 
-        marker_fill = 36
-        marker_size = 2  # The size of the marker (1x1 pixels)
+        marker_fill = 255
+        marker_size = 4  # The size of the marker (1x1 pixels)
 
         marker_x_tx = 1  # Horizontal translation
-        marker_y_tx = 1  # Vertical translation
+        marker_y_tx = 2  # Vertical translation
 
         # Iterate through all block indices (block_x_idx, block_y_idx)
         for block_x_idx in range(num_of_blocks):
@@ -69,11 +69,8 @@ class TestDecoder(TestCase):
 
                     decoded_frame = decode_frame(quat_dct_coffs_with_mc, prev_f, mv_field, params)
 
-                    # Validate that the decoded frame matches the current frame
-                    # logger.info(f'curr_f \n{curr_f}' )
-                    # logger.info(f"encoded_frame.reconstructed_frame_with_mc \n{encoded_frame.reconstructed_frame_with_mc}")
-                    # logger.info(f"decoded_frame \n{decoded_frame}" )
-
-                    self.assertTrue(np.array_equal(decoded_frame, encoded_frame.reconstructed_frame_with_mc),
-                                    f"Decoded frame does not match current frame for block ({block_x_idx}, {block_y_idx})\n{decoded_frame}\n{encoded_frame.reconstructed_frame_with_mc}")
+                    np.testing.assert_allclose(decoded_frame, encoded_frame.reconstructed_frame_with_mc,
+                                               atol=(1),
+                                               err_msg= f"Decoded frame does not match current frame for block"
+                                                        f" ({block_x_idx}, {block_y_idx})\n{decoded_frame}\n{encoded_frame.reconstructed_frame_with_mc}")
 

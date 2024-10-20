@@ -8,14 +8,16 @@ from encoder.params import validate_qp
 
 logger = get_logger()
 
+
 def apply_dct_2d(block):
     """Applies 2D DCT to a block using separable 1D DCT."""
+    block = block.astype(np.float32)
     return dct(dct(block.T, norm='ortho').T, norm='ortho')
 
 def apply_idct_2d(block):
     """Applies 2D Inverse DCT to a block."""
+    block = block.astype(np.float32)
     return idct(idct(block.T, norm='ortho').T, norm='ortho')
-
 
 def generate_quantization_matrix(i, qp):
     """Generates the quantization matrix Q for a given block size i and quantization parameter QP."""

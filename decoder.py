@@ -21,11 +21,11 @@ def find_predicted_block(mv, x, y, prev_frame, block_size):
 
 def decode_frame(quant_dct_coff_frame, prev_frame, mv_frame, input_parameters: InputParameters):
     block_size = input_parameters.encoder_parameters.block_size
-    quantization_factor =  input_parameters.encoder_parameters.quantization_factor
+    quantization_factor = input_parameters.encoder_parameters.quantization_factor
     height, width = input_parameters.height, input_parameters.width
-    decoded_frame = np.zeros_like(prev_frame, dtype=np.int16)  # Use higher precision for intermediate calculations
+    decoded_frame = np.zeros_like(prev_frame, dtype=np.uint8)
 
-    # Generate the quantization matrix Q based on block size and QP
+    # Generate the quantization matrix Q based on block size and quantization factor
     Q = generate_quantization_matrix(block_size, quantization_factor)
 
     for y in range(0, height, block_size):
@@ -60,7 +60,6 @@ def decode(params: InputParameters):
     height = params.height
     width = params.width
     mv_txt_file = file_io.get_mv_file_name()
-    residual_yuv_file = file_io.get_mc_residual_file_name()
     decoded_yuv = file_io.get_mc_decoded_file_name()
 
     frame_size = width * height

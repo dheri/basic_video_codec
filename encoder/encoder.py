@@ -94,6 +94,7 @@ def encode_frame(curr_frame, prev_frame, encoder_params: EncoderParameters):
     mv_field = {}
     mae_of_blocks = 0
 
+    # Function to process each block
     def process_block(y, x):
         curr_block = curr_frame[y:y + block_size, x:x + block_size]
 
@@ -104,7 +105,7 @@ def encode_frame(curr_frame, prev_frame, encoder_params: EncoderParameters):
         prev_partial_frame_y_end_idx = min(y + block_size + search_range, height)
 
         prev_partial_frame = prev_frame[prev_partial_frame_y_start_idx:prev_partial_frame_y_end_idx,
-                                        prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
+                             prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
 
         best_mv_within_search_window, best_match_mae, best_match_block = predict_block(curr_block, prev_partial_frame, block_size)
 
@@ -118,19 +119,20 @@ def encode_frame(curr_frame, prev_frame, encoder_params: EncoderParameters):
         predicted_block_with_mc = prev_frame[y + motion_vector[1]:y + motion_vector[1] + block_size,
                                              x + motion_vector[0]:x + motion_vector[0] + block_size].astype(np.int16)
 
-        # Residuals with motion compensation
-        residual_block_with_mc = np.subtract(curr_block, predicted_block_with_mc).astype(np.int16)
+        # Residuals with motion compensation, ensure they are computed in int16 to avoid wraparound
+        residual_block_with_mc = np.subtract(curr_block.astype(np.int16), predicted_block_with_mc)
 
         # Apply 2D DCT to the residual block
         dct_coffs = apply_dct_2d(residual_block_with_mc)
 
-        # Generate quantization matrix and apply quantization
         Q = generate_quantization_matrix(block_size, quantization_factor)
+
+        # Quantize the DCT coefficients
         quantized_dct_coffs = quantize_block(dct_coffs, Q)
 
-        # Rescale the DCT coefficients and apply inverse DCT to reconstruct the residual block
+        # Rescale and reconstruct the block
         rescaled_dct_coffs = rescale_block(quantized_dct_coffs, Q)
-        reconstructed_residual_block = apply_idct_2d(rescaled_dct_coffs).astype(np.int16)
+        reconstructed_residual_block = apply_idct_2d(rescaled_dct_coffs)
 
         # Reconstruct the block using the predicted block and the reconstructed residual
         reconstructed_block_with_mc = np.round(reconstructed_residual_block + predicted_block_with_mc).astype(np.int16)
@@ -141,9 +143,9 @@ def encode_frame(curr_frame, prev_frame, encoder_params: EncoderParameters):
         return EncodedBlock((x, y), motion_vector, best_match_mae, quantized_dct_coffs, reconstructed_residual_block, reconstructed_block_with_mc)
 
     # Process all blocks in the frame
-    reconstructed_frame_with_mc = np.zeros_like(curr_frame)
-    residual_frame_with_mc = np.zeros_like(curr_frame)
-    quat_dct_coffs_frame_with_mc = np.zeros_like(curr_frame)
+    reconstructed_frame_with_mc = np.zeros_like(curr_frame, dtype=np.uint8)
+    residual_frame_with_mc = np.zeros_like(curr_frame, dtype=np.int16)
+    quat_dct_coffs_frame_with_mc = np.zeros_like(curr_frame, dtype=np.int16)
 
     # Collect the results from all blocks
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
@@ -162,7 +164,6 @@ def encode_frame(curr_frame, prev_frame, encoder_params: EncoderParameters):
 
     avg_mae = mae_of_blocks / num_of_blocks
     return EncodedFrame(mv_field, avg_mae, residual_frame_with_mc, quat_dct_coffs_frame_with_mc, reconstructed_frame_with_mc)
-
 
 def round_to_nearest_multiple(arr, n):
     multiple = 2 ** n
