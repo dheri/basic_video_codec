@@ -1,21 +1,19 @@
-import os
+import logging
 
-import ex1
-import ex2
-import ex3
+
 import ex4
-from input_parameters import InputParameters, EncoderParameters
+from input_parameters import InputParameters
+from encoder.params import EncoderParameters
 from tests.y_generator import generate_sample_file
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
 
     encoder_parameters = EncoderParameters(
         block_size = 8,
         search_range=2,
         i_period=1,
-        qp=0,
-        residual_approx_factor=0
+        quantization_factor=1,
     )
 
     input_params = InputParameters(

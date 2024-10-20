@@ -1,25 +1,20 @@
 import concurrent
+import concurrent.futures
 import csv
-import logging
 import time
 from contextlib import ExitStack
-
-import numpy as np
-import concurrent.futures
 
 from skimage.metrics import peak_signal_noise_ratio
 
 from block_predictor import predict_block
-from common import pad_frame
+from common import pad_frame, get_logger
+from encoder.dct import *
+from encoder.params import EncoderParameters, EncodedFrame, EncodedBlock
 from file_io import write_mv_to_file, write_y_only_frame, FileIOHelper
 from input_parameters import InputParameters
 
-logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-7s [%(filename)s:%(lineno)d] %(message)s',
-    datefmt='%H:%M:%S',
-    level=logging.DEBUG)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
 
+logger = get_logger()
 def encode(params: InputParameters):
     file_io = FileIOHelper(params)
 
@@ -29,6 +24,7 @@ def encode(params: InputParameters):
     with ExitStack() as stack:
         f_in = stack.enter_context(open(params.y_only_file, 'rb'))
         mv_fh = stack.enter_context(open(file_io.get_mv_file_name(), 'wt'))
+        quant_dct_coff_fh =stack.enter_context(open(file_io.get_quant_dct_coff_fh_file_name(), 'wb'))
         residual_yuv_fh = stack.enter_context(open(file_io.get_mc_residual_file_name(), 'wb'))
         reconstructed_fh = stack.enter_context(open(file_io.get_mc_reconstructed_file_name(), 'wb'))
 
@@ -38,7 +34,6 @@ def encode(params: InputParameters):
         width = params.width
         block_size = params.encoder_parameters.block_size
         search_range = params.encoder_parameters.search_range
-        residual_approx_factor = params.encoder_parameters.residual_approx_factor
 
 
         metrics_csv_writer = csv.writer(metrics_csv_fh)
@@ -57,23 +52,22 @@ def encode(params: InputParameters):
 
             # logger.info(f"Frame {frame_index }, Block Size {block_size}x{block_size}, Search Range {search_range}")
             # mv_field, avg_mae, residual, reconstructed_frame, residual_frame = encode_frame(padded_frame, prev_frame, block_size, search_range, residual_approx_factor)
-            encoded_frame = encode_frame(padded_frame, prev_frame, block_size, search_range, residual_approx_factor)
-            mv_field = encoded_frame['mv_field']
-            avg_mae = encoded_frame['avg_mae']
-            reconstructed_with_mc = encoded_frame['reconstructed_frame_with_mc']
-            residual_frame_with_mc = encoded_frame['residual_frame_with_mc']
-            psnr = peak_signal_noise_ratio(padded_frame, reconstructed_with_mc)
+            encoded_frame : EncodedFrame = encode_frame(padded_frame, prev_frame, params.encoder_parameters )
+            mv_field = encoded_frame.mv_field
+            avg_mae = encoded_frame.avg_mae
+            psnr = peak_signal_noise_ratio(padded_frame, encoded_frame.reconstructed_frame_with_mc)
 
 
             logger.info(f"{frame_index:2}: i={block_size} r={search_range}, mae [{round(avg_mae,2):7.2f}] psnr [{round(psnr,2):6.2f}]")
             write_mv_to_file(mv_fh, mv_field)
             # write_to_file(residual_txt_fh, frame_index, residual, True)
-            write_y_only_frame(reconstructed_fh, reconstructed_with_mc)
-            write_y_only_frame(residual_yuv_fh, residual_frame_with_mc)
+            write_y_only_frame(reconstructed_fh, encoded_frame.reconstructed_frame_with_mc)
+            write_y_only_frame(residual_yuv_fh, encoded_frame.residual_frame_with_mc)
+            write_y_only_frame(quant_dct_coff_fh, encoded_frame.quat_dct_coffs_with_mc)
 
 
             metrics_csv_writer.writerow([frame_index, avg_mae, psnr])
-            prev_frame = reconstructed_with_mc
+            prev_frame = encoded_frame.reconstructed_frame_with_mc
 
 
     end_time = time.time()
@@ -89,17 +83,20 @@ def encode(params: InputParameters):
     return
 
 
-def encode_frame(curr_frame, prev_frame, block_size, search_range, residual_approx_factor):
+def encode_frame(curr_frame, prev_frame, encoder_params : EncoderParameters):
+    block_size = encoder_params.block_size
+    search_range = encoder_params.search_range
+    quantization_factor = encoder_params.quantization_factor
+
     if curr_frame.shape != prev_frame.shape:
         raise ValueError("Motion estimation got mismatch in frame shapes")
 
     height, width = curr_frame.shape
     num_of_blocks = (height // block_size) * (width // block_size)
     mv_field = {}
-    # residuals = {}
     mae_of_blocks = 0
 
-    # Function to process each block (for threading)
+    # Function to process each block
     def process_block(y, x):
         curr_block = curr_frame[y:y + block_size, x:x + block_size]
 
@@ -112,13 +109,14 @@ def encode_frame(curr_frame, prev_frame, block_size, search_range, residual_appr
         prev_partial_frame = prev_frame[prev_partial_frame_y_start_idx:prev_partial_frame_y_end_idx,
                              prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
 
-        best_mv_within_search_window, best_match_mae, best_match_block  = predict_block(curr_block, prev_partial_frame, block_size)
+        best_mv_within_search_window, best_match_mae, best_match_block = predict_block(curr_block, prev_partial_frame, block_size)
 
         # Ensure motion vector is calculated relative to the entire frame
         motion_vector = [best_mv_within_search_window[0] + prev_partial_frame_x_start_idx - x,
                          best_mv_within_search_window[1] + prev_partial_frame_y_start_idx - y]
 
         mv_field[(x, y)] = motion_vector
+
         # Generate the predicted block by shifting the previous frame based on the motion vector
         predicted_block_with_mc = prev_frame[y + motion_vector[1]:y + motion_vector[1] + block_size,
                                              x + motion_vector[0]:x + motion_vector[0] + block_size]
@@ -126,32 +124,29 @@ def encode_frame(curr_frame, prev_frame, block_size, search_range, residual_appr
         # Residuals with motion compensation
         residual_block_with_mc = np.subtract(curr_block, predicted_block_with_mc)
 
-        # Residuals without motion compensation (using the same position in previous frame)
-        prev_block_no_mc = prev_frame[y:y + block_size, x:x + block_size]
-        residual_block_without_mc = np.subtract(curr_block, prev_block_no_mc)
+        # Apply 2D DCT to the residual block
+        dct_coffs = apply_dct_2d(residual_block_with_mc)
 
-        # Optionally apply residual approximation to both
-        approx_residual_with_mc = round_to_nearest_multiple(residual_block_with_mc, residual_approx_factor)
-        approx_residual_without_mc = round_to_nearest_multiple(residual_block_without_mc, residual_approx_factor)
+        Q = generate_quantization_matrix(block_size, quantization_factor)
 
-        # Reconstruct the block using both methods
-        reconstructed_block_with_mc = approx_residual_with_mc + predicted_block_with_mc
-        reconstructed_block_without_mc = approx_residual_without_mc + prev_block_no_mc
 
-        return {
-            'block_coords': (x, y),
-            'motion_vector': motion_vector,
-            'mae': best_match_mae,
-            'residual_with_mc': approx_residual_with_mc,
-            'reconstructed_with_mc': reconstructed_block_with_mc,
-            'residual_without_mc': approx_residual_without_mc,
-            'reconstructed_without_mc': reconstructed_block_without_mc,
-        }
+        # Quantize the DCT coefficients
+        quantized_dct_coffs = quantize_block(dct_coffs, Q)
+
+        # For reconstruct frame
+        rescaled_dct_coffs = rescale_block(quantized_dct_coffs, Q)
+        # Apply Inverse DCT to reconstruct the residual block
+        reconstructed_residual_block = apply_idct_2d(rescaled_dct_coffs)
+
+
+        # Reconstruct the block using the predicted block and the reconstructed residual
+        reconstructed_block_with_mc = np.round(reconstructed_residual_block + predicted_block_with_mc).astype(np.uint8)
+        return EncodedBlock((x,y), motion_vector,best_match_mae, quantized_dct_coffs, reconstructed_residual_block, reconstructed_block_with_mc)
+
 
     reconstructed_frame_with_mc = np.zeros_like(curr_frame)
-    reconstructed_frame_without_mc = np.zeros_like(curr_frame)
     residual_frame_with_mc = np.zeros_like(curr_frame)
-    residual_frame_without_mc = np.zeros_like(curr_frame)
+    quat_dct_coffs_frame_with_mc = np.zeros_like(curr_frame)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
         futures = []
@@ -161,35 +156,22 @@ def encode_frame(curr_frame, prev_frame, block_size, search_range, residual_appr
 
         # Collect the results as they complete
         for future in concurrent.futures.as_completed(futures):
-            block_data = future.result()
-            block_cords  = block_data['block_coords']
+            encoded_block : EncodedBlock = future.result()
+            block_cords = encoded_block.block_coords
             x = block_cords[0]
             y = block_cords[1]
-            mv =  block_data['motion_vector']
-
 
             # Update reconstructed and residual frames
-            reconstructed_frame_with_mc[y:y + block_size, x:x + block_size] = block_data['reconstructed_with_mc']
-            reconstructed_frame_without_mc[y:y + block_size, x:x + block_size] = block_data['reconstructed_without_mc']
+            reconstructed_frame_with_mc[y:y + block_size, x:x + block_size] = encoded_block.reconstructed_block_with_mc
+            residual_frame_with_mc[y:y + block_size, x:x + block_size] = encoded_block.reconstructed_residual_block
+            quat_dct_coffs_frame_with_mc[y:y + block_size, x:x + block_size] = encoded_block.quantized_dct_coffs
 
-            residual_frame_with_mc[y:y + block_size, x:x + block_size] = block_data['residual_with_mc']
-            residual_frame_without_mc[y:y + block_size, x:x + block_size] = block_data['residual_without_mc']
+            mv_field[block_cords] = encoded_block.motion_vector
+            mae_of_blocks += encoded_block.mae
 
+    avg_mae = mae_of_blocks / num_of_blocks
+    return EncodedFrame(mv_field, avg_mae, residual_frame_with_mc, quat_dct_coffs_frame_with_mc, reconstructed_frame_with_mc)
 
-            mv_field[block_cords] = mv
-            # residuals[block_cords] = mc_residual_b
-            mae_of_blocks += block_data['mae']
-
-    avg_mae = mae_of_blocks /num_of_blocks
-    # return mv_field, avg_mae, residuals, reconstructed_frame, residual_frame
-    return {
-        'mv_field': mv_field,
-        'avg_mae': avg_mae,
-        'residual_frame_with_mc': residual_frame_with_mc,
-        'residual_frame_without_mc': residual_frame_without_mc,
-        'reconstructed_frame_with_mc': reconstructed_frame_with_mc,
-        'reconstructed_frame_without_mc': reconstructed_frame_without_mc,
-    }
 
 
 def round_to_nearest_multiple(arr, n):

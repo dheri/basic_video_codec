@@ -1,7 +1,14 @@
+import logging
 import os
 
 import numpy as np
 
+def get_logger():
+    logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-7s [%(filename)s:%(lineno)d] %(message)s',
+                        datefmt='%H:%M:%S', )
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    return logger
 
 def calculate_num_frames(file_path, width, height):
     file_size = os.path.getsize(file_path)

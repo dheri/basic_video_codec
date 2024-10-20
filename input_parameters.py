@@ -1,13 +1,8 @@
-class EncoderParameters:
-    def __init__(self, block_size, search_range, i_period, qp, residual_approx_factor=0 ):
-        self.block_size = block_size
-        self.search_range = search_range
-        self.i_period = i_period
-        self.qp = qp
-        self.residual_approx_factor = residual_approx_factor
+from encoder.params import EncoderParameters
+
 
 class InputParameters:
-    def __init__(self, y_only_file, width, height, frames_to_process, encoder_parameters: EncoderParameters, yuv_file=None):
+    def __init__(self, y_only_file, width, height, encoder_parameters: EncoderParameters, frames_to_process=12, yuv_file=None):
         self.yuv_file = yuv_file
         self.y_only_file = y_only_file
         self.width = width

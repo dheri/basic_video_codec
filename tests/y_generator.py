@@ -1,5 +1,19 @@
 import numpy as np
 
+def generate_marked_frame(f_size, block_size, block_x_idx, block_y_idx, marker_size, marker_fill):
+    # Determine marker's initial position within the current block
+
+    marker_x_start = block_size * block_x_idx + 0
+    marker_y_start = block_size * block_y_idx  + 0
+
+    prev_f = np.zeros((f_size, f_size), dtype=np.uint8)
+
+    prev_f[marker_y_start:marker_y_start + marker_size,
+    marker_x_start:marker_x_start + marker_size] = np.full(
+        (marker_size, marker_size), marker_fill)
+
+    return prev_f
+
 def generate_circle_quadrant(width, height):
     """Generates a smooth gradient circle quadrant with a radial fade, placed in the top-right corner."""
     radius = int(width / 3)  # Radius is 1/3 of the width

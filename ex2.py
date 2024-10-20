@@ -3,18 +3,10 @@ import numpy as np
 from matplotlib import pyplot as plt
 from skimage.metrics import peak_signal_noise_ratio as psnr, structural_similarity as ssim
 
-import file_io
 from common import calculate_num_frames, pad_frame, split_into_blocks
-
-import logging
-
 from file_io import FileIOHelper
 from input_parameters import InputParameters
-
-logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-7s [%(filename)s:%(lineno)d] %(message)s',
-    datefmt='%H:%M:%S',
-    level=logging.DEBUG)
-logger = logging.getLogger(__name__)
+from main import logger
 
 
 # Function to read YUV420 frames and return only Y-plane

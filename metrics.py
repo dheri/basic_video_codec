@@ -35,7 +35,7 @@ def plot_metrics(params: InputParameters):
     plt.plot(frame_numbers, psnr_values, marker='x', linestyle='--', color='r', label='PSNR')
 
     # Adding title and labels
-    plt.title(f'MAE and PSNR per Frame, i = {params.block_size}, r = {params.search_range}, n = {params.residual_approx_factor}')
+    plt.title(f'MAE and PSNR per Frame, i = {params.encoder_parameters.block_size}, r = {params.encoder_parameters.search_range}, n = {params.encoder_parameters.residual_approx_factor}')
     plt.xlabel('Frame Number')
     plt.ylabel('Metric Value')
 
