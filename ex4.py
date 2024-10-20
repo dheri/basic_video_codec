@@ -5,6 +5,6 @@ from metrics import plot_metrics
 
 
 def main(params: InputParameters):
-    encode(params)
-    plot_metrics(params)
+    # encode(params)
+    # plot_metrics(params)
     decode(params)

@@ -60,7 +60,7 @@ def encode(params: InputParameters):
             psnr = peak_signal_noise_ratio(padded_frame, encoded_frame.reconstructed_frame_with_mc)
 
 
-            logger.info(f"{frame_index:2}: i={block_size} r={search_range}, mae [{round(avg_mae,2):7.2f}] psnr [{round(psnr,2):6.2f}]")
+            logger.info(f"{frame_index:2}: i={block_size} r={search_range}, mae [{round(avg_mae,2):7.2f}] psnr [{round(psnr,2):6.2f}], quantized_dct_range: [{encoded_frame.get_quat_dct_coffs_extremes()}]")
             write_mv_to_file(mv_fh, mv_field)
             write_y_only_frame(reconstructed_fh, encoded_frame.reconstructed_frame_with_mc)
             write_y_only_frame(residual_yuv_fh, encoded_frame.residual_frame_with_mc)
@@ -134,7 +134,7 @@ def encode_frame(curr_frame, prev_frame, encoder_params: EncoderParameters):
 
         # logger.info(f'min/max: [ {np.min(quantized_dct_coffs)} / {np.max(quantized_dct_coffs)}]')
 
-        quantized_dct_coffs = np.clip(quantized_dct_coffs, -128, 127).astype(np.int8)
+        # quantized_dct_coffs = np.clip(quantized_dct_coffs, -128, 127).astype(np.int8)
         # Rescale and apply inverse DCT
         rescaled_dct_coffs = rescale_block(quantized_dct_coffs, Q)
         idct_residual_block = apply_idct_2d(rescaled_dct_coffs)
@@ -151,7 +151,7 @@ def encode_frame(curr_frame, prev_frame, encoder_params: EncoderParameters):
     # Process all blocks in the frame
     reconstructed_frame_with_mc = np.zeros_like(curr_frame, dtype=np.uint8)
     residual_frame_with_mc = np.zeros_like(curr_frame, dtype=np.int8)
-    quat_dct_coffs_frame_with_mc = np.zeros_like(curr_frame, dtype=np.int8)
+    quat_dct_coffs_frame_with_mc = np.zeros_like(curr_frame, dtype=np.int16)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
         futures = [executor.submit(process_block, y, x) for y in range(0, height, block_size) for x in range(0, width, block_size)]

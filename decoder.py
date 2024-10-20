@@ -7,6 +7,7 @@ from encoder.dct import generate_quantization_matrix, rescale_block, apply_idct_
 from file_io import write_y_only_frame, FileIOHelper
 from input_parameters import InputParameters
 from motion_vector import parse_mv
+from skimage.metrics import peak_signal_noise_ratio
 
 logger = get_logger()
 def find_predicted_block(mv, x, y, prev_frame, block_size):
@@ -71,21 +72,31 @@ def decode(params: InputParameters):
 
     with ExitStack() as stack:
         quant_dct_coff_fh = stack.enter_context(open(file_io.get_quant_dct_coff_fh_file_name(), 'rb'))
+        reconstructed_file_fh = stack.enter_context(open(file_io.get_mc_reconstructed_file_name(), 'rb'))
         mv_txt_fh = stack.enter_context(open(mv_txt_file, 'rt'))
         decoded_fh = stack.enter_context(open(decoded_yuv, 'wb'))
 
         frame_index = 0
         while True:
             frame_index += 1
-            quant_dct_coff = quant_dct_coff_fh.read(frame_size)
+            quant_dct_coff = quant_dct_coff_fh.read(frame_size*2) # quant_dct_coff are stored as int16. i.e. 2bytes
             mv_txt =  mv_txt_fh.readline()
             if not quant_dct_coff or frame_index > frames_to_process or not mv_txt:
                 break  # End of file or end of frames
             logger.debug(f"Decoding frame {frame_index}/{frames_to_process}")
-            quant_dct_coff_frame = np.frombuffer(quant_dct_coff, dtype=np.uint8).reshape((height, width))
+            quant_dct_coff_frame = np.frombuffer(quant_dct_coff, dtype=np.int16)
+            quant_dct_coff_frame = quant_dct_coff_frame.reshape((height, width))
+
             mv = parse_mv(mv_txt)
 
             decoded_frame = decode_frame(quant_dct_coff_frame, prev_frame, mv, params)
+
+            reconstructed_frame= np.frombuffer(reconstructed_file_fh.read(frame_size), dtype=np.uint8).reshape((height, width))
+            psnr = peak_signal_noise_ratio(decoded_frame, reconstructed_frame)
+
+            logger.info(f"{frame_index:2}: psnr [{round(psnr,2):6.2f}]")
+
+
             write_y_only_frame(decoded_fh, decoded_frame)
 
             prev_frame = decoded_frame

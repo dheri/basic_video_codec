@@ -1,5 +1,7 @@
 import math
 
+import numpy as np
+
 
 class EncoderParameters:
     def __init__(self, block_size, search_range, i_period, quantization_factor):
@@ -23,6 +25,16 @@ class EncodedFrame:
         self.residual_frame_with_mc = residual_frame_with_mc
         self.quat_dct_coffs_with_mc = quat_dct_coffs_with_mc
         self.reconstructed_frame_with_mc = reconstructed_frame_with_mc
+
+    def get_quat_dct_coffs_extremes(self):
+        # Ensure quat_dct_coffs_with_mc is a numpy array to use numpy's min/max
+        if isinstance(self.quat_dct_coffs_with_mc, np.ndarray):
+            min_value = np.min(self.quat_dct_coffs_with_mc)
+            max_value = np.max(self.quat_dct_coffs_with_mc)
+            return [min_value, max_value]
+        else:
+            raise TypeError("quat_dct_coffs_with_mc must be a numpy array")
+
 
 class EncodedBlock:
     def __init__(self, block_coords, motion_vector, mae, quantized_dct_coffs, reconstructed_residual_block, reconstructed_block_with_mc ):
