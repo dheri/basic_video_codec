@@ -4,9 +4,8 @@ import numpy as np
 
 from decoder import logger
 from common import find_predicted_block
-from encoder.PFrame import decode_p_frame
+from encoder.PFrame import decode_p_frame, PFrame
 from encoder.params import EncoderConfig
-from encoder.EncodedPFrame import PFrame, encode_p_frame
 from input_parameters import InputParameters
 from tests.y_generator import generate_marked_frame
 
@@ -64,15 +63,16 @@ class TestDecoder(TestCase):
                     curr_f = np.roll(curr_f, 1 * marker_y_tx, axis=0)  # Vertical shift
 
                     # Encode the frame to get motion vectors, residuals, and reconstructed frame
-                    encoded_frame : PFrame = encode_p_frame(curr_f, prev_f, encoder_parameters)
+                    p_frame = PFrame(curr_f, prev_f)
+                    encoded_frame = p_frame.encode(encoder_parameters)
                     mv_field = encoded_frame.mv_field
-                    residuals_with_mc = encoded_frame.residual_frame_with_mc
-                    quat_dct_coffs_with_mc = encoded_frame.quat_dct_coffs_with_mc
+                    residuals_with_mc = encoded_frame.residual_frame
+                    quat_dct_coffs_with_mc = encoded_frame.quantized_dct_residual_frame
 
-                    decoded_frame = decode_p_frame(quat_dct_coffs_with_mc, prev_f, mv_field, params)
+                    decoded_frame = decode_p_frame(quat_dct_coffs_with_mc, prev_f, mv_field, encoder_parameters)
 
-                    np.testing.assert_allclose(decoded_frame, encoded_frame.reconstructed_frame_with_mc,
+                    np.testing.assert_allclose(decoded_frame, encoded_frame.reconstructed_frame,
                                                atol=(2),
                                                err_msg= f"Decoded frame does not match reconstructed_frame_with_mc"
-                                                        f" ({block_x_idx}, {block_y_idx})\n{decoded_frame}\n{encoded_frame.reconstructed_frame_with_mc}")
+                                                        f" ({block_x_idx}, {block_y_idx})\n{decoded_frame}\n{encoded_frame.reconstructed_frame}")
 

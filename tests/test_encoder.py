@@ -2,9 +2,9 @@ from unittest import TestCase
 
 import numpy as np
 
+from encoder.PFrame import PFrame
 from encoder.block_predictor import predict_block
 from encoder.params import EncoderConfig
-from encoder.EncodedPFrame import PFrame, encode_p_frame
 
 
 class TestEncoder(TestCase):
@@ -62,12 +62,14 @@ class TestEncoder(TestCase):
 
         # mv_field, avg_mae, residuals, reconstructed_frame, residual_frame
         # print(mv_field)
-        encoder_params = EncoderConfig(block_size, search_range, i_period=8, quantization_factor=0)
-        encoded_frame: PFrame = encode_p_frame(curr_f, prev_f, encoder_params)
+        encoder_params = EncoderConfig(block_size, search_range, I_Period=8, quantization_factor=0)
+        p_frame = PFrame(curr_f, prev_f)
+        encoded_frame = p_frame.encode(encoder_params)
+
 
         mv_field = encoded_frame.mv_field
         avg_mae = encoded_frame.avg_mae
-        reconstructed_with_mc = encoded_frame.reconstructed_frame_with_mc
+        reconstructed_with_mc = encoded_frame.reconstructed_frame
 
         # Test the motion vector for the block that was rolled by (2, 2)
         self.assertIn((block_size, block_size), mv_field)  # Check if block at (8, 8) has a motion vector
@@ -113,11 +115,12 @@ class TestEncoder(TestCase):
                     curr_f = np.roll(curr_f, -1 * marker_y_tx, axis=0)  # Vertical shift
 
                     # Perform motion estimation with encode_frame
-                    encoder_params = EncoderConfig(block_size, search_range, i_period=8, quantization_factor=0)
-                    encoded_frame : PFrame = encode_p_frame(curr_f, prev_f, encoder_params)
+                    encoder_params = EncoderConfig(block_size, search_range, I_Period=8, quantization_factor=0)
+                    p_frame = PFrame(curr_f, prev_f)
+                    encoded_frame = p_frame.encode(encoder_params)
                     mv_field = encoded_frame.mv_field
                     avg_mae = encoded_frame.avg_mae
-                    reconstructed_with_mc = encoded_frame.reconstructed_frame_with_mc
+                    reconstructed_with_mc = encoded_frame.reconstructed_frame
 
                     # Validate the motion vector for the current block
                     block_coords = (block_size * block_x_idx, block_size * block_y_idx)
@@ -178,13 +181,15 @@ class TestEncoder(TestCase):
 
 
                     # Perform motion estimation with encode_frame
-                    encoder_params = EncoderConfig(block_size, search_range, i_period=8, quantization_factor=0)
-                    encoded_frame : PFrame = encode_p_frame(curr_f, prev_f, encoder_params)
+                    encoder_params = EncoderConfig(block_size, search_range, I_Period=8, quantization_factor=0)
+                    p_frame = PFrame(curr_f, prev_f)
+                    encoded_frame = p_frame.encode(encoder_params)
+
 
                     mv_field = encoded_frame.mv_field
                     avg_mae = encoded_frame.avg_mae
-                    reconstructed_with_mc = encoded_frame.reconstructed_frame_with_mc
-                    residual_frame_with_mc = encoded_frame.residual_frame_with_mc
+                    reconstructed_with_mc = encoded_frame.reconstructed_frame
+                    residual_frame_with_mc = encoded_frame.residual_frame
 
                     # Validate the motion vector for the current block
                     block_coords = (block_size * block_x_idx, block_size * block_y_idx)
