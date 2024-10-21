@@ -2,9 +2,11 @@ from unittest import TestCase
 
 import numpy as np
 
-from decoder import decode_frame, find_predicted_block, logger
-from encoder.encoder import encode_frame
-from encoder.params import EncoderParameters, EncodedFrame
+from decoder import logger
+from common import find_predicted_block
+from encoder.PFrame import decode_p_frame
+from encoder.params import EncoderConfig
+from encoder.EncodedPFrame import PFrame, encode_p_frame
 from input_parameters import InputParameters
 from tests.y_generator import generate_marked_frame
 
@@ -52,9 +54,9 @@ class TestDecoder(TestCase):
         for block_x_idx in range(num_of_blocks):
             for block_y_idx in range(num_of_blocks):
                 with self.subTest(block_x=block_x_idx, block_y=block_y_idx):
-                    encoder_parameters = EncoderParameters(block_size, search_range, 0, quantization_factor)
+                    encoder_parameters = EncoderConfig(block_size, search_range, 0, quantization_factor)
                     params = InputParameters(y_only_file=None, width=f_size, height=f_size,
-                                             encoder_parameters=encoder_parameters)
+                                             encoder_config=encoder_parameters)
 
                     prev_f = generate_marked_frame(f_size, block_size, block_x_idx, block_y_idx, marker_size, marker_fill)
                     # Create the current frame by shifting the previous frame
@@ -62,12 +64,12 @@ class TestDecoder(TestCase):
                     curr_f = np.roll(curr_f, 1 * marker_y_tx, axis=0)  # Vertical shift
 
                     # Encode the frame to get motion vectors, residuals, and reconstructed frame
-                    encoded_frame : EncodedFrame = encode_frame(curr_f, prev_f,encoder_parameters)
+                    encoded_frame : PFrame = encode_p_frame(curr_f, prev_f, encoder_parameters)
                     mv_field = encoded_frame.mv_field
                     residuals_with_mc = encoded_frame.residual_frame_with_mc
                     quat_dct_coffs_with_mc = encoded_frame.quat_dct_coffs_with_mc
 
-                    decoded_frame = decode_frame(quat_dct_coffs_with_mc, prev_f, mv_field, params)
+                    decoded_frame = decode_p_frame(quat_dct_coffs_with_mc, prev_f, mv_field, params)
 
                     np.testing.assert_allclose(decoded_frame, encoded_frame.reconstructed_frame_with_mc,
                                                atol=(2),

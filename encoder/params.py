@@ -3,13 +3,13 @@ import math
 import numpy as np
 
 
-class EncoderParameters:
-    def __init__(self, block_size, search_range, i_period, quantization_factor):
+class EncoderConfig:
+    def __init__(self, block_size, search_range, I_Period , quantization_factor):
         validate_qp(block_size, quantization_factor)
         self.block_size = block_size
         self.search_range = search_range
-        self.i_period = i_period
         self.quantization_factor = quantization_factor
+        self.I_Period = I_Period
         self.residual_approx_factor = 0
 
 
@@ -18,22 +18,22 @@ def validate_qp(i,qp):
     if qp > (math.log2(i) + 7):
         raise ValueError(f" qp [{qp}] > {(math.log2(i) + 7)}")
 
-class EncodedFrame:
-    def __init__(self, mv_field, avg_mae, residual_frame_with_mc, quat_dct_coffs_with_mc, reconstructed_frame_with_mc):
-        self.mv_field = mv_field
-        self.avg_mae = avg_mae
-        self.residual_frame_with_mc = residual_frame_with_mc
-        self.quat_dct_coffs_with_mc = quat_dct_coffs_with_mc
-        self.reconstructed_frame_with_mc = reconstructed_frame_with_mc
-
-    def get_quat_dct_coffs_extremes(self):
-        # Ensure quat_dct_coffs_with_mc is a numpy array to use numpy's min/max
-        if isinstance(self.quat_dct_coffs_with_mc, np.ndarray):
-            min_value = np.min(self.quat_dct_coffs_with_mc)
-            max_value = np.max(self.quat_dct_coffs_with_mc)
-            return [min_value, max_value]
-        else:
-            raise TypeError("quat_dct_coffs_with_mc must be a numpy array")
+# class EncodedPFrame:
+#     def __init__(self, mv_field, avg_mae, residual_frame_with_mc, quat_dct_coffs_with_mc, reconstructed_frame_with_mc):
+#         self.mv_field = mv_field
+#         self.avg_mae = avg_mae
+#         self.residual_frame_with_mc = residual_frame_with_mc
+#         self.quat_dct_coffs_with_mc = quat_dct_coffs_with_mc
+#         self.reconstructed_frame_with_mc = reconstructed_frame_with_mc
+#
+#     def get_quat_dct_coffs_extremes(self):
+#         # Ensure quat_dct_coffs_with_mc is a numpy array to use numpy's min/max
+#         if isinstance(self.quat_dct_coffs_with_mc, np.ndarray):
+#             min_value = np.min(self.quat_dct_coffs_with_mc)
+#             max_value = np.max(self.quat_dct_coffs_with_mc)
+#             return [min_value, max_value]
+#         else:
+#             raise TypeError("quat_dct_coffs_with_mc must be a numpy array")
 
 
 class EncodedBlock:

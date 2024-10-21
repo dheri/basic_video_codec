@@ -1,11 +1,10 @@
 from unittest import TestCase
 
 import numpy as np
-from fontTools.unicodedata import block
 
-from block_predictor import predict_block
-from encoder.encoder import encode, encode_frame
-from encoder.params import EncodedFrame, EncoderParameters
+from encoder.block_predictor import predict_block
+from encoder.params import EncoderConfig
+from encoder.EncodedPFrame import PFrame, encode_p_frame
 
 
 class TestEncoder(TestCase):
@@ -63,8 +62,8 @@ class TestEncoder(TestCase):
 
         # mv_field, avg_mae, residuals, reconstructed_frame, residual_frame
         # print(mv_field)
-        encoder_params = EncoderParameters(block_size, search_range, i_period=8, quantization_factor=0)
-        encoded_frame: EncodedFrame = encode_frame(curr_f, prev_f, encoder_params)
+        encoder_params = EncoderConfig(block_size, search_range, i_period=8, quantization_factor=0)
+        encoded_frame: PFrame = encode_p_frame(curr_f, prev_f, encoder_params)
 
         mv_field = encoded_frame.mv_field
         avg_mae = encoded_frame.avg_mae
@@ -114,8 +113,8 @@ class TestEncoder(TestCase):
                     curr_f = np.roll(curr_f, -1 * marker_y_tx, axis=0)  # Vertical shift
 
                     # Perform motion estimation with encode_frame
-                    encoder_params = EncoderParameters(block_size,search_range,i_period=8, quantization_factor=0)
-                    encoded_frame : EncodedFrame = encode_frame(curr_f, prev_f, encoder_params)
+                    encoder_params = EncoderConfig(block_size, search_range, i_period=8, quantization_factor=0)
+                    encoded_frame : PFrame = encode_p_frame(curr_f, prev_f, encoder_params)
                     mv_field = encoded_frame.mv_field
                     avg_mae = encoded_frame.avg_mae
                     reconstructed_with_mc = encoded_frame.reconstructed_frame_with_mc
@@ -179,8 +178,8 @@ class TestEncoder(TestCase):
 
 
                     # Perform motion estimation with encode_frame
-                    encoder_params = EncoderParameters(block_size,search_range,i_period=8, quantization_factor=0)
-                    encoded_frame : EncodedFrame = encode_frame(curr_f, prev_f, encoder_params)
+                    encoder_params = EncoderConfig(block_size, search_range, i_period=8, quantization_factor=0)
+                    encoded_frame : PFrame = encode_p_frame(curr_f, prev_f, encoder_params)
 
                     mv_field = encoded_frame.mv_field
                     avg_mae = encoded_frame.avg_mae

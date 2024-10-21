@@ -3,59 +3,14 @@ from contextlib import ExitStack
 import numpy as np
 
 from common import get_logger
-from encoder.dct import generate_quantization_matrix, rescale_block, apply_idct_2d
+from encoder.IFrame import IFrame
+from encoder.PFrame import decode_p_frame, PFrame
 from file_io import write_y_only_frame, FileIOHelper
 from input_parameters import InputParameters
 from motion_vector import parse_mv
 from skimage.metrics import peak_signal_noise_ratio
 
 logger = get_logger()
-def find_predicted_block(mv, x, y, prev_frame, block_size):
-    # Calculate the predicted block coordinates
-    pred_x = x + mv[0]
-    pred_y = y + mv[1]
-
-    # Clip the coordinates to ensure they are within bounds
-    # pred_x = np.clip(pred_x, 0, prev_frame.shape[1] - block_size)
-    # pred_y = np.clip(pred_y, 0, prev_frame.shape[0] - block_size)
-
-    predicted_block = prev_frame[pred_y:pred_y + block_size, pred_x:pred_x + block_size]
-    return predicted_block
-
-
-def decode_frame(quant_dct_coff_frame, prev_frame, mv_frame, input_parameters: InputParameters):
-    block_size = input_parameters.encoder_parameters.block_size
-    quantization_factor = input_parameters.encoder_parameters.quantization_factor
-    height, width = input_parameters.height, input_parameters.width
-    decoded_frame = np.zeros_like(prev_frame, dtype=np.uint8)
-
-    # Generate the quantization matrix Q based on block size and quantization factor
-    Q = generate_quantization_matrix(block_size, quantization_factor)
-
-    for y in range(0, height, block_size):
-        for x in range(0, width, block_size):
-            # Get the quantized residual block
-            dct_coffs_block = quant_dct_coff_frame[y:y + block_size, x:x + block_size]
-
-            # Rescale the residual block by multiplying by Q
-            rescaled_dct_coffs_block = rescale_block(dct_coffs_block, Q)
-
-            # Apply inverse DCT to the rescaled residual block
-            idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block)
-
-            # Get the predicted block using the motion vector
-            predicted_b = find_predicted_block(mv_frame[(x, y)], x, y, prev_frame, block_size).astype(np.int16)
-
-            # Reconstruct the block by adding the predicted block and the rescaled residual
-            decoded_block = np.round(idct_residual_block + predicted_b).astype(np.int16)
-
-            # Clip values to avoid overflow/underflow and convert back to uint8
-            decoded_block = np.clip(decoded_block, 0, 255).astype(np.uint8)
-
-            # Place the reconstructed block in the decoded frame
-            decoded_frame[y:y + block_size, x:x + block_size] = decoded_block
-
-    return decoded_frame
 
 
 def decode(params: InputParameters):
@@ -89,7 +44,13 @@ def decode(params: InputParameters):
 
             mv = parse_mv(mv_txt)
 
-            decoded_frame = decode_frame(quant_dct_coff_frame, prev_frame, mv, params)
+            if False and frame_index % params.encoder_config.I_Period == 0:
+                frame = IFrame()
+            else:
+                frame = PFrame()
+                frame.quat_dct_coffs_frame_with_mc = quant_dct_coff_frame
+
+            decoded_frame = decode_p_frame(quant_dct_coff_frame, prev_frame, mv, params.encoder_config)
 
             reconstructed_frame= np.frombuffer(reconstructed_file_fh.read(frame_size), dtype=np.uint8).reshape((height, width))
             psnr = peak_signal_noise_ratio(decoded_frame, reconstructed_frame)

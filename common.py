@@ -3,6 +3,7 @@ import os
 
 import numpy as np
 
+
 def get_logger():
     logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-7s [%(filename)s:%(lineno)d] %(message)s',
                         datefmt='%H:%M:%S', )
@@ -36,3 +37,22 @@ def split_into_blocks(frame, block_size):
 def mae(block1, block2):
     """Compute Mean Absolute Error between two blocks."""
     return np.mean(np.abs(block1 - block2))
+
+
+def generate_residual_block(curr_block, prev_frame, motion_vector, x, y, block_size):
+    predicted_block_with_mc = find_predicted_block(motion_vector, x, y, prev_frame, block_size).astype(np.int16)
+    residual_block_with_mc = np.subtract(curr_block, predicted_block_with_mc)
+    return predicted_block_with_mc, residual_block_with_mc
+
+
+def find_predicted_block(mv, x, y, prev_frame, block_size):
+    # Calculate the predicted block coordinates
+    pred_x = x + mv[0]
+    pred_y = y + mv[1]
+
+    # Clip the coordinates to ensure they are within bounds
+    # pred_x = np.clip(pred_x, 0, prev_frame.shape[1] - block_size)
+    # pred_y = np.clip(pred_y, 0, prev_frame.shape[0] - block_size)
+
+    predicted_block = prev_frame[pred_y:pred_y + block_size, pred_x:pred_x + block_size]
+    return predicted_block
