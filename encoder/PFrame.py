@@ -120,6 +120,7 @@ class PFrame(Frame):
         dct_coffs_extremes = self.get_quat_dct_coffs_extremes()
         logger.info(
             f"{frame_index:2}: i={encoder_config.block_size} r={encoder_config.search_range}, qp={encoder_config.quantization_factor}, , mae [{round(self.avg_mae, 2):7.2f}] psnr [{round(psnr, 2):6.2f}], q_dct_range: [{dct_coffs_extremes[0]:4}, {dct_coffs_extremes[1]:3}]")
+        metrics_csv_writer.writerow([frame_index, self.avg_mae, psnr])
 
     def write_encoded_to_file(self, mv_fh, quant_dct_coff_fh,residual_yuv_fh , reconstructed_fh):
         write_mv_to_file(mv_fh, self.mv_field)
