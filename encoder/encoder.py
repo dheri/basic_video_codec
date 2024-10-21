@@ -5,11 +5,9 @@ from contextlib import ExitStack
 from skimage.metrics import peak_signal_noise_ratio
 
 from common import pad_frame
-from encoder.Frame import Frame
 from encoder.IFrame import IFrame
 from encoder.PFrame import PFrame
 from encoder.dct import *
-from encoder.encode_i_frame import encode_i_frame
 from file_io import write_mv_to_file, write_y_only_frame, FileIOHelper
 from input_parameters import InputParameters
 
@@ -50,17 +48,14 @@ def encode(params: InputParameters):
             padded__frame = pad_frame(y_plane, block_size)
 
             if frame_index % params.encoder_config.I_Period == 0:
-                # frame = IFrame(padded__frame)
-                frame = PFrame(padded__frame, prev_frame)
-
+                frame = IFrame(padded__frame)
             else:
                 frame = PFrame(padded__frame, prev_frame)
 
             frame.encode(params.encoder_config)
             frame.write_metrics_data(metrics_csv_writer, frame_index, params.encoder_config)
             frame.write_encoded_to_file(mv_fh, quant_dct_coff_fh,residual_yuv_fh , reconstructed_fh)
-
-            prev_frame = frame.reconstructed_frame_with_mc
+            prev_frame = frame.reconstructed_frame
 
 
     end_time = time.time()

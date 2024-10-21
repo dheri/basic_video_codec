@@ -1,8 +1,10 @@
 from enum import Enum
+from typing import Optional
 
-from encoder.encode_i_frame import encode_i_frame
+import numpy as np
+
+from encoder.byte_stream_buffer import BitStreamBuffer
 from encoder.params import EncoderConfig
-from file_io import FileIOHelper
 
 
 class PredictionMode(Enum):
@@ -13,19 +15,21 @@ class PredictionMode(Enum):
 class FrameHeader:
     """Class to handle frame header information such as frame type and size."""
     def __init__(self, frame_type: PredictionMode, size: int):
-        self.frame_type = frame_type
+
         self.size = size
 
-    def __str__(self):
-        return f"FrameHeader(Type: {self.frame_type.name}, Size: {self.size})"
 
 
 class Frame:
-    def __init__(self, curr_frame, prev_frame=None, ):
+    def __init__(self, curr_frame=None, prev_frame=None, ):
+        self.bitstream_buffer : Optional[BitStreamBuffer] = None
         self.prev_frame = prev_frame
         self.curr_frame = curr_frame
-        self.mode = PredictionMode.INTER_FRAME if prev_frame is not None else PredictionMode.INTRA_FRAME
-        self.header = None
+        self.prediction_mode: PredictionMode = PredictionMode.INTER_FRAME
+        self.residual_frame = None
+        self.quantized_dct_residual_frame = None
+        self.reconstructed_frame = None
+        self.avg_mae = None
 
     def encode(self, encoder_config: EncoderConfig):
         raise NotImplementedError(f"{type(self)} need to be overridden")
@@ -39,6 +43,38 @@ class Frame:
     def write_encoded_to_file(self, mv_fh, quant_dct_coff_fh,residual_yuv_fh , reconstructed_fh):
         pass
 
-    def read_from_file(self):
+    def pre_entropy_encoded_frame_bit_stream(self) -> BitStreamBuffer:
+        self.bitstream_buffer = BitStreamBuffer()
+        self.bitstream_buffer.write_bit(self.prediction_mode.value)
+        if self.quantized_dct_residual_frame is not None:
+            self.bitstream_buffer.write_quantized_coeffs(self.quantized_dct_residual_frame)
+        else:
+            raise ValueError("Illegal operation: quantized_dct_residual_frame is None")
+
+
+        return self.bitstream_buffer
+
+    def read_entropy_encoded_frame_bit_stream(self) -> BitStreamBuffer:
         pass
+
+    def encoded_frame_data_length(self):
+        length = 0
+        # for  self.prediction_mode.value
+        length += 1
+
+        # for  self.prediction_mode.value
+        length += self.quantized_dct_residual_frame.size * 16
+
+        # padding
+        length += 8 - (length % 8)
+        return length
+
+    def get_quat_dct_coffs_extremes(self):
+        # Ensure quat_dct_coffs_with_mc is a numpy array to use numpy's min/max
+        if isinstance(self.quantized_dct_residual_frame, np.ndarray):
+            min_value = np.min(self.quantized_dct_residual_frame)
+            max_value = np.max(self.quantized_dct_residual_frame)
+            return [min_value, max_value]
+        else:
+            raise TypeError("quantized_dct_residual_frame must be a numpy array")
 
