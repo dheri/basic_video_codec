@@ -49,7 +49,9 @@ def encode_video(params: InputParameters):
             padded__frame = pad_frame(y_plane, block_size)
 
             if (frame_index -1)  % params.encoder_config.I_Period == 0:
-                frame = IFrame(padded__frame)
+                # frame = IFrame(padded__frame)
+                frame = PFrame(padded__frame, prev_frame)
+
             else:
                 frame = PFrame(padded__frame, prev_frame)
 
@@ -58,7 +60,7 @@ def encode_video(params: InputParameters):
 
             frame.write_metrics_data(metrics_csv_writer, frame_index, params.encoder_config)
 
-            frame.write_encoded_to_file(encoded_fh, mv_fh, quant_dct_coff_fh, residual_yuv_fh, reconstructed_fh)
+            frame.write_encoded_to_file(encoded_fh, mv_fh, quant_dct_coff_fh, residual_yuv_fh, reconstructed_fh, params.encoder_config)
             prev_frame = frame.reconstructed_frame
 
 

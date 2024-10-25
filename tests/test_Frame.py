@@ -7,6 +7,7 @@ from encoder.PredictionMode import PredictionMode
 from encoder.IFrame import IFrame
 from encoder.PFrame import PFrame, mv_field_to_bytearray
 from encoder.byte_stream_buffer import BitStreamBuffer, compare_bits
+from encoder.params import EncoderConfig
 
 logger = get_logger()
 class TestFrame(TestCase):
@@ -15,8 +16,9 @@ class TestFrame(TestCase):
         coeffs_2d = np.array([[100, -50], [20, -30]], dtype=np.int16)
         frame.quantized_dct_residual_frame = coeffs_2d
         frame.prediction_data = [1,0,1,0]
+        encoder_config = EncoderConfig(block_size=2, search_range=1,I_Period=1, quantization_factor=0)
 
-        frame.generate_pre_entropy_encoded_frame_bit_stream()
+        frame.generate_pre_entropy_encoded_frame_bit_stream(encoder_config)
         logger.info(frame.bitstream_buffer)
 
         self.assertEqual(1, frame.bitstream_buffer.read_bit())
@@ -32,10 +34,11 @@ class TestFrame(TestCase):
         frame.prediction_data = mv_field_to_bytearray(mv)
 
         frame.generate_pre_entropy_encoded_frame_bit_stream()
+        frame.fix_mv(coeffs_2d.size)
         logger.info(frame.bitstream_buffer)
 
         self.assertEqual(0, frame.bitstream_buffer.read_bit())
-        np.testing.assert_array_equal( frame.bitstream_buffer.read_prediction_data( frame.prediction_mode, coeffs_2d.size), frame.prediction_data)
+        np.testing.assert_array_equal( frame.bitstream_buffer.read_prediction_data( frame.prediction_mode, coeffs_2d.size), frame.mv_field)
         np.testing.assert_array_equal(frame.bitstream_buffer.read_quantized_coeffs( coeffs_2d.shape[0], coeffs_2d.shape[1]), coeffs_2d)
 
 

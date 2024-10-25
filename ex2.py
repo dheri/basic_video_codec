@@ -3,7 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from skimage.metrics import peak_signal_noise_ratio as psnr, structural_similarity as ssim
 
-from common import calculate_num_frames, pad_frame, split_into_blocks
+from common import calculate_num_frames, pad_frame, split_into_blocks_ex2
 from file_io import FileIOHelper
 from input_parameters import InputParameters
 from main import logger
@@ -95,7 +95,7 @@ def process_y_frames(params : InputParameters, block_sizes):
                 padded_frame = pad_frame(y_plane, block_size)
 
                 # Split the frame into (block_size x block_size) blocks
-                blocks = split_into_blocks(padded_frame, block_size)
+                blocks = split_into_blocks_ex2(padded_frame, block_size)
 
                 # Replace each block with its average
                 averaged_blocks = replace_with_average(blocks)

@@ -48,6 +48,38 @@ class IFrame(Frame):
         self.prediction_data = intra_modes
         self.avg_mae = avg_mae
         self.residual_frame = residual_w_mc_frame
+    def decode(self,frame_size, encoder_config: EncoderConfig):
+        block_size = encoder_config.block_size
+        height, width = frame_size
+        reconstructed_frame = np.zeros((height, width), dtype=np.uint8)
+        Q = generate_quantization_matrix(block_size, encoder_config.quantization_factor)
+
+        # Iterate over blocks to reconstruct the frame
+        for y in range(0, height, block_size):
+            for x in range(0, width, block_size):
+                dct_coffs_block = self.quantized_dct_residual_frame[y:y + block_size, x:x + block_size]
+                logger.info(f" dct_coffs_block extreams : [{np.min(dct_coffs_block)}, {np.max(dct_coffs_block)} ]")
+
+                rescaled_dct_coffs_block = rescale_block(dct_coffs_block, Q)
+                idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block)
+                predicted_b = find_intra_predict_block(self.prediction_data[(y // encoder_config.block_size) * (
+                            width // encoder_config.block_size) + (x // encoder_config.block_size)],
+                                                       reconstructed_frame, x, y, encoder_config.block_size)
+
+                decoded_block = np.clip(idct_residual_block + predicted_b, 0, 255).astype(np.uint8)
+                reconstructed_frame[y:y + encoder_config.block_size, x:x + encoder_config.block_size] = decoded_block
+
+        return reconstructed_frame  # This should be the reconstructed frame
+
+        pass
+def find_intra_predict_block(prediction_mode, reconstructed_frame, x, y, block_size):
+    """Find the predicted block based on the specified prediction mode."""
+    if prediction_mode == 0:  # Horizontal prediction mode
+        return horizontal_intra_prediction(reconstructed_frame, x, y, block_size)
+    elif prediction_mode == 1:  # Vertical prediction mode
+        return vertical_intra_prediction(reconstructed_frame, x, y, block_size)
+    else:
+        raise ValueError("Invalid prediction mode: must be 0 (horizontal) or 1 (vertical).")
 
 
 def intra_predict_block(curr_block, reconstructed_frame, x, y, block_size):
@@ -71,7 +103,6 @@ def horizontal_intra_prediction(reconstructed_frame, x, y, block_size):
         return np.tile(left_samples, (block_size, 1))
     else:
         return np.full((block_size, block_size), 128)  # Use 128 for border
-
 
 def vertical_intra_prediction(reconstructed_frame, x, y, block_size):
     """Perform vertical intra prediction using the top border samples."""

@@ -109,6 +109,10 @@ class PFrame(Frame):
     def decode(self,frame_size, encoder_config: EncoderConfig):
         return decode_p_frame(self.quantized_dct_residual_frame, self.prev_frame, self.mv_field, encoder_config)
 
+    def fix_mv(self, num_of_blocks):
+        self.prediction_data = self.bitstream_buffer.read_prediction_data(self.prediction_mode, num_of_blocks)
+        self.mv_field = byte_array_to_mv_field(self.prediction_data)  # Convert back to motion vector field
+
 
     # def write_encoded_to_file(self, mv_fh, quant_dct_coff_fh,residual_yuv_fh , reconstructed_fh):
     #     write_mv_to_file(mv_fh, self.mv_field)

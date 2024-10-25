@@ -1,6 +1,6 @@
 import numpy as np
 
-from common import get_logger
+from common import get_logger, split_into_blocks
 from encoder.PredictionMode import PredictionMode
 logger = get_logger()
 
@@ -51,11 +51,15 @@ class BitStreamBuffer:
                 for i in range(8):
                     self.write_bit((byte >> (7 - i)) & 1)
 
-    def write_quantized_coeffs(self, coeffs_2d):
-        """Write a 2D array of quantized coefficients to the buffer."""
-        flat_coeffs = coeffs_2d.flatten()
-        for coeff in flat_coeffs:
-            self.write_int16(coeff)
+    def write_quantized_coeffs(self, quantized_dct_residual_frame, block_size):
+        """Write a 2D array of quantized coefficients to the buffer block-wise."""
+        # Split the coefficients into blocks
+        blocks = split_into_blocks(quantized_dct_residual_frame, block_size)
+
+        for block in blocks:
+            for coeff in block.flatten():  # Flatten the block to write coefficients sequentially
+                self.write_int16(coeff)
+
 
     def read_bit(self):
         """Read the next bit from the buffer."""
@@ -107,8 +111,8 @@ class BitStreamBuffer:
             for i in range(0, len(differential_data), 2):
                 mv_x = differential_data[i]
                 mv_y = differential_data[i + 1]
-                self.write_int8(mv_x)  # Write mv_x
-                self.write_int8(mv_y)  # Write mv_y
+                self.write_bits(mv_x,8)  # Write mv_x
+                self.write_bits(mv_y,8 )  # Write mv_y
         elif prediction_mode == PredictionMode.INTRA_FRAME:
             for mode in differential_data:
                 self.write_bit(mode)

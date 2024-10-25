@@ -35,23 +35,18 @@ def decode(params: InputParameters):
         while True:
             frame_index += 1
             quant_dct_coff = quant_dct_coff_fh.read(frame_size*2) # quant_dct_coff are stored as int16. i.e. 2bytes
-            # mv_txt =  mv_txt_fh.readline()
             if not quant_dct_coff or frame_index > frames_to_process  or not encoded_fh:
                 break  # End of file or end of frames
             logger.info(f"Decoding frame {frame_index}/{frames_to_process}")
-            # quant_dct_coff_frame = np.frombuffer(quant_dct_coff, dtype=np.int16)
-            # quant_dct_coff_frame = quant_dct_coff_frame.reshape((height, width))
-            #
-            # mv = parse_mv(mv_txt)
-            #
-            if frame_index % params.encoder_config.I_Period == 0:
-                frame = IFrame()
+            if (frame_index -1) % params.encoder_config.I_Period == 0:
+                # frame = IFrame()
+                frame = PFrame()
             else:
                 frame = PFrame()
                 # frame.quat_dct_coffs_frame_with_mc = quant_dct_coff_frame
-            frame.read_entropy_encoded_frame_bit_stream(params, encoded_fh)
+            frame.construct_frame_metadata_from_bit_stream(params, encoded_fh)
             print(frame.prediction_mode)
-            decoded_frame = frame.decode(frame_size, encoder_config=params.encoder_config)
+            decoded_frame = frame.decode((params.height, params.width), encoder_config=params.encoder_config)
 
 
 

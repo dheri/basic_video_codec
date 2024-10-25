@@ -28,7 +28,7 @@ def pad_frame(frame, block_size, pad_value=128):
     return frame
 
 # Function to split the frame into blocks of size (block_size x block_size)
-def split_into_blocks(frame, block_size):
+def split_into_blocks_ex2(frame, block_size):
     height, width = frame.shape
     return (frame.reshape(height // block_size, block_size, -1, block_size)
                  .swapaxes(1, 2)
@@ -56,3 +56,15 @@ def find_predicted_block(mv, x, y, prev_frame, block_size):
 
     predicted_block = prev_frame[pred_y:pred_y + block_size, pred_x:pred_x + block_size]
     return predicted_block
+
+
+def split_into_blocks(nd_array, block_size):
+    """Split the 2D array into a list of blocks."""
+    height, width = nd_array.shape
+    blocks = []
+    # Iterate over the 2D array in steps of block_size
+    for y in range(0, height, block_size):
+        for x in range(0, width, block_size):
+            block = nd_array[y:y + block_size, x:x + block_size]
+            blocks.append(block)
+    return blocks
