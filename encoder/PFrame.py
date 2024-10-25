@@ -5,7 +5,8 @@ from skimage.metrics import peak_signal_noise_ratio
 from typing import Self
 
 from common import get_logger, generate_residual_block, find_predicted_block
-from encoder.Frame import Frame, PredictionMode
+from encoder.Frame import Frame
+from encoder.PredictionMode import PredictionMode
 from encoder.block_predictor import predict_block
 from encoder.dct import apply_dct_2d, generate_quantization_matrix, quantize_block, rescale_block, apply_idct_2d
 from encoder.params import EncoderConfig, EncodedBlock
@@ -60,6 +61,12 @@ class PFrame(Frame):
         avg_mae = mae_of_blocks / num_of_blocks
 
         self.mv_field = mv_field
+
+        flattened_data = [value for pair in mv_field for value in pair]
+        flattened_data_as_bytes = [(value + 256) % 256 for value in flattened_data]
+        self.prediction_data = bytearray(flattened_data_as_bytes)
+
+
         self.avg_mae = avg_mae
         self.residual_frame = residual_frame_with_mc
         self.quantized_dct_residual_frame = quat_dct_coffs_frame_with_mc
@@ -106,19 +113,14 @@ class PFrame(Frame):
         decode_p_frame(self.quantized_dct_residual_frame, self.prev_frame, self.mv_field, encoder_config)
         pass
 
-    def write_metrics_data(self, metrics_csv_writer, frame_index, encoder_config: EncoderConfig):
-        psnr = peak_signal_noise_ratio(self.curr_frame, self.reconstructed_frame)
-        dct_coffs_extremes = self.get_quat_dct_coffs_extremes()
-        logger.info(
-            f"{frame_index:2}: i={encoder_config.block_size} r={encoder_config.search_range}, qp={encoder_config.quantization_factor}, , mae [{round(self.avg_mae, 2):7.2f}] psnr [{round(psnr, 2):6.2f}], q_dct_range: [{dct_coffs_extremes[0]:4}, {dct_coffs_extremes[1]:3}]")
-        metrics_csv_writer.writerow([frame_index, self.avg_mae, psnr])
 
-    def write_encoded_to_file(self, mv_fh, quant_dct_coff_fh,residual_yuv_fh , reconstructed_fh):
-        write_mv_to_file(mv_fh, self.mv_field)
-        write_y_only_frame(reconstructed_fh, self.reconstructed_frame)
-        write_y_only_frame(residual_yuv_fh, self.residual_frame)
-        write_y_only_frame(quant_dct_coff_fh, self.quantized_dct_residual_frame)
-
+    # def write_encoded_to_file(self, mv_fh, quant_dct_coff_fh,residual_yuv_fh , reconstructed_fh):
+    #     write_mv_to_file(mv_fh, self.mv_field)
+    #     write_y_only_frame(reconstructed_fh, self.reconstructed_frame)
+    #     write_y_only_frame(residual_yuv_fh, self.residual_frame)
+    #     write_y_only_frame(quant_dct_coff_fh, self.quantized_dct_residual_frame)
+    #     write_y_only_frame(quant_dct_coff_fh, self.quantized_dct_residual_frame)
+    #
 
 def apply_dct_and_quantization(residual_block, block_size, quantization_factor):
     dct_coffs = apply_dct_2d(residual_block)

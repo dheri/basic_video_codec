@@ -10,7 +10,7 @@ if __name__ == "__main__":
         block_size = 8,
         search_range=2,
         quantization_factor=1,
-        I_Period=1,
+        I_Period=4,
     )
 
     input_params = InputParameters(

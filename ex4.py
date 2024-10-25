@@ -1,5 +1,5 @@
 from decoder import decode
-from encoder.encoder import encode
+from encoder.encoder import encode_video
 from input_parameters import InputParameters
 from metrics import plot_metrics
 
@@ -14,6 +14,6 @@ def golomb_encoding(val):
     return prefix + binary_val + str(sign)
 
 def main(params: InputParameters):
-    encode(params)
+    encode_video(params)
     plot_metrics(params)
     decode(params)

@@ -2,7 +2,8 @@ from unittest import TestCase
 
 import numpy as np
 
-from encoder.Frame import Frame, PredictionMode
+from encoder.Frame import Frame
+from encoder.PredictionMode import PredictionMode
 from encoder.IFrame import IFrame
 from encoder.PFrame import PFrame
 from encoder.byte_stream_buffer import BitStreamBuffer, compare_bits
@@ -40,13 +41,13 @@ class TestFrame(TestCase):
         self.assertTrue(compare_bits(iframe.bitstream_buffer.get_bitstream(), 0, 7, 0),
                         'iframe first bit is not zero')
 
-    def test_bit_stream(self):
+    def test_bit_stream_read_write(self):
         coeffs_2d = np.array([[0, -1], [0,-1]])
 
         bitstream = BitStreamBuffer()
-        bitstream.write_bit(PredictionMode.INTER_FRAME.value)  # Intra-frame
+        bitstream.write_bit(PredictionMode.INTRA_FRAME.value)  # Intra-frame
 
-        differential_info = -1
+        differential_info = 31 # cant encode negative values in 7 bits
         differential_info_len = 7
         bitstream.write_bits(differential_info, differential_info_len)  # Differential info example, 4 bits
         bitstream.write_quantized_coeffs(coeffs_2d)
@@ -61,12 +62,8 @@ class TestFrame(TestCase):
         differential_prediction_read = bitstream_buffer_copy.read_bits(differential_info_len)  # Should return 3
         quantized_coeffs_read = bitstream_buffer_copy.read_quantized_coeffs(coeffs_2d.size)
 
-        print(f"Prediction Mode: {prediction_mode}")
-        self.assertEqual(PredictionMode.INTER_FRAME.value, prediction_mode)
-        print(f"Differential Prediction Info: {differential_prediction_read}")
+        self.assertEqual(PredictionMode.INTRA_FRAME.value, prediction_mode)
         np.testing.assert_array_equal(differential_info, differential_prediction_read)
-
-        print(f"Quantized Coefficients: \n{quantized_coeffs_read}")
         np.testing.assert_array_equal(coeffs_2d, quantized_coeffs_read)
 
         self.assertEqual(len(bitstream.byte_stream) , 9)

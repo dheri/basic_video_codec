@@ -1,16 +1,15 @@
-from enum import Enum
 from typing import Optional
 
 import numpy as np
+from skimage.metrics import peak_signal_noise_ratio
 
+from common import get_logger
+from encoder.PredictionMode import PredictionMode
 from encoder.byte_stream_buffer import BitStreamBuffer
 from encoder.params import EncoderConfig
+from file_io import write_y_only_frame
 
-
-class PredictionMode(Enum):
-    INTER_FRAME = 0  # P-frame
-    INTRA_FRAME = 1  # I-frame
-
+logger = get_logger()
 
 class FrameHeader:
     """Class to handle frame header information such as frame type and size."""
@@ -26,6 +25,7 @@ class Frame:
         self.prev_frame = prev_frame
         self.curr_frame = curr_frame
         self.prediction_mode: PredictionMode = PredictionMode.INTER_FRAME
+        self.prediction_data : Optional[list] = None
         self.residual_frame = None
         self.quantized_dct_residual_frame = None
         self.reconstructed_frame = None
@@ -37,11 +37,21 @@ class Frame:
     def decode(self, encoder_config: EncoderConfig):
         raise NotImplementedError(f"{type(self)} need to be overridden")
 
-    def write_metrics_data(self, metrics_csv_writer, frame_index : int, encoder_config : EncoderConfig):
-        raise NotImplementedError(f"{type(self)} need to be overridden")
+    def write_metrics_data(self, metrics_csv_writer, frame_index, encoder_config: EncoderConfig):
+        psnr = peak_signal_noise_ratio(self.curr_frame, self.reconstructed_frame)
+        dct_coffs_extremes = self.get_quat_dct_coffs_extremes()
+        logger.info(
+            f" {self.prediction_mode:1} {frame_index:2}: i={encoder_config.block_size} r={encoder_config.search_range}, qp={encoder_config.quantization_factor}, mae[{round(self.avg_mae, 2):7.2f}] psnr [{round(psnr, 2):6.2f}], q_dct_range: [{dct_coffs_extremes[0]:4}, {dct_coffs_extremes[1]:3}]")
+        metrics_csv_writer.writerow([frame_index, self.avg_mae, psnr])
 
-    def write_encoded_to_file(self, mv_fh, quant_dct_coff_fh,residual_yuv_fh , reconstructed_fh):
-        pass
+    def write_encoded_to_file(self, encoded_fh, mv_fh, quant_dct_coff_fh,residual_yuv_fh , reconstructed_fh):
+
+        write_y_only_frame(residual_yuv_fh, self.residual_frame)
+        write_y_only_frame(quant_dct_coff_fh, self.quantized_dct_residual_frame)
+        write_y_only_frame(reconstructed_fh, self.reconstructed_frame)
+
+        encoded_fh.write(self.bitstream_buffer.get_bitstream())
+        mv_fh.write(bytearray(self.prediction_data))
 
     def pre_entropy_encoded_frame_bit_stream(self) -> BitStreamBuffer:
         self.bitstream_buffer = BitStreamBuffer()
@@ -50,8 +60,6 @@ class Frame:
             self.bitstream_buffer.write_quantized_coeffs(self.quantized_dct_residual_frame)
         else:
             raise ValueError("Illegal operation: quantized_dct_residual_frame is None")
-
-
         return self.bitstream_buffer
 
     def read_entropy_encoded_frame_bit_stream(self) -> BitStreamBuffer:

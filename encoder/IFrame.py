@@ -1,14 +1,15 @@
 import numpy as np
 
-from encoder.Frame import Frame, PredictionMode
+from common import get_logger
+from encoder.Frame import Frame
+from encoder.PredictionMode import PredictionMode
 from encoder.dct import apply_dct_2d, generate_quantization_matrix, quantize_block, rescale_block, apply_idct_2d
 from encoder.params import EncoderConfig
 
-
+logger = get_logger()
 class IFrame(Frame):
     def __init__(self, curr_frame=None ):
         super().__init__(curr_frame)
-        self.intra_modes = None
         self.prediction_mode = PredictionMode.INTER_FRAME
 
     def encode(self, encoder_config: EncoderConfig):
@@ -19,6 +20,7 @@ class IFrame(Frame):
         mae_of_blocks = 0
         intra_modes = []  # To store the intra prediction modes (0 for horizontal, 1 for vertical)
         reconstructed_frame = np.zeros_like(curr_frame)
+        residual_w_mc_frame = np.zeros_like(curr_frame)
         quantized_dct_residual_frame = np.zeros_like(curr_frame, dtype=np.int16)
 
         # Loop through each block in the frame
@@ -38,15 +40,14 @@ class IFrame(Frame):
                 # Update reconstructed frame and quantized residuals
                 reconstructed_frame[y:y + block_size, x:x + block_size] = reconstructed_block
                 quantized_dct_residual_frame[y:y + block_size, x:x + block_size] = quantized_dct_residual_block
+                residual_w_mc_frame [y:y + block_size, x:x + block_size] = residual_block
 
         avg_mae = mae_of_blocks / ((height // block_size) * (width // block_size))
         self.reconstructed_frame = reconstructed_frame
         self.quantized_dct_residual_frame = quantized_dct_residual_frame
-        self.intra_modes = intra_modes
+        self.prediction_data = intra_modes
         self.avg_mae = avg_mae
-
-
-
+        self.residual_frame = residual_w_mc_frame
 
 
 def intra_predict_block(curr_block, reconstructed_frame, x, y, block_size):

@@ -30,7 +30,7 @@ class FileIOHelper:
         return  f'{self.file_prefix}.yuv'
 
     def get_mv_file_name(self):
-        return self.get_file_name('mv.txt')
+        return self.get_file_name('mv.bin')
 
     def get_metrics_csv_file_name(self):
         return self.get_file_name('metrics.csv')
@@ -44,6 +44,9 @@ class FileIOHelper:
     def get_quant_dct_coff_fh_file_name(self):
         return self.get_file_name('mc_quant_dct_coff.bin')
 
+
+    def get_encoded_file_name(self):
+        return self.get_file_name('encoded.bin')
 
     def get_mc_reconstructed_file_name(self):
         return self.get_file_name('mc_reconstructed.yuv')

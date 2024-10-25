@@ -13,7 +13,7 @@ from input_parameters import InputParameters
 
 
 logger = get_logger()
-def encode(params: InputParameters):
+def encode_video(params: InputParameters):
     file_io = FileIOHelper(params)
 
     start_time = time.time()
@@ -21,10 +21,11 @@ def encode(params: InputParameters):
     prev_frame = np.full((params.height, params.width), 128, dtype=np.uint8)
     with ExitStack() as stack:
         f_in = stack.enter_context(open(params.y_only_file, 'rb'))
-        mv_fh = stack.enter_context(open(file_io.get_mv_file_name(), 'wt'))
+        mv_fh = stack.enter_context(open(file_io.get_mv_file_name(), 'wb'))
         quant_dct_coff_fh =stack.enter_context(open(file_io.get_quant_dct_coff_fh_file_name(), 'wb'))
         residual_yuv_fh = stack.enter_context(open(file_io.get_mc_residual_file_name(), 'wb'))
         reconstructed_fh = stack.enter_context(open(file_io.get_mc_reconstructed_file_name(), 'wb'))
+        encoded_fh = stack.enter_context(open(file_io.get_encoded_file_name(), 'wb'))
 
         metrics_csv_fh = stack.enter_context(open(file_io.get_metrics_csv_file_name(), 'wt', newline=''))
         frames_to_process = params.frames_to_process
@@ -52,9 +53,15 @@ def encode(params: InputParameters):
             else:
                 frame = PFrame(padded__frame, prev_frame)
 
+
             frame.encode(params.encoder_config)
+
             frame.write_metrics_data(metrics_csv_writer, frame_index, params.encoder_config)
-            frame.write_encoded_to_file(mv_fh, quant_dct_coff_fh,residual_yuv_fh , reconstructed_fh)
+
+            frame.pre_entropy_encoded_frame_bit_stream()
+
+
+            frame.write_encoded_to_file(encoded_fh, mv_fh, quant_dct_coff_fh, residual_yuv_fh, reconstructed_fh)
             prev_frame = frame.reconstructed_frame
 
 
