@@ -110,12 +110,25 @@ class PFrame(Frame):
         return decode_p_frame(self.quantized_dct_residual_frame, self.prev_frame, self.mv_field, encoder_config)
 
     def parse_prediction_data(self, params):
-        logger.info(f"parsing parse_prediction_data")
-        block_size = params.encoder_config.block_size
-        num_of_blocks = (params.height // block_size) * (params.width // block_size)
-
-        self.prediction_data = self.bitstream_buffer.read_prediction_data(self.prediction_mode, params)
+        prediction_data = self.prediction_data
+        logger.info(f"parse prediction data: [{len(prediction_data)}] {prediction_data.hex()}")  # Log the byte array in hex format
         self.mv_field = byte_array_to_mv_field(self.prediction_data, params.width, params.height, params.encoder_config.block_size )  # Convert back to motion vector field
+
+    def generate_prediction_data(self):
+        # convert mv or inta-modes to byte array
+        self.prediction_data = bytearray()  # Initialize an empty bytearray for prediction data
+
+        # Iterate over the motion vector field
+        for (i, j), (mv_x, mv_y) in self.mv_field.items():
+            # Convert signed integers to unsigned bytes
+            mv_x_byte = (mv_x + 256) % 256
+            mv_y_byte = (mv_y + 256) % 256
+
+            # Append the bytes to the prediction data
+            self.prediction_data.append(mv_x_byte)
+            self.prediction_data.append(mv_y_byte)
+
+        logger.info(f"Generated prediction data: [{len(self.prediction_data)}] {self.prediction_data.hex()}")  # Log the byte array in hex format
 
 
 def mv_field_to_bytearray(mv_field):

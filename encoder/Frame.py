@@ -2,6 +2,7 @@ import math
 from typing import Optional
 
 import numpy as np
+from bitarray import bitarray
 from skimage.metrics import peak_signal_noise_ratio
 
 from common import get_logger
@@ -30,6 +31,8 @@ class Frame:
 
     def decode(self,frame_size, encoder_config: EncoderConfig):
         raise NotImplementedError(f"{type(self)} need to be overridden")
+    def generate_prediction_data(self):
+        raise NotImplementedError(f"{type(self)} need to be overridden")
     def parse_prediction_data(self):
         raise NotImplementedError(f"{type(self)} need to be overridden")
 
@@ -52,23 +55,25 @@ class Frame:
         mv_fh.write(bytearray(self.prediction_data))
 
     def generate_pre_entropy_encoded_frame_bit_stream(self, encoder_config : EncoderConfig) -> BitStreamBuffer:
+        self.generate_prediction_data()
+
         self.bitstream_buffer = BitStreamBuffer()
         self.bitstream_buffer.write_bit(self.prediction_mode.value)
         self.bitstream_buffer.write_prediction_data(self.prediction_mode, self.prediction_data)
         self.bitstream_buffer.write_quantized_coeffs(self.quantized_dct_residual_frame, encoder_config.block_size)
         self.bitstream_buffer.flush()
-        logger.info(f"len after flush {len(self.bitstream_buffer.byte_stream)}")
+        logger.info(f"len after flush {len(self.bitstream_buffer.bit_stream)}")
         return self.bitstream_buffer
 
     def construct_frame_metadata_from_bit_stream(self, params : InputParameters, encoded_frame_bytes):
 
         self.bitstream_buffer = BitStreamBuffer()
-        self.bitstream_buffer.byte_stream = bytearray(encoded_frame_bytes)
+        self.bitstream_buffer.bit_stream = bitarray(encoded_frame_bytes)
         self.prediction_data = self.bitstream_buffer.read_prediction_data(self.prediction_mode, params)
+        self.parse_prediction_data(params)
+
         self.quantized_dct_residual_frame = self.bitstream_buffer.read_quantized_coeffs(params.width, params.height)
         logger.info(f"  construct_frame_metadata dct_coffs_extremes {self.get_quat_dct_coffs_extremes()}")
-
-        self.parse_prediction_data(params)
 
 
     def encoded_frame_data_length(self, params: InputParameters):

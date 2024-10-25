@@ -1,4 +1,5 @@
 import numpy as np
+from bitarray.util import ba2hex
 
 from common import get_logger, split_into_blocks
 from encoder.PredictionMode import PredictionMode
@@ -6,24 +7,25 @@ from input_parameters import InputParameters
 
 logger = get_logger()
 
+import numpy as np
+from bitarray import bitarray
+from common import get_logger, split_into_blocks
+from encoder.PredictionMode import PredictionMode
+from input_parameters import InputParameters
+
+logger = get_logger()
+
+
 class BitStreamBuffer:
     def __init__(self):
-        self.byte_stream : bytearray = bytearray()  # To hold the bitstream in bytes
-        self.current_byte = 0  # To accumulate bits into a byte
-        self.bit_position = 0  # Current bit position in the current_byte
+        self.bit_stream = bitarray()  # Use bitarray to hold the bitstream
+        self.bit_position = 0  # Current bit position in the bitarray
 
     def write_bit(self, bit):
         """Write a single bit to the buffer."""
         if bit not in (0, 1):
             raise ValueError("Bit must be 0 or 1")
-        self.current_byte = (self.current_byte << 1) | bit
-        self.bit_position += 1
-
-        # If the current byte is full (8 bits), append it to the stream
-        if self.bit_position == 8:
-            self.byte_stream.append(self.current_byte)
-            self.current_byte = 0  # Reset for the next byte
-            self.bit_position = 0
+        self.bit_stream.append(bit)
 
     def write_bits(self, value, num_bits):
         """Write a value as a series of bits."""
@@ -33,52 +35,27 @@ class BitStreamBuffer:
 
     def write_int16(self, value):
         """Write a 16-bit signed integer to the bitstream."""
-        # Ensure the value fits within int16 range
         if not (-32768 <= value <= 32767):
             raise OverflowError("Value out of range for int16.")
         # Write high byte and low byte (big-endian)
-        self.write_bits(value >> 8 & 0xFF, 8)  # High byte
+        self.write_bits((value >> 8) & 0xFF, 8)  # High byte
         self.write_bits(value & 0xFF, 8)  # Low byte
 
-    def write_bytes(self, byte_data):
-        if not isinstance(byte_data, (bytes, bytearray)):
-            raise TypeError("byte_data must be of type bytes or bytearray.")
-
-        if self.bit_position == 0:
-            # Append directly if byte-aligned
-            self.buffer.extend(byte_data)
-        else:
-            # If not byte-aligned, append each byte bit by bit
-            for byte in byte_data:
-                for i in range(8):
-                    self.write_bit((byte >> (7 - i)) & 1)
-
-    def write_quantized_coeffs(self, quantized_dct_residual_frame, block_size):
-        """Write a 2D array of quantized coefficients to the buffer block-wise."""
-        # Split the coefficients into blocks
-        blocks = split_into_blocks(quantized_dct_residual_frame, block_size)
-
-        for block in blocks:
-            for coeff in block.flatten():  # Flatten the block to write coefficients sequentially
-                self.write_int16(coeff)
-
+    def write_int8(self, value):
+        """Write a signed 8-bit integer to the buffer."""
+        if not (-128 <= value <= 127):
+            raise OverflowError("Value out of range for int8.")
+        unsigned_byte = (value + 256) % 256
+        self.write_bits(unsigned_byte, 8)
 
     def read_bit(self):
         """Read the next bit from the buffer."""
-        # Check if there are bits left to read
-        if self.bit_position == 0:
-            if len(self.byte_stream) == 0:
-                raise EOFError("No more bits to read")
-            # Load the next byte
-            self.current_byte = self.byte_stream.pop(0)  # Consume the byte
-            self.bit_position = 8  # Reset to read bits
+        if self.bit_position >= len(self.bit_stream):
+            raise EOFError("No more bits to read")
 
-        # Read the next bit
-        self.bit_position -= 1
-        return (self.current_byte >> self.bit_position) & 1
-        # Read the next bit
-        self.bit_position -= 1
-        return (self.current_byte >> self.bit_position) & 1
+        bit = self.bit_stream[self.bit_position]
+        self.bit_position += 1
+        return bit
 
     def read_bits(self, num_bits):
         """Read a specified number of bits from the buffer."""
@@ -92,29 +69,45 @@ class BitStreamBuffer:
         high_byte = self.read_bits(8)
         low_byte = self.read_bits(8)
         value = (high_byte << 8) | low_byte
-        # Handle negative numbers
         if value >= 0x8000:
             value -= 0x10000
         return value
-    def write_int8(self, value):
-        """Write a signed 8-bit integer to the buffer."""
-        if not (-128 <= value <= 127):
-            raise OverflowError("Value out of range for int8.")
-        self.byte_stream.append(value & 0xFF)
 
     def read_int8(self):
         """Read a signed 8-bit integer from the buffer."""
-        value = int.from_bytes(self.byte_stream[:1], byteorder='big', signed=True)
-        self.byte_stream = self.byte_stream[1:]  # Remove the read byte
-        return value
+        value = self.read_bits(8)
+        signed_value = value if value < 128 else value - 256
+        logger.info(f"reading {value} as {signed_value} int8")
+        return signed_value
+
+    def get_bitstream(self):
+        """Return the byte stream as bytes."""
+        return self.bit_stream.tobytes()
+
+    def flush(self):
+        # raise ValueError("flush not needed anymore")
+        missing_bits =  len(self.bit_stream) % 8
+        for i in range( 8 - missing_bits):
+            self.bit_stream.append(0)
+
+    def write_quantized_coeffs(self, quantized_dct_residual_frame, block_size):
+        """Write a 2D array of quantized coefficients to the buffer block-wise."""
+        # Split the coefficients into blocks
+        blocks = split_into_blocks(quantized_dct_residual_frame, block_size)
+
+        for block in blocks:
+            for coeff in block.flatten():  # Flatten the block to write coefficients sequentially
+                self.write_int16(coeff)
+
+
 
     def write_prediction_data(self, prediction_mode, differential_data):
         if prediction_mode == PredictionMode.INTER_FRAME:
             for i in range(0, len(differential_data), 2):
                 mv_x = differential_data[i]
                 mv_y = differential_data[i + 1]
-                self.write_bits(mv_x,8)  # Write mv_x
-                self.write_bits(mv_y,8 )  # Write mv_y
+                self.write_int8(mv_x)
+                self.write_int8(mv_y )
         elif prediction_mode == PredictionMode.INTRA_FRAME:
             for mode in differential_data:
                 self.write_bit(mode)
@@ -124,7 +117,7 @@ class BitStreamBuffer:
     def read_prediction_data(self, prediction_mode, params : InputParameters):
         num_blocks = (params.height // params.encoder_config.block_size) * (params.width // params.encoder_config.block_size)
 
-        prediction_data = []
+        prediction_data = bytearray()
         if prediction_mode == PredictionMode.INTER_FRAME:
             for _ in range(num_blocks):
                 mv_x = self.read_int8()
@@ -148,22 +141,10 @@ class BitStreamBuffer:
             coeffs.append(self.read_int16())
         return np.array(coeffs).reshape(int(height), int(width))
 
-    def flush(self):
-        """Flush remaining bits in the buffer to the byte stream."""
-        if self.bit_position > 0:
-            # Pad the remaining bits with zeros to complete the byte
-            self.current_byte <<= (8 - self.bit_position)
-            self.byte_stream.append(self.current_byte)
-            self.current_byte = 0  # Reset for the next byte
-            self.bit_position = 0
-
-    def get_bitstream(self):
-        """Return the byte stream."""
-        return self.byte_stream
 
     def __repr__(self):
-        bin_rep =  ''.join(f'{byte:08b}' for byte in bytes(self.byte_stream))
-        return f"hex:\t{self.byte_stream.hex()} \nbin:\t{bin_rep}"
+        bin_rep =  ''.join(f'{byte:08b}' for byte in bytes(self.bit_stream))
+        return f"hex:\t{ ba2hex(self.bit_stream)} \nbin:\t{bin_rep}"
 
 def compare_bits(byte_array, byte_index, bit_index, expected_value):
     """
