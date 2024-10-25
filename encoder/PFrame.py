@@ -4,7 +4,7 @@ import numpy as np
 from skimage.metrics import peak_signal_noise_ratio
 from typing import Self
 
-from common import get_logger, generate_residual_block, find_predicted_block
+from common import get_logger, generate_residual_block, find_mv_predicted_block
 from encoder.Frame import Frame
 from encoder.PredictionMode import PredictionMode
 from encoder.block_predictor import predict_block
@@ -106,21 +106,16 @@ class PFrame(Frame):
 
         return motion_vector, best_match_mae
 
-    def decode(self,frame_size, encoder_config: EncoderConfig):
+    def decode(self, encoder_config: EncoderConfig):
         return decode_p_frame(self.quantized_dct_residual_frame, self.prev_frame, self.mv_field, encoder_config)
 
-    def fix_mv(self, num_of_blocks):
-        self.prediction_data = self.bitstream_buffer.read_prediction_data(self.prediction_mode, num_of_blocks)
-        self.mv_field = byte_array_to_mv_field(self.prediction_data)  # Convert back to motion vector field
+    def parse_prediction_data(self, params):
+        logger.info(f"parsing parse_prediction_data")
+        block_size = params.encoder_config.block_size
+        num_of_blocks = (params.height // block_size) * (params.width // block_size)
 
-
-    # def write_encoded_to_file(self, mv_fh, quant_dct_coff_fh,residual_yuv_fh , reconstructed_fh):
-    #     write_mv_to_file(mv_fh, self.mv_field)
-    #     write_y_only_frame(reconstructed_fh, self.reconstructed_frame)
-    #     write_y_only_frame(residual_yuv_fh, self.residual_frame)
-    #     write_y_only_frame(quant_dct_coff_fh, self.quantized_dct_residual_frame)
-    #     write_y_only_frame(quant_dct_coff_fh, self.quantized_dct_residual_frame)
-    #
+        self.prediction_data = self.bitstream_buffer.read_prediction_data(self.prediction_mode, params)
+        self.mv_field = byte_array_to_mv_field(self.prediction_data, params.width, params.height, params.encoder_config.block_size )  # Convert back to motion vector field
 
 
 def mv_field_to_bytearray(mv_field):
@@ -132,12 +127,15 @@ def mv_field_to_bytearray(mv_field):
             byte_stream.append(unsigned_byte)
     return byte_stream
 
-def byte_array_to_mv_field(byte_stream):
+def byte_array_to_mv_field(byte_stream, width, height, block_size):
     mv_field = {}
-    block_number = 0  # Initialize block number for keys
-
+    index = 0
     # Iterate through the byte stream in pairs
     for i in range(0, len(byte_stream), 2):
+        # Ensure we have enough bytes left for mv_x and mv_y
+        if i + 1 >= len(byte_stream):
+            break
+
         mv_x_byte = byte_stream[i]
         mv_y_byte = byte_stream[i + 1]
 
@@ -145,11 +143,22 @@ def byte_array_to_mv_field(byte_stream):
         mv_x = mv_x_byte if mv_x_byte < 128 else mv_x_byte - 256
         mv_y = mv_y_byte if mv_y_byte < 128 else mv_y_byte - 256
 
-        # Store the motion vector in the dictionary with the block number as the key
-        mv_field[block_number] = (mv_x, mv_y)
-        block_number += 1  # Increment block number for the next entry
+        # Calculate the pixel coordinates (i, j) for the top-left corner of the block
+        row_index = (index // (width // block_size)) * block_size  # Row (y-coordinate)
+        column_index = (index % (width // block_size)) * block_size    # Column (x-coordinate)
+
+        # Ensure the calculated (i, j) is within the frame dimensions
+        if row_index < height and column_index < width:
+            # Store the motion vector in the dictionary with the (i, j) as the key
+            mv_field[(column_index, row_index)] = [mv_x, mv_y]  # Using tuple for fixed size
+        else:
+            print(f"Warning: Calculated coordinates {(column_index, row_index)} are out of bounds.")
+
+        index += 1  # Increment the index for the next motion vector
 
     return mv_field
+
+
 
 def apply_dct_and_quantization(residual_block, block_size, quantization_factor):
     dct_coffs = apply_dct_2d(residual_block)
@@ -166,7 +175,7 @@ def reconstruct_block(quantized_dct_coffs, Q, predicted_block_with_mc):
     return clipped_reconstructed_block, idct_residual_block
 
 
-def decode_p_frame(quant_dct_coff_frame, prev_frame, mv_frame, encoder_config: EncoderConfig):
+def decode_p_frame(quant_dct_coff_frame, prev_frame, mv_field, encoder_config: EncoderConfig):
     block_size = encoder_config.block_size
     quantization_factor = encoder_config.quantization_factor
     height, width = quant_dct_coff_frame.shape
@@ -177,6 +186,7 @@ def decode_p_frame(quant_dct_coff_frame, prev_frame, mv_frame, encoder_config: E
 
     for y in range(0, height, block_size):
         for x in range(0, width, block_size):
+            # print(f" [{x}, {y}]")
             # Get the quantized residual block
             dct_coffs_block = quant_dct_coff_frame[y:y + block_size, x:x + block_size]
 
@@ -187,7 +197,7 @@ def decode_p_frame(quant_dct_coff_frame, prev_frame, mv_frame, encoder_config: E
             idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block)
 
             # Get the predicted block using the motion vector
-            predicted_b = find_predicted_block(mv_frame[(x, y)], x, y, prev_frame, block_size).astype(np.int16)
+            predicted_b = find_mv_predicted_block(mv_field[(x, y)], x, y, prev_frame, block_size).astype(np.int16)
 
             # Reconstruct the block by adding the predicted block and the rescaled residual
             decoded_block = np.round(idct_residual_block + predicted_b).astype(np.int16)

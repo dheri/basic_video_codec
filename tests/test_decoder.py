@@ -3,7 +3,7 @@ from unittest import TestCase
 import numpy as np
 
 from decoder import logger
-from common import find_predicted_block
+from common import find_mv_predicted_block
 from encoder.PFrame import decode_p_frame, PFrame
 from encoder.params import EncoderConfig
 from input_parameters import InputParameters
@@ -26,7 +26,7 @@ class TestDecoder(TestCase):
         y = 3
 
         # Get the predicted block
-        predicted_block = find_predicted_block(mv, x, y, prev_frame, block_size)
+        predicted_block = find_mv_predicted_block(mv, x, y, prev_frame, block_size)
 
         # Expected block should be the section of the prev_frame starting at (2, 2)
         expected_block = prev_frame[y + y_tx:y + y_tx+block_size,x + x_tx: x + x_tx+block_size]

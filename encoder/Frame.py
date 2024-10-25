@@ -19,7 +19,7 @@ class Frame:
         self.prev_frame = prev_frame
         self.curr_frame = curr_frame
         self.prediction_mode: PredictionMode = PredictionMode.INTER_FRAME
-        self.prediction_data : Optional[list] = None
+        self.prediction_data : Optional[bytearray] = None # should always be byte arrays of unit8
         self.residual_frame = None
         self.quantized_dct_residual_frame = None
         self.reconstructed_frame = None
@@ -30,7 +30,7 @@ class Frame:
 
     def decode(self,frame_size, encoder_config: EncoderConfig):
         raise NotImplementedError(f"{type(self)} need to be overridden")
-    def fix_mv(self):
+    def parse_prediction_data(self):
         raise NotImplementedError(f"{type(self)} need to be overridden")
 
     def write_metrics_data(self, metrics_csv_writer, frame_index, encoder_config: EncoderConfig):
@@ -57,27 +57,18 @@ class Frame:
         self.bitstream_buffer.write_prediction_data(self.prediction_mode, self.prediction_data)
         self.bitstream_buffer.write_quantized_coeffs(self.quantized_dct_residual_frame, encoder_config.block_size)
         self.bitstream_buffer.flush()
-        # logger.info(f"len after flush {len(self.bitstream_buffer.byte_stream)}")
+        logger.info(f"len after flush {len(self.bitstream_buffer.byte_stream)}")
         return self.bitstream_buffer
 
-    def construct_frame_metadata_from_bit_stream(self, params : InputParameters, encoded_fh):
-        block_size = params.encoder_config.block_size
-        num_of_blocks = (params.height // block_size) * (params.width // block_size)
+    def construct_frame_metadata_from_bit_stream(self, params : InputParameters, encoded_frame_bytes):
 
-
-        bytes_per_frame = self.encoded_frame_data_length(params)
-
-        logger.info(f"reading {bytes_per_frame} bytes for {self.prediction_mode}")
-
-        encoded_frame_bytes = encoded_fh.read(bytes_per_frame)
         self.bitstream_buffer = BitStreamBuffer()
         self.bitstream_buffer.byte_stream = bytearray(encoded_frame_bytes)
-        self.prediction_data = self.bitstream_buffer.read_prediction_data(self.prediction_mode, num_of_blocks)
-        self.quantized_dct_residual_frame = self.bitstream_buffer.read_quantized_coeffs(params.height, params.width)
+        self.prediction_data = self.bitstream_buffer.read_prediction_data(self.prediction_mode, params)
+        self.quantized_dct_residual_frame = self.bitstream_buffer.read_quantized_coeffs(params.width, params.height)
         logger.info(f"  construct_frame_metadata dct_coffs_extremes {self.get_quat_dct_coffs_extremes()}")
 
-
-        # self.fix_mv(num_of_blocks)
+        self.parse_prediction_data(params)
 
 
     def encoded_frame_data_length(self, params: InputParameters):
@@ -88,7 +79,7 @@ class Frame:
         if self.prediction_mode == PredictionMode.INTRA_FRAME:
             bits_per_block +=   1  # 1 bit for inta frame (h/v)
         elif self.prediction_mode == PredictionMode.INTER_FRAME:
-            bits_per_block +=   num_of_blocks * 2 * 8 # 2 int8 for mv
+            bits_per_block +=   2 * 8 # 2 int8 for mv
         else:
             raise ValueError(f"unexpected prediction_mode: {self.prediction_mode}")
         bits_per_block += (block_size **  2) * (2 * 8) # 16 bits per pixel in block

@@ -2,6 +2,8 @@ import numpy as np
 
 from common import get_logger, split_into_blocks
 from encoder.PredictionMode import PredictionMode
+from input_parameters import InputParameters
+
 logger = get_logger()
 
 class BitStreamBuffer:
@@ -119,7 +121,9 @@ class BitStreamBuffer:
         else:
             raise ValueError("Invalid prediction mode")
 
-    def read_prediction_data(self, prediction_mode, num_blocks):
+    def read_prediction_data(self, prediction_mode, params : InputParameters):
+        num_blocks = (params.height // params.encoder_config.block_size) * (params.width // params.encoder_config.block_size)
+
         prediction_data = []
         if prediction_mode == PredictionMode.INTER_FRAME:
             for _ in range(num_blocks):

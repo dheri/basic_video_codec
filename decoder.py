@@ -44,9 +44,18 @@ def decode(params: InputParameters):
             else:
                 frame = PFrame()
                 # frame.quat_dct_coffs_frame_with_mc = quant_dct_coff_frame
-            frame.construct_frame_metadata_from_bit_stream(params, encoded_fh)
-            print(frame.prediction_mode)
-            decoded_frame = frame.decode((params.height, params.width), encoder_config=params.encoder_config)
+            frame.prev_frame = np.full((params.height, params.width), 128, dtype=np.uint8)
+
+            block_size = params.encoder_config.block_size
+            num_of_blocks = (params.height // block_size) * (params.width // block_size)
+            bytes_per_frame = frame.encoded_frame_data_length(params)
+            encoded_frame_bytes = encoded_fh.read(bytes_per_frame)
+
+            logger.info(f"reading {bytes_per_frame} bytes for {frame.prediction_mode}")
+
+            frame.construct_frame_metadata_from_bit_stream(params, encoded_frame_bytes)
+
+            decoded_frame = frame.decode(encoder_config=params.encoder_config)
 
 
 

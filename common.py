@@ -40,12 +40,12 @@ def mae(block1, block2):
 
 
 def generate_residual_block(curr_block, prev_frame, motion_vector, x, y, block_size):
-    predicted_block_with_mc = find_predicted_block(motion_vector, x, y, prev_frame, block_size).astype(np.int16)
+    predicted_block_with_mc = find_mv_predicted_block(motion_vector, x, y, prev_frame, block_size).astype(np.int16)
     residual_block_with_mc = np.subtract(curr_block, predicted_block_with_mc)
     return predicted_block_with_mc, residual_block_with_mc
 
 
-def find_predicted_block(mv, x, y, prev_frame, block_size):
+def find_mv_predicted_block(mv, x, y, prev_frame, block_size):
     # Calculate the predicted block coordinates
     pred_x = x + mv[0]
     pred_y = y + mv[1]
