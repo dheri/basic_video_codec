@@ -21,7 +21,7 @@ logger = get_logger()
 class PFrame(Frame):
     def __init__(self, curr_frame=None, prev_frame=None):
         super().__init__(curr_frame, prev_frame)
-        self.prediction_mode = PredictionMode.INTRA_FRAME
+        self.prediction_mode = PredictionMode.INTER_FRAME
         self.mv_field = None
         self.avg_mae = None
 
@@ -60,11 +60,8 @@ class PFrame(Frame):
 
         avg_mae = mae_of_blocks / num_of_blocks
 
-        self.mv_field = mv_field
-
-        flattened_data = [value for pair in mv_field for value in pair]
-        flattened_data_as_bytes = [(value + 256) % 256 for value in flattened_data]
-        self.prediction_data = bytearray(flattened_data_as_bytes)
+        self.mv_field = mv_field  # Populate the motion vector field
+        self.prediction_data = mv_field_to_bytearray(self.mv_field)  # Convert to byte array
 
 
         self.avg_mae = avg_mae
@@ -109,9 +106,8 @@ class PFrame(Frame):
 
         return motion_vector, best_match_mae
 
-    def decode(self, encoder_config: EncoderConfig):
-        decode_p_frame(self.quantized_dct_residual_frame, self.prev_frame, self.mv_field, encoder_config)
-        pass
+    def decode(self,frame_size, encoder_config: EncoderConfig):
+        return decode_p_frame(self.quantized_dct_residual_frame, self.prev_frame, self.mv_field, encoder_config)
 
 
     # def write_encoded_to_file(self, mv_fh, quant_dct_coff_fh,residual_yuv_fh , reconstructed_fh):
@@ -121,6 +117,35 @@ class PFrame(Frame):
     #     write_y_only_frame(quant_dct_coff_fh, self.quantized_dct_residual_frame)
     #     write_y_only_frame(quant_dct_coff_fh, self.quantized_dct_residual_frame)
     #
+
+
+def mv_field_to_bytearray(mv_field):
+    byte_stream = bytearray()
+    for mv in mv_field.values():
+        for value in mv:
+            # Convert signed integer to unsigned byte
+            unsigned_byte = (value + 256) % 256  # Ensure the result is within 0-255
+            byte_stream.append(unsigned_byte)
+    return byte_stream
+
+def byte_array_to_mv_field(byte_stream):
+    mv_field = {}
+    block_number = 0  # Initialize block number for keys
+
+    # Iterate through the byte stream in pairs
+    for i in range(0, len(byte_stream), 2):
+        mv_x_byte = byte_stream[i]
+        mv_y_byte = byte_stream[i + 1]
+
+        # Reverse the conversion to obtain original motion vector values
+        mv_x = mv_x_byte if mv_x_byte < 128 else mv_x_byte - 256
+        mv_y = mv_y_byte if mv_y_byte < 128 else mv_y_byte - 256
+
+        # Store the motion vector in the dictionary with the block number as the key
+        mv_field[block_number] = (mv_x, mv_y)
+        block_number += 1  # Increment block number for the next entry
+
+    return mv_field
 
 def apply_dct_and_quantization(residual_block, block_size, quantization_factor):
     dct_coffs = apply_dct_2d(residual_block)

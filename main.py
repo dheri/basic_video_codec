@@ -10,7 +10,7 @@ if __name__ == "__main__":
         block_size = 8,
         search_range=2,
         quantization_factor=1,
-        I_Period=4,
+        I_Period=2,
     )
 
     input_params = InputParameters(
@@ -18,7 +18,7 @@ if __name__ == "__main__":
         width  = 352,
         height= 288,
         encoder_config= encoder_parameters,
-        frames_to_process = 12
+        frames_to_process = 3
     )
 
     # ex2.main(input_params)

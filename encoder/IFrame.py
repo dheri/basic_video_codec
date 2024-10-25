@@ -10,7 +10,7 @@ logger = get_logger()
 class IFrame(Frame):
     def __init__(self, curr_frame=None ):
         super().__init__(curr_frame)
-        self.prediction_mode = PredictionMode.INTER_FRAME
+        self.prediction_mode = PredictionMode.INTRA_FRAME
 
     def encode(self, encoder_config: EncoderConfig):
         curr_frame = self.curr_frame

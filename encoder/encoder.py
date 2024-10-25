@@ -48,7 +48,7 @@ def encode_video(params: InputParameters):
             y_plane = np.frombuffer(y_frame, dtype=np.uint8).reshape((height, width))
             padded__frame = pad_frame(y_plane, block_size)
 
-            if frame_index % params.encoder_config.I_Period == 0:
+            if (frame_index -1)  % params.encoder_config.I_Period == 0:
                 frame = IFrame(padded__frame)
             else:
                 frame = PFrame(padded__frame, prev_frame)
@@ -57,9 +57,6 @@ def encode_video(params: InputParameters):
             frame.encode(params.encoder_config)
 
             frame.write_metrics_data(metrics_csv_writer, frame_index, params.encoder_config)
-
-            frame.pre_entropy_encoded_frame_bit_stream()
-
 
             frame.write_encoded_to_file(encoded_fh, mv_fh, quant_dct_coff_fh, residual_yuv_fh, reconstructed_fh)
             prev_frame = frame.reconstructed_frame
@@ -71,10 +68,10 @@ def encode_video(params: InputParameters):
     num_of_blocks = (height // block_size) * (width // block_size)
     num_of_comparisons = num_of_blocks * (2 * search_range + 1) ** 2
     result = str(f"{num_of_comparisons/elapsed_time:9.3f} | {num_of_comparisons:7d} | {num_of_blocks/elapsed_time:7.3f} |  {num_of_blocks:5d} | {frames_to_process/elapsed_time:6.2f} | {frames_to_process:3d} | {elapsed_time:6.3f} | {block_size:2d} | {search_range:2d} |\n")
-    print(result)
+    logger.info(result)
     with open('../results.csv', 'at') as f_in:
         f_in.write(result)
-    print('end encoding')
+    logger.info('end encoding')
     return
 
 
