@@ -71,7 +71,10 @@ class IFrame(Frame):
 
         return reconstructed_frame  # This should be the reconstructed frame
 
-        pass
+    def generate_prediction_data(self):
+        self.prediction_data = bytearray()
+
+
 def find_intra_predict_block(prediction_mode, reconstructed_frame, x, y, block_size):
     """Find the predicted block based on the specified prediction mode."""
     if prediction_mode == 0:  # Horizontal prediction mode

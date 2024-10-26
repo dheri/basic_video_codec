@@ -44,6 +44,7 @@ class TestFrame(TestCase):
         frame_to_encode.mv_field = mv
 
         frame_to_encode.generate_pre_entropy_encoded_frame_bit_stream(encoder_config)
+
         # check prediction_data is generated of correct length
         self.assertEqual(len(frame_to_encode.prediction_data), len(mv) * 2)
         logger.info(f"frame to encode : {frame_to_encode.bitstream_buffer}")
@@ -55,13 +56,48 @@ class TestFrame(TestCase):
         decoded_frame.construct_frame_metadata_from_bit_stream(params, byte_stream_copy)
 
         self.assertEqual(len(decoded_frame.prediction_data), len(mv) * 2)
+        logger.info(f"decoded  len(prediction_data)  matched {decoded_frame.mv_field}")
 
-        logger.info(decoded_frame.mv_field)
-
-        self.assertEqual(0, frame_to_encode.bitstream_buffer.read_bit())
         self.assertEqual(mv, decoded_frame.mv_field)
-        np.testing.assert_array_equal(
-            frame_to_encode.bitstream_buffer.read_quantized_coeffs(coeffs_2d.shape[0], coeffs_2d.shape[1]), coeffs_2d)
+        logger.info(f"decoded  mv  matched {decoded_frame.mv_field}")
+
+        # self.assertEqual(0, frame_to_encode.bitstream_buffer.read_bit())
+        np.testing.assert_array_equal(coeffs_2d, decoded_frame.quantized_dct_residual_frame)
+    def test_encoded_frame(self):
+        encoder_config = EncoderConfig(block_size=2, search_range=1, I_Period=1, quantization_factor=0)
+        params = InputParameters(height=2, width=2, encoder_config=encoder_config, y_only_file=None)
+
+        frame_to_encode = PFrame()
+
+        curr_frame = np.array([[100, 50], [20, 30]], dtype=np.int8)
+        prev_frame = np.array([[150, 250], [210, 23]], dtype=np.int8)
+
+        frame_to_encode.curr_frame = curr_frame
+        frame_to_encode.curr_frame = prev_frame
+
+        frame_to_encode.encode(encoder_config)
+
+        # check prediction_data is generated of correct length
+        self.assertEqual(len(frame_to_encode.prediction_data), len(mv) * 2)
+        logger.info(f"frame to encode : {frame_to_encode.bitstream_buffer}")
+
+
+        decoded_frame = PFrame()
+        byte_stream_copy = frame_to_encode.bitstream_buffer.bit_stream.copy()
+        decoded_frame.decode(encoder_config)
+
+
+
+        decoded_frame.construct_frame_metadata_from_bit_stream(params, byte_stream_copy)
+
+        self.assertEqual(len(decoded_frame.prediction_data), len(mv) * 2)
+        logger.info(f"decoded  len(prediction_data)  matched {decoded_frame.mv_field}")
+
+        self.assertEqual(mv, decoded_frame.mv_field)
+        logger.info(f"decoded  mv  matched {decoded_frame.mv_field}")
+
+        # self.assertEqual(0, frame_to_encode.bitstream_buffer.read_bit())
+        np.testing.assert_array_equal(coeffs_2d, decoded_frame.quantized_dct_residual_frame)
 
     def test_mv_field_to_bytearray_and_back(self):
         # Sample motion vector field

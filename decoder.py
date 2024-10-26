@@ -30,6 +30,7 @@ def decode(params: InputParameters):
         reconstructed_file_fh = stack.enter_context(open(file_io.get_mc_reconstructed_file_name(), 'rb'))
         encoded_fh = stack.enter_context(open(file_io.get_encoded_file_name(), 'rb'))
         decoded_fh = stack.enter_context(open(decoded_yuv, 'wb'))
+        prev_frame = np.full((params.height, params.width), 128, dtype=np.uint8)
 
         frame_index = 0
         while True:
@@ -40,11 +41,10 @@ def decode(params: InputParameters):
             logger.info(f"Decoding frame {frame_index}/{frames_to_process}")
             if (frame_index -1) % params.encoder_config.I_Period == 0:
                 # frame = IFrame()
-                frame = PFrame()
+                frame = PFrame(prev_frame=prev_frame)
             else:
-                frame = PFrame()
+                frame = PFrame(prev_frame=prev_frame)
                 # frame.quat_dct_coffs_frame_with_mc = quant_dct_coff_frame
-            frame.prev_frame = np.full((params.height, params.width), 128, dtype=np.uint8)
 
             block_size = params.encoder_config.block_size
             num_of_blocks = (params.height // block_size) * (params.width // block_size)
@@ -55,7 +55,7 @@ def decode(params: InputParameters):
 
             frame.construct_frame_metadata_from_bit_stream(params, encoded_frame_bytes)
 
-            decoded_frame = frame.decode(encoder_config=params.encoder_config)
+            decoded_frame = frame.decode(None, encoder_config=params.encoder_config)
 
 
 

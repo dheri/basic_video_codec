@@ -15,5 +15,5 @@ def golomb_encoding(val):
 
 def main(params: InputParameters):
     encode_video(params)
-    plot_metrics(params)
+    # plot_metrics(params)
     decode(params)

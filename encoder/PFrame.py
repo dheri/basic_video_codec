@@ -4,7 +4,7 @@ import numpy as np
 from skimage.metrics import peak_signal_noise_ratio
 from typing import Self
 
-from common import get_logger, generate_residual_block, find_mv_predicted_block
+from common import get_logger, generate_residual_block, find_mv_predicted_block, signed_to_unsigned, unsigned_to_signed
 from encoder.Frame import Frame
 from encoder.PredictionMode import PredictionMode
 from encoder.block_predictor import predict_block
@@ -106,12 +106,12 @@ class PFrame(Frame):
 
         return motion_vector, best_match_mae
 
-    def decode(self, encoder_config: EncoderConfig):
+    def decode(self, frame_size, encoder_config: EncoderConfig):
         return decode_p_frame(self.quantized_dct_residual_frame, self.prev_frame, self.mv_field, encoder_config)
 
     def parse_prediction_data(self, params):
         prediction_data = self.prediction_data
-        logger.info(f"parse prediction data: [{len(prediction_data)}] {prediction_data.hex()}")  # Log the byte array in hex format
+        # logger.info(f"parse prediction data: [{len(prediction_data)}] {prediction_data.hex()}")  # Log the byte array in hex format
         self.mv_field = byte_array_to_mv_field(self.prediction_data, params.width, params.height, params.encoder_config.block_size )  # Convert back to motion vector field
 
     def generate_prediction_data(self):
@@ -120,15 +120,10 @@ class PFrame(Frame):
 
         # Iterate over the motion vector field
         for (i, j), (mv_x, mv_y) in self.mv_field.items():
-            # Convert signed integers to unsigned bytes
-            mv_x_byte = (mv_x + 256) % 256
-            mv_y_byte = (mv_y + 256) % 256
+            self.prediction_data.append(signed_to_unsigned(mv_x, 8))
+            self.prediction_data.append(signed_to_unsigned(mv_y, 8))
 
-            # Append the bytes to the prediction data
-            self.prediction_data.append(mv_x_byte)
-            self.prediction_data.append(mv_y_byte)
-
-        logger.info(f"Generated prediction data: [{len(self.prediction_data)}] {self.prediction_data.hex()}")  # Log the byte array in hex format
+        # logger.info(f"Generated prediction data: [{len(self.prediction_data)}] {self.prediction_data.hex()}")  # Log the byte array in hex format
 
 
 def mv_field_to_bytearray(mv_field):
@@ -152,9 +147,8 @@ def byte_array_to_mv_field(byte_stream, width, height, block_size):
         mv_x_byte = byte_stream[i]
         mv_y_byte = byte_stream[i + 1]
 
-        # Reverse the conversion to obtain original motion vector values
-        mv_x = mv_x_byte if mv_x_byte < 128 else mv_x_byte - 256
-        mv_y = mv_y_byte if mv_y_byte < 128 else mv_y_byte - 256
+        mv_x = unsigned_to_signed(mv_x_byte, 8)
+        mv_y = unsigned_to_signed(mv_y_byte, 8)
 
         # Calculate the pixel coordinates (i, j) for the top-left corner of the block
         row_index = (index // (width // block_size)) * block_size  # Row (y-coordinate)

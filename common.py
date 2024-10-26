@@ -68,3 +68,15 @@ def split_into_blocks(nd_array, block_size):
             block = nd_array[y:y + block_size, x:x + block_size]
             blocks.append(block)
     return blocks
+
+def signed_to_unsigned(value, bits):
+    """Convert a signed integer to an unsigned integer."""
+    if value < 0:
+        return (1 << bits) + value  # Add 2^bits to negative values
+    return value
+
+def unsigned_to_signed(value, bits):
+    """Convert an unsigned integer to a signed integer."""
+    if value >= (1 << (bits - 1)):
+        return value - (1 << bits)  # Subtract 2^bits if value is in the upper half
+    return value

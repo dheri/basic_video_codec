@@ -33,7 +33,7 @@ class Frame:
         raise NotImplementedError(f"{type(self)} need to be overridden")
     def generate_prediction_data(self):
         raise NotImplementedError(f"{type(self)} need to be overridden")
-    def parse_prediction_data(self):
+    def parse_prediction_data(self, params: InputParameters):
         raise NotImplementedError(f"{type(self)} need to be overridden")
 
     def write_metrics_data(self, metrics_csv_writer, frame_index, encoder_config: EncoderConfig):
@@ -65,15 +65,26 @@ class Frame:
         logger.info(f"len after flush {len(self.bitstream_buffer.bit_stream)}")
         return self.bitstream_buffer
 
-    def construct_frame_metadata_from_bit_stream(self, params : InputParameters, encoded_frame_bytes):
-
+    def construct_frame_metadata_from_bit_stream(self, params : InputParameters, encoded_frame_bytes: bytes):
+        """
+        reads encoded_frame_bytes and populates prediction_mode, prediction_data, quantized_dct_residual_frame
+        :param params:
+        :param encoded_frame_bytes: bitstream to read
+        :return:
+        """
         self.bitstream_buffer = BitStreamBuffer()
-        self.bitstream_buffer.bit_stream = bitarray(encoded_frame_bytes)
+        bit_arr = bitarray()
+        bit_arr.frombytes(encoded_frame_bytes)
+        self.bitstream_buffer.bit_stream = bit_arr
+
+        self.prediction_mode = PredictionMode(self.bitstream_buffer.read_bit()) # pop first
         self.prediction_data = self.bitstream_buffer.read_prediction_data(self.prediction_mode, params)
         self.parse_prediction_data(params)
 
+
         self.quantized_dct_residual_frame = self.bitstream_buffer.read_quantized_coeffs(params.width, params.height)
-        logger.info(f"  construct_frame_metadata dct_coffs_extremes {self.get_quat_dct_coffs_extremes()}")
+        logger.info(f"quantized_dct shape [{self.quantized_dct_residual_frame.shape}] [{self.get_quat_dct_coffs_extremes()}]")
+
 
 
     def encoded_frame_data_length(self, params: InputParameters):
@@ -100,5 +111,5 @@ class Frame:
             max_value = np.max(self.quantized_dct_residual_frame)
             return [min_value, max_value]
         else:
-            raise TypeError("quantized_dct_residual_frame must be a numpy array")
+            raise TypeError(f"{self.quantized_dct_residual_frame} quantized_dct_residual_frame must be a numpy array")
 

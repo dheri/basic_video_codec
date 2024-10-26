@@ -1,7 +1,7 @@
 import numpy as np
 from bitarray.util import ba2hex
 
-from common import get_logger, split_into_blocks
+from common import get_logger, split_into_blocks, unsigned_to_signed
 from encoder.PredictionMode import PredictionMode
 from input_parameters import InputParameters
 
@@ -62,13 +62,12 @@ class BitStreamBuffer:
         value = 0
         for _ in range(num_bits):
             value = (value << 1) | self.read_bit()
+        # logger.info(f"read {num_bits} bits : [ u {value:3d} , s {unsigned_to_signed(value, num_bits):4d}] ")
         return value
 
     def read_int16(self):
         """Read a 16-bit signed integer from the buffer."""
-        high_byte = self.read_bits(8)
-        low_byte = self.read_bits(8)
-        value = (high_byte << 8) | low_byte
+        value = self.read_bits(16)  # Read 16 bits
         if value >= 0x8000:
             value -= 0x10000
         return value
@@ -77,7 +76,6 @@ class BitStreamBuffer:
         """Read a signed 8-bit integer from the buffer."""
         value = self.read_bits(8)
         signed_value = value if value < 128 else value - 256
-        logger.info(f"reading {value} as {signed_value} int8")
         return signed_value
 
     def get_bitstream(self):
@@ -106,8 +104,9 @@ class BitStreamBuffer:
             for i in range(0, len(differential_data), 2):
                 mv_x = differential_data[i]
                 mv_y = differential_data[i + 1]
-                self.write_int8(mv_x)
-                self.write_int8(mv_y )
+                # differential_data  will be unit 8 it
+                self.write_bits(mv_x, 8)
+                self.write_bits(mv_y, 8 )
         elif prediction_mode == PredictionMode.INTRA_FRAME:
             for mode in differential_data:
                 self.write_bit(mode)
@@ -120,8 +119,8 @@ class BitStreamBuffer:
         prediction_data = bytearray()
         if prediction_mode == PredictionMode.INTER_FRAME:
             for _ in range(num_blocks):
-                mv_x = self.read_int8()
-                mv_y = self.read_int8()
+                mv_x = self.read_bits(8)
+                mv_y = self.read_bits(8)
                 prediction_data.append(mv_x)
                 prediction_data.append(mv_y)
         elif prediction_mode == PredictionMode.INTRA_FRAME:
