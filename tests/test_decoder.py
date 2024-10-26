@@ -4,7 +4,7 @@ import numpy as np
 
 from decoder import logger
 from common import find_mv_predicted_block
-from encoder.PFrame import decode_p_frame, PFrame
+from encoder.PFrame import construct_frame_from_dct_and_mv, PFrame
 from encoder.params import EncoderConfig
 from input_parameters import InputParameters
 from tests.y_generator import generate_marked_frame
@@ -69,7 +69,7 @@ class TestDecoder(TestCase):
                     residuals_with_mc = encoded_frame.residual_frame
                     quat_dct_coffs_with_mc = encoded_frame.quantized_dct_residual_frame
 
-                    decoded_frame = decode_p_frame(quat_dct_coffs_with_mc, prev_f, mv_field, encoder_parameters)
+                    decoded_frame = construct_frame_from_dct_and_mv(quat_dct_coffs_with_mc, prev_f, mv_field, encoder_parameters)
 
                     np.testing.assert_allclose(decoded_frame, encoded_frame.reconstructed_frame,
                                                atol=(2),

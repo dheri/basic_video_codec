@@ -1,5 +1,6 @@
 import numpy as np
 from bitarray.util import ba2hex
+from numpy.ma.core import shape
 
 from common import get_logger, split_into_blocks, unsigned_to_signed
 from encoder.PredictionMode import PredictionMode
@@ -133,13 +134,25 @@ class BitStreamBuffer:
 
         return prediction_data
 
-    def read_quantized_coeffs(self, width, height):
-        """Read a specified number of 16-bit quantized coefficients from the buffer."""
-        coeffs = []
-        for _ in range(width * height):
-            coeffs.append(self.read_int16())
-        return np.array(coeffs).reshape(int(height), int(width))
+    # def read_quantized_coeffs(self, width, height):
+    #     """Read a specified number of 16-bit quantized coefficients from the buffer."""
+    #     coeffs = []
+    #     for _ in range(width * height):
+    #         coeffs.append(self.read_int16())
+    #     return np.array(coeffs).reshape(int(height), int(width))
 
+    def read_quantized_coeffs(self, height, width, block_size):
+        coeffs_frame = np.empty(shape=(height, width))
+
+        for y in range(0, height, block_size):
+            for x in range(0, width, block_size):
+                coff_block = np.empty(block_size ** 2)
+                for i in range(block_size ** 2):
+                    coff_block[i] = self.read_int16()
+
+                coeffs_frame[y:y + block_size, x:x + block_size] = coff_block.reshape(block_size, block_size)
+
+        return coeffs_frame
 
     def __repr__(self):
         bin_rep =  ''.join(f'{byte:08b}' for byte in bytes(self.bit_stream))

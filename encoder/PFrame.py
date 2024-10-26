@@ -68,6 +68,7 @@ class PFrame(Frame):
         self.residual_frame = residual_frame_with_mc
         self.quantized_dct_residual_frame = quat_dct_coffs_frame_with_mc
         self.reconstructed_frame = reconstructed_frame_with_mc
+        self.generate_prediction_data()
         return self
 
 
@@ -107,7 +108,7 @@ class PFrame(Frame):
         return motion_vector, best_match_mae
 
     def decode(self, frame_size, encoder_config: EncoderConfig):
-        return decode_p_frame(self.quantized_dct_residual_frame, self.prev_frame, self.mv_field, encoder_config)
+        return construct_frame_from_dct_and_mv(self.quantized_dct_residual_frame, self.prev_frame, self.mv_field, encoder_config)
 
     def parse_prediction_data(self, params):
         prediction_data = self.prediction_data
@@ -182,10 +183,10 @@ def reconstruct_block(quantized_dct_coffs, Q, predicted_block_with_mc):
     return clipped_reconstructed_block, idct_residual_block
 
 
-def decode_p_frame(quant_dct_coff_frame, prev_frame, mv_field, encoder_config: EncoderConfig):
+def construct_frame_from_dct_and_mv(quant_dct_coff_frame, prev_frame, mv_field, encoder_config: EncoderConfig):
     block_size = encoder_config.block_size
     quantization_factor = encoder_config.quantization_factor
-    height, width = quant_dct_coff_frame.shape
+    height, width = prev_frame.shape
     decoded_frame = np.zeros_like(prev_frame, dtype=np.uint8)
 
     # Generate the quantization matrix Q based on block size and quantization factor

@@ -49,12 +49,11 @@ class Frame:
         write_y_only_frame(quant_dct_coff_fh, self.quantized_dct_residual_frame)
         write_y_only_frame(reconstructed_fh, self.reconstructed_frame)
 
-        self.generate_pre_entropy_encoded_frame_bit_stream( encoder_config)
         encoded_fh.write(self.bitstream_buffer.get_bitstream())
 
         mv_fh.write(bytearray(self.prediction_data))
 
-    def generate_pre_entropy_encoded_frame_bit_stream(self, encoder_config : EncoderConfig) -> BitStreamBuffer:
+    def populate_bit_stream_buffer(self, encoder_config : EncoderConfig) -> BitStreamBuffer:
         self.generate_prediction_data()
 
         self.bitstream_buffer = BitStreamBuffer()
@@ -62,7 +61,7 @@ class Frame:
         self.bitstream_buffer.write_prediction_data(self.prediction_mode, self.prediction_data)
         self.bitstream_buffer.write_quantized_coeffs(self.quantized_dct_residual_frame, encoder_config.block_size)
         self.bitstream_buffer.flush()
-        logger.info(f"len after flush {len(self.bitstream_buffer.bit_stream)}")
+        # logger.info(f"bitstream_buffer {self.bitstream_buffer}")
         return self.bitstream_buffer
 
     def construct_frame_metadata_from_bit_stream(self, params : InputParameters, encoded_frame_bytes: bytes):
@@ -82,8 +81,10 @@ class Frame:
         self.parse_prediction_data(params)
 
 
-        self.quantized_dct_residual_frame = self.bitstream_buffer.read_quantized_coeffs(params.width, params.height)
-        logger.info(f"quantized_dct shape [{self.quantized_dct_residual_frame.shape}] [{self.get_quat_dct_coffs_extremes()}]")
+        self.quantized_dct_residual_frame = self.bitstream_buffer.read_quantized_coeffs(params.height, params.width, params.encoder_config.block_size).astype(np.int16)
+
+        dct_coffs_extremes = self.get_quat_dct_coffs_extremes()
+        logger.info(f"quantized_dct shape [{self.quantized_dct_residual_frame.shape}], range: [{dct_coffs_extremes[0]:4}, {dct_coffs_extremes[1]:3}]")
 
 
 

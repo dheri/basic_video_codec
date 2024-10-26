@@ -4,7 +4,7 @@ import numpy as np
 
 from common import get_logger
 from encoder.IFrame import IFrame
-from encoder.PFrame import decode_p_frame, PFrame
+from encoder.PFrame import construct_frame_from_dct_and_mv, PFrame
 from file_io import write_y_only_frame, FileIOHelper
 from input_parameters import InputParameters
 from motion_vector import parse_mv
@@ -18,7 +18,6 @@ def decode(params: InputParameters):
     frames_to_process = params.frames_to_process
     height = params.height
     width = params.width
-    mv_txt_file = file_io.get_mv_file_name()
     decoded_yuv = file_io.get_mc_decoded_file_name()
 
     frame_size = width * height
@@ -30,7 +29,6 @@ def decode(params: InputParameters):
         reconstructed_file_fh = stack.enter_context(open(file_io.get_mc_reconstructed_file_name(), 'rb'))
         encoded_fh = stack.enter_context(open(file_io.get_encoded_file_name(), 'rb'))
         decoded_fh = stack.enter_context(open(decoded_yuv, 'wb'))
-        prev_frame = np.full((params.height, params.width), 128, dtype=np.uint8)
 
         frame_index = 0
         while True:
@@ -50,7 +48,6 @@ def decode(params: InputParameters):
             num_of_blocks = (params.height // block_size) * (params.width // block_size)
             bytes_per_frame = frame.encoded_frame_data_length(params)
             encoded_frame_bytes = encoded_fh.read(bytes_per_frame)
-
             logger.info(f"reading {bytes_per_frame} bytes for {frame.prediction_mode}")
 
             frame.construct_frame_metadata_from_bit_stream(params, encoded_frame_bytes)

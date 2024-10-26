@@ -57,6 +57,7 @@ def encode_video(params: InputParameters):
 
 
             frame.encode(params.encoder_config)
+            frame.populate_bit_stream_buffer(params.encoder_config)
 
             frame.write_metrics_data(metrics_csv_writer, frame_index, params.encoder_config)
 

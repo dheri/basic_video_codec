@@ -18,7 +18,7 @@ if __name__ == "__main__":
         width  = 352,
         height= 288,
         encoder_config= encoder_parameters,
-        frames_to_process = 2
+        frames_to_process = 12
     )
 
     # ex2.main(input_params)
