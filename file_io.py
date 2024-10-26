@@ -38,8 +38,11 @@ class FileIOHelper:
     def get_metrics_png_file_name(self):
         return self.get_file_name('metrics.png')
 
-    def get_mc_residual_file_name(self):
-        return self.get_file_name('mc_residuals.yuv')
+    def get_residual_w_mc_file_name(self):
+        return self.get_file_name('residuals_w_mc.yuv')
+
+    def get_residual_wo_mc_file_name(self):
+        return self.get_file_name('residuals_wo_mc.yuv')
 
     def get_quant_dct_coff_fh_file_name(self):
         return self.get_file_name('mc_quant_dct_coff.bin')

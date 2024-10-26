@@ -23,7 +23,8 @@ def encode_video(params: InputParameters):
         f_in = stack.enter_context(open(params.y_only_file, 'rb'))
         mv_fh = stack.enter_context(open(file_io.get_mv_file_name(), 'wb'))
         quant_dct_coff_fh =stack.enter_context(open(file_io.get_quant_dct_coff_fh_file_name(), 'wb'))
-        residual_yuv_fh = stack.enter_context(open(file_io.get_mc_residual_file_name(), 'wb'))
+        residual_w_mc_yuv_fh = stack.enter_context(open(file_io.get_residual_w_mc_file_name(), 'wb'))
+        residual_wo_mc_yuv_fh = stack.enter_context(open(file_io.get_residual_wo_mc_file_name(), 'wb'))
         reconstructed_fh = stack.enter_context(open(file_io.get_mc_reconstructed_file_name(), 'wb'))
         encoded_fh = stack.enter_context(open(file_io.get_encoded_file_name(), 'wb'))
 
@@ -58,7 +59,8 @@ def encode_video(params: InputParameters):
 
             frame.write_metrics_data(metrics_csv_writer, frame_index, params.encoder_config)
 
-            frame.write_encoded_to_file(encoded_fh, mv_fh, quant_dct_coff_fh, residual_yuv_fh, reconstructed_fh, params.encoder_config)
+            frame.write_encoded_to_file(encoded_fh, mv_fh, quant_dct_coff_fh, residual_w_mc_yuv_fh, residual_wo_mc_yuv_fh, reconstructed_fh, params.encoder_config)
+
             prev_frame = frame.reconstructed_frame
 
 

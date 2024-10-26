@@ -43,9 +43,10 @@ class Frame:
             f" {self.prediction_mode:1} {frame_index:2}: i={encoder_config.block_size} r={encoder_config.search_range}, qp={encoder_config.quantization_factor}, mae[{round(self.avg_mae, 2):7.2f}] psnr [{round(psnr, 2):6.2f}], q_dct_range: [{dct_coffs_extremes[0]:4}, {dct_coffs_extremes[1]:3}]")
         metrics_csv_writer.writerow([frame_index, self.avg_mae, psnr])
 
-    def write_encoded_to_file(self, encoded_fh, mv_fh, quant_dct_coff_fh,residual_yuv_fh , reconstructed_fh, encoder_config):
+    def write_encoded_to_file(self, encoded_fh, mv_fh, quant_dct_coff_fh,residual_yuv_fh, residual_wo_mc_yuv_fh, reconstructed_fh, encoder_config):
 
         write_y_only_frame(residual_yuv_fh, self.residual_frame)
+        write_y_only_frame(residual_wo_mc_yuv_fh, self.residual_frame)
         write_y_only_frame(quant_dct_coff_fh, self.quantized_dct_residual_frame)
         write_y_only_frame(reconstructed_fh, self.reconstructed_frame)
 

@@ -38,6 +38,7 @@ class PFrame(Frame):
         # Initialize output frames
         reconstructed_frame_with_mc = np.zeros_like(self.curr_frame, dtype=np.uint8)
         residual_frame_with_mc = np.zeros_like(self.curr_frame, dtype=np.int8)
+        residual_frame_wo_mc = np.zeros_like(self.curr_frame, dtype=np.int8)
         quat_dct_coffs_frame_with_mc = np.zeros_like(self.curr_frame, dtype=np.int16)
 
         # Process blocks in parallel
@@ -54,6 +55,7 @@ class PFrame(Frame):
                 # Update frames with the encoded block data
                 reconstructed_frame_with_mc[y:y + block_size, x:x + block_size] = encoded_block.reconstructed_block_with_mc
                 residual_frame_with_mc[y:y + block_size, x:x + block_size] = encoded_block.reconstructed_residual_block
+                residual_frame_wo_mc[y:y + block_size, x:x + block_size] = encoded_block.residual_block_wo_mc
                 quat_dct_coffs_frame_with_mc[y:y + block_size, x:x + block_size] = encoded_block.quantized_dct_coffs
 
                 mae_of_blocks += encoded_block.mae
@@ -74,6 +76,7 @@ class PFrame(Frame):
 
     def process_block(self, x, y, block_size, search_range, quantization_factor, width, height, mv_field):
         curr_block = self.curr_frame[y:y + block_size, x:x + block_size].astype(np.int16)
+        prev_block = self.prev_frame[y:y + block_size, x:x + block_size].astype(np.int16)
 
         # Get motion vector and MAE
         motion_vector, best_match_mae = self.get_motion_vector(curr_block, x, y, block_size, search_range, width, height)
@@ -81,14 +84,14 @@ class PFrame(Frame):
 
         # Generate residual and predicted block
         predicted_block_with_mc, residual_block_with_mc = generate_residual_block(curr_block, self.prev_frame, motion_vector, x, y, block_size)
-
+        residual_block_wo_mc = np.subtract(curr_block, prev_block)
         # Apply DCT and quantization
         quantized_dct_coffs, Q = apply_dct_and_quantization(residual_block_with_mc, block_size, quantization_factor)
 
         # Reconstruct the block using the predicted and inverse DCT
         clipped_reconstructed_block, idct_residual_block = reconstruct_block(quantized_dct_coffs, Q, predicted_block_with_mc)
 
-        return EncodedBlock((x, y), motion_vector, best_match_mae, quantized_dct_coffs, idct_residual_block, clipped_reconstructed_block)
+        return EncodedBlock((x, y), motion_vector, best_match_mae, quantized_dct_coffs, idct_residual_block, residual_block_wo_mc, clipped_reconstructed_block)
 
 
     def get_motion_vector(self, curr_block, x, y, block_size, search_range, width, height):
