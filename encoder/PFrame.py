@@ -107,7 +107,7 @@ class PFrame(Frame):
 
         return motion_vector, best_match_mae
 
-    def decode(self, frame_size, encoder_config: EncoderConfig):
+    def decode(self, frame_shape, encoder_config: EncoderConfig):
         return construct_frame_from_dct_and_mv(self.quantized_dct_residual_frame, self.prev_frame, self.mv_field, encoder_config)
 
     def parse_prediction_data(self, params):

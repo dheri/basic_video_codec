@@ -29,7 +29,7 @@ class Frame:
     def encode(self, encoder_config: EncoderConfig):
         raise NotImplementedError(f"{type(self)} need to be overridden")
 
-    def decode(self,frame_size, encoder_config: EncoderConfig):
+    def decode(self, frame_shape, encoder_config: EncoderConfig):
         raise NotImplementedError(f"{type(self)} need to be overridden")
     def generate_prediction_data(self):
         raise NotImplementedError(f"{type(self)} need to be overridden")

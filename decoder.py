@@ -13,7 +13,7 @@ from skimage.metrics import peak_signal_noise_ratio
 logger = get_logger()
 
 
-def decode(params: InputParameters):
+def decode_video(params: InputParameters):
     file_io = FileIOHelper(params)
     frames_to_process = params.frames_to_process
     height = params.height
@@ -38,21 +38,18 @@ def decode(params: InputParameters):
                 break  # End of file or end of frames
             logger.info(f"Decoding frame {frame_index}/{frames_to_process}")
             if (frame_index -1) % params.encoder_config.I_Period == 0:
-                # frame = IFrame()
-                frame = PFrame(prev_frame=prev_frame)
+                frame = IFrame()
             else:
                 frame = PFrame(prev_frame=prev_frame)
-                # frame.quat_dct_coffs_frame_with_mc = quant_dct_coff_frame
 
             block_size = params.encoder_config.block_size
-            num_of_blocks = (params.height // block_size) * (params.width // block_size)
             bytes_per_frame = frame.encoded_frame_data_length(params)
             encoded_frame_bytes = encoded_fh.read(bytes_per_frame)
             logger.info(f"reading {bytes_per_frame} bytes for {frame.prediction_mode}")
 
             frame.construct_frame_metadata_from_bit_stream(params, encoded_frame_bytes)
 
-            decoded_frame = frame.decode(None, encoder_config=params.encoder_config)
+            decoded_frame = frame.decode((params.height, params.width), encoder_config=params.encoder_config)
 
 
 

@@ -11,6 +11,7 @@ class IFrame(Frame):
     def __init__(self, curr_frame=None ):
         super().__init__(curr_frame)
         self.prediction_mode = PredictionMode.INTRA_FRAME
+        self.intra_modes = None
 
     def encode(self, encoder_config: EncoderConfig):
         curr_frame = self.curr_frame
@@ -45,12 +46,12 @@ class IFrame(Frame):
         avg_mae = mae_of_blocks / ((height // block_size) * (width // block_size))
         self.reconstructed_frame = reconstructed_frame
         self.quantized_dct_residual_frame = quantized_dct_residual_frame
-        self.prediction_data = intra_modes
+        self.intra_modes = intra_modes
         self.avg_mae = avg_mae
         self.residual_frame = residual_w_mc_frame
-    def decode(self,frame_size, encoder_config: EncoderConfig):
+    def decode(self, frame_shape, encoder_config: EncoderConfig):
         block_size = encoder_config.block_size
-        height, width = frame_size
+        height, width = frame_shape
         reconstructed_frame = np.zeros((height, width), dtype=np.uint8)
         Q = generate_quantization_matrix(block_size, encoder_config.quantization_factor)
 
@@ -58,7 +59,7 @@ class IFrame(Frame):
         for y in range(0, height, block_size):
             for x in range(0, width, block_size):
                 dct_coffs_block = self.quantized_dct_residual_frame[y:y + block_size, x:x + block_size]
-                logger.info(f" dct_coffs_block extreams : [{np.min(dct_coffs_block)}, {np.max(dct_coffs_block)} ]")
+                # logger.info(f" dct_coffs_block extreams : [{np.min(dct_coffs_block)}, {np.max(dct_coffs_block)} ]")
 
                 rescaled_dct_coffs_block = rescale_block(dct_coffs_block, Q)
                 idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block)
@@ -72,7 +73,20 @@ class IFrame(Frame):
         return reconstructed_frame  # This should be the reconstructed frame
 
     def generate_prediction_data(self):
-        self.prediction_data = bytearray()
+        """Puts
+
+
+         intra_modes onto prediction_data"""
+        if self.intra_modes is None:
+            raise ValueError("Intra modes have not been initialized.")
+
+        self.prediction_data = self.intra_modes
+
+
+    def parse_prediction_data(self, params):
+        prediction_data = self.prediction_data
+        # logger.info(f"parse prediction data: [{len(prediction_data)}] {prediction_data.hex()}")  # Log the byte array in hex format
+        # self.mv_field = byte_array_to_mv_field(self.prediction_data, params.width, params.height, params.encoder_config.block_size )  # Convert back to motion vector field
 
 
 def find_intra_predict_block(prediction_mode, reconstructed_frame, x, y, block_size):
