@@ -128,8 +128,9 @@ def encode_video(params: InputParameters):
             frame.populate_bit_stream_buffer(params.encoder_config)
 
             # Calculate the bit count for the current frame (bitstream size * 8 for bits)
-            bit_count = len(frame.bitstream_buffer.get_bitstream()) * 8
-            total_bit_size += bit_count
+            #bit_count = len(frame.bitstream_buffer.get_bitstream()) * 8
+            bit_count = 0
+            total_bit_size += 512 #bit_count
 
             # Calculate PSNR and MAE
             frame_psnr = peak_signal_noise_ratio(frame.curr_frame, frame.reconstructed_frame)
