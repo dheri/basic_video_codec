@@ -184,6 +184,40 @@ def reconstruct_block(quantized_dct_coffs, Q, predicted_block_with_mc):
     clipped_reconstructed_block = np.clip(reconstructed_block_with_mc, 0, 255).astype(np.uint8)
     return clipped_reconstructed_block, idct_residual_block
 
+"""
+def construct_frame_from_dct_and_mv(quant_dct_coff_frame, prev_frame, mv_field, encoder_config: EncoderConfig):
+    block_size = encoder_config.block_size
+    height, width = prev_frame.shape
+    decoded_frame = np.zeros_like(prev_frame, dtype=np.uint8)
+
+    for y in range(0, height, block_size):
+        for x in range(0, width, block_size):
+            # Get the quantized residual block
+            dct_coffs_block = quant_dct_coff_frame[y:y + block_size, x:x + block_size]
+
+            # Rescale the residual block by multiplying by Q
+            rescaled_dct_coffs_block = rescale_block(dct_coffs_block, generate_quantization_matrix(block_size, encoder_config.quantization_factor))
+
+            # Apply inverse DCT to the rescaled residual block
+            idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block)
+
+            # Get the predicted block using the motion vector
+            predicted_b = find_mv_predicted_block(mv_field[(x, y)], x, y, prev_frame, block_size).astype(np.int16)
+
+            # Ensure the predicted block matches the block size (8, 8) or pad/clip it
+            predicted_b = predicted_b[:block_size, :block_size]  # Clip to the block size if necessary
+
+            # Reconstruct the block by adding the predicted block and the rescaled residual
+            decoded_block = np.round(idct_residual_block + predicted_b).astype(np.int16)
+
+            # Clip values to avoid overflow/underflow and convert back to uint8
+            decoded_block = np.clip(decoded_block, 0, 255).astype(np.uint8)
+
+            # Place the reconstructed block in the decoded frame
+            decoded_frame[y:y + block_size, x:x + block_size] = decoded_block
+
+    return decoded_frame
+"""
 
 def construct_frame_from_dct_and_mv(quant_dct_coff_frame, prev_frame, mv_field, encoder_config: EncoderConfig):
     block_size = encoder_config.block_size
@@ -191,29 +225,43 @@ def construct_frame_from_dct_and_mv(quant_dct_coff_frame, prev_frame, mv_field, 
     height, width = prev_frame.shape
     decoded_frame = np.zeros_like(prev_frame, dtype=np.uint8)
 
+    # Generate the quantization matrix Q based on block size and quantization factor
     Q = generate_quantization_matrix(block_size, quantization_factor)
 
     for y in range(0, height, block_size):
         for x in range(0, width, block_size):
+            # Get the quantized residual block
             dct_coffs_block = quant_dct_coff_frame[y:y + block_size, x:x + block_size]
 
+            # Rescale the residual block by multiplying by Q
             rescaled_dct_coffs_block = rescale_block(dct_coffs_block, Q)
 
+            # Apply inverse DCT to the rescaled residual block
             idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block)
 
-            if (x, y) in mv_field:
-                predicted_b = find_mv_predicted_block(mv_field[(x, y)], x, y, prev_frame, block_size).astype(np.int16)
-            else:
-                print(f"Missing motion vector for block ({x}, {y})")
-                predicted_b = np.zeros_like(idct_residual_block)
+            # Get the predicted block using the motion vector
+            predicted_b = find_mv_predicted_block(mv_field.get((x, y), None), x, y, prev_frame, block_size)
 
-            # Check if the shapes match before adding
+            # Check if the predicted block is valid
+            if predicted_b is None or predicted_b.size == 0:
+                # Handle the case where predicted_b is invalid or empty
+                predicted_b = np.zeros((block_size, block_size), dtype=np.int16)
+
+            # Ensure the predicted block size matches the residual block size
             if predicted_b.shape != idct_residual_block.shape:
-                print(f"Error predicted_b shape {predicted_b.shape} does not match idct_residual_block shape {idct_residual_block.shape}")
-                continue  # Skip this block
+                # Adjust the shape of the predicted block to match the residual block
+                predicted_b = np.pad(predicted_b, 
+                                     ((0, idct_residual_block.shape[0] - predicted_b.shape[0]), 
+                                      (0, idct_residual_block.shape[1] - predicted_b.shape[1])),
+                                     mode='edge')  # Padding to match the size
 
+            # Reconstruct the block by adding the predicted block and the rescaled residual
             decoded_block = np.round(idct_residual_block + predicted_b).astype(np.int16)
+
+            # Clip values to avoid overflow/underflow and convert back to uint8
             decoded_block = np.clip(decoded_block, 0, 255).astype(np.uint8)
+
+            # Place the reconstructed block in the decoded frame
             decoded_frame[y:y + block_size, x:x + block_size] = decoded_block
 
     return decoded_frame

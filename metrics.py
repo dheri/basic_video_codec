@@ -1,10 +1,7 @@
 import csv
-
 from matplotlib import pyplot as plt
-
 from file_io import FileIOHelper
 from input_parameters import InputParameters
-
 
 def plot_metrics(params: InputParameters):
     file_io = FileIOHelper(params)
@@ -19,7 +16,8 @@ def plot_metrics(params: InputParameters):
         csv_reader = csv.reader(f)
         next(csv_reader)  # Skip the header
         for row in csv_reader:
-            frame, mae, psnr = row
+            # Unpack only the first three columns: Frame Index, Average MAE, PSNR
+            frame, mae, psnr, *rest = row  # Ignore extra columns by using '*rest'
             frame_numbers.append(int(frame))  # Frame index as integer
             avg_mae_values.append(float(mae))  # MAE value as float
             psnr_values.append(float(psnr))  # PSNR value as float
