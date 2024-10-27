@@ -14,7 +14,7 @@ if __name__ == "__main__":
     )
 
     input_params = InputParameters(
-        y_only_file ='data/foreman_cif.y',
+        y_only_file ='data/foreman_cif.yuv',
         width  = 352,
         height= 288,
         encoder_config= encoder_parameters,

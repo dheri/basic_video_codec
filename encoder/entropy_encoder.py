@@ -1,3 +1,4 @@
+import numpy
 def exp_golomb_encode(value):
     if value == 0:
         return '0'

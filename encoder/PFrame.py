@@ -2,7 +2,6 @@ import concurrent
 
 import numpy as np
 from skimage.metrics import peak_signal_noise_ratio
-from typing import Self
 
 from common import get_logger, generate_residual_block, find_mv_predicted_block, signed_to_unsigned, unsigned_to_signed
 from encoder.Frame import Frame
@@ -25,7 +24,7 @@ class PFrame(Frame):
         self.mv_field = None
         self.avg_mae = None
 
-    def encode(self, encoder_config: EncoderConfig) -> Self :
+    def encode(self, encoder_config: EncoderConfig):
         block_size = encoder_config.block_size
         search_range = encoder_config.search_range
         quantization_factor = encoder_config.quantization_factor
@@ -192,31 +191,29 @@ def construct_frame_from_dct_and_mv(quant_dct_coff_frame, prev_frame, mv_field, 
     height, width = prev_frame.shape
     decoded_frame = np.zeros_like(prev_frame, dtype=np.uint8)
 
-    # Generate the quantization matrix Q based on block size and quantization factor
     Q = generate_quantization_matrix(block_size, quantization_factor)
 
     for y in range(0, height, block_size):
         for x in range(0, width, block_size):
-            # print(f" [{x}, {y}]")
-            # Get the quantized residual block
             dct_coffs_block = quant_dct_coff_frame[y:y + block_size, x:x + block_size]
 
-            # Rescale the residual block by multiplying by Q
             rescaled_dct_coffs_block = rescale_block(dct_coffs_block, Q)
 
-            # Apply inverse DCT to the rescaled residual block
             idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block)
 
-            # Get the predicted block using the motion vector
-            predicted_b = find_mv_predicted_block(mv_field[(x, y)], x, y, prev_frame, block_size).astype(np.int16)
+            if (x, y) in mv_field:
+                predicted_b = find_mv_predicted_block(mv_field[(x, y)], x, y, prev_frame, block_size).astype(np.int16)
+            else:
+                print(f"Missing motion vector for block ({x}, {y})")
+                predicted_b = np.zeros_like(idct_residual_block)
 
-            # Reconstruct the block by adding the predicted block and the rescaled residual
+            # Check if the shapes match before adding
+            if predicted_b.shape != idct_residual_block.shape:
+                print(f"Error predicted_b shape {predicted_b.shape} does not match idct_residual_block shape {idct_residual_block.shape}")
+                continue  # Skip this block
+
             decoded_block = np.round(idct_residual_block + predicted_b).astype(np.int16)
-
-            # Clip values to avoid overflow/underflow and convert back to uint8
             decoded_block = np.clip(decoded_block, 0, 255).astype(np.uint8)
-
-            # Place the reconstructed block in the decoded frame
             decoded_frame[y:y + block_size, x:x + block_size] = decoded_block
 
     return decoded_frame
