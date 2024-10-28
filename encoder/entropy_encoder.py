@@ -1,4 +1,5 @@
 import numpy as np
+from bitarray import bitarray
 
 def exp_golomb_encode(value):
     if value == 0:
@@ -12,13 +13,27 @@ def exp_golomb_encode(value):
     suffix = format(mapped_value - (1 << m), f'0{m}b')
     return prefix + suffix
 
-
 def exp_golomb_decode(bitstream):
+    # Ensure we are working with a bitarray and convert it to string for easier parsing
+    bit_str = bitstream.to01()  # Convert bitstream to binary string
+
     m = 0
-    while bitstream[m] == '0':
+    # Find the first '1' in the bitstream (this is the start of the Golomb code)
+    while m < len(bit_str) and bit_str[m] == '0':
         m += 1
-    value = (1 << m) + int(bitstream[m + 1:], 2)
-    return value
+
+    if m >= len(bit_str):  # If we run out of bits, return an error
+        raise ValueError("Not enough bits to decode the exp-Golomb code.")
+
+    # Compute the value from the Golomb code (m leading zeroes followed by '1' and m-bit suffix)
+    if m + 1 + m > len(bit_str):  # Ensure we have enough bits for suffix
+        raise ValueError("Insufficient bits in the stream to decode.")
+
+    value = (1 << m) + int(bit_str[m + 1:m + 1 + m], 2)
+
+    # Return the decoded symbol and the remaining bitstream
+    remaining_bitstream = bitarray(bit_str[m + 1 + m:])
+    return value, remaining_bitstream
 
 def rle_encode(coeffs):
     encoded = []
