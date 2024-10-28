@@ -50,7 +50,7 @@ class Frame:
         write_y_only_frame(quant_dct_coff_fh, self.quantized_dct_residual_frame)
         write_y_only_frame(reconstructed_fh, self.reconstructed_frame)
 
-        encoded_fh.write(self.bitstream_buffer.get_bitstream())
+        #encoded_fh.write(self.bitstream_buffer.get_bitstream())
 
         mv_fh.write(bytearray(self.prediction_data))
 

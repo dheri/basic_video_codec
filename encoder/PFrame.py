@@ -119,22 +119,19 @@ class PFrame(Frame):
 
     def generate_prediction_data(self):
         # convert mv or inta-modes to byte array
-        self.prediction_data = bytearray()  # Initialize an empty bytearray for prediction data
-
+        self.prediction_data = bytearray()  
         # Iterate over the motion vector field
         for (i, j), (mv_x, mv_y) in self.mv_field.items():
             self.prediction_data.append(signed_to_unsigned(mv_x, 8))
             self.prediction_data.append(signed_to_unsigned(mv_y, 8))
 
-        # logger.info(f"Generated prediction data: [{len(self.prediction_data)}] {self.prediction_data.hex()}")  # Log the byte array in hex format
 
 
 def mv_field_to_bytearray(mv_field):
     byte_stream = bytearray()
     for mv in mv_field.values():
         for value in mv:
-            # Convert signed integer to unsigned byte
-            unsigned_byte = (value + 256) % 256  # Ensure the result is within 0-255
+            unsigned_byte = (value + 256) % 256  
             byte_stream.append(unsigned_byte)
     return byte_stream
 
@@ -143,7 +140,6 @@ def byte_array_to_mv_field(byte_stream, width, height, block_size):
     index = 0
     # Iterate through the byte stream in pairs
     for i in range(0, len(byte_stream), 2):
-        # Ensure we have enough bytes left for mv_x and mv_y
         if i + 1 >= len(byte_stream):
             break
 
@@ -184,40 +180,7 @@ def reconstruct_block(quantized_dct_coffs, Q, predicted_block_with_mc):
     clipped_reconstructed_block = np.clip(reconstructed_block_with_mc, 0, 255).astype(np.uint8)
     return clipped_reconstructed_block, idct_residual_block
 
-"""
-def construct_frame_from_dct_and_mv(quant_dct_coff_frame, prev_frame, mv_field, encoder_config: EncoderConfig):
-    block_size = encoder_config.block_size
-    height, width = prev_frame.shape
-    decoded_frame = np.zeros_like(prev_frame, dtype=np.uint8)
 
-    for y in range(0, height, block_size):
-        for x in range(0, width, block_size):
-            # Get the quantized residual block
-            dct_coffs_block = quant_dct_coff_frame[y:y + block_size, x:x + block_size]
-
-            # Rescale the residual block by multiplying by Q
-            rescaled_dct_coffs_block = rescale_block(dct_coffs_block, generate_quantization_matrix(block_size, encoder_config.quantization_factor))
-
-            # Apply inverse DCT to the rescaled residual block
-            idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block)
-
-            # Get the predicted block using the motion vector
-            predicted_b = find_mv_predicted_block(mv_field[(x, y)], x, y, prev_frame, block_size).astype(np.int16)
-
-            # Ensure the predicted block matches the block size (8, 8) or pad/clip it
-            predicted_b = predicted_b[:block_size, :block_size]  # Clip to the block size if necessary
-
-            # Reconstruct the block by adding the predicted block and the rescaled residual
-            decoded_block = np.round(idct_residual_block + predicted_b).astype(np.int16)
-
-            # Clip values to avoid overflow/underflow and convert back to uint8
-            decoded_block = np.clip(decoded_block, 0, 255).astype(np.uint8)
-
-            # Place the reconstructed block in the decoded frame
-            decoded_frame[y:y + block_size, x:x + block_size] = decoded_block
-
-    return decoded_frame
-"""
 
 def construct_frame_from_dct_and_mv(quant_dct_coff_frame, prev_frame, mv_field, encoder_config: EncoderConfig):
     block_size = encoder_config.block_size

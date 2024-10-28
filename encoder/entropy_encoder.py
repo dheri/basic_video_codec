@@ -1,13 +1,17 @@
-import numpy
+import numpy as np
+
 def exp_golomb_encode(value):
     if value == 0:
         return '0'
-    sign = -1 if value < 0 else 1
-    value = abs(value)
-    m = int(np.log2(value + 1))
+    if value > 0:
+        mapped_value = 2 * value - 1
+    else:
+        mapped_value = -2 * value
+    m = int(np.log2(mapped_value + 1))
     prefix = '0' * m + '1'
-    suffix = format(value - (1 << m), f'0{m}b')
-    return prefix + suffix if sign == 1 else prefix + '1' + suffix
+    suffix = format(mapped_value - (1 << m), f'0{m}b')
+    return prefix + suffix
+
 
 def exp_golomb_decode(bitstream):
     m = 0
@@ -15,6 +19,7 @@ def exp_golomb_decode(bitstream):
         m += 1
     value = (1 << m) + int(bitstream[m + 1:], 2)
     return value
+
 def rle_encode(coeffs):
     encoded = []
     i = 0
