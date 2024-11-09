@@ -5,6 +5,6 @@ from metrics import plot_metrics
 
 
 def main(params: InputParameters):
-    encode_video(params)
-    plot_metrics(params)
+    # encode_video(params)
+    # plot_metrics(params)
     decode_video(params)

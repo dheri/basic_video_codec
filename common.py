@@ -80,3 +80,21 @@ def unsigned_to_signed(value, bits):
     if value >= (1 << (bits - 1)):
         return value - (1 << bits)  # Subtract 2^bits if value is in the upper half
     return value
+
+def int_to_3_bytes(value):
+    """
+    Converts an integer into a 3-byte representation.
+    Assumes value is within the 24-bit range (0 to 16,777,215).
+    """
+    byte1 = (value >> 16) & 0xFF  # Highest 8 bits
+    byte2 = (value >> 8) & 0xFF   # Middle 8 bits
+    byte3 = value & 0xFF          # Lowest 8 bits
+    return bytes([byte1, byte2, byte3])
+
+
+def bytes_to_int_3(three_bytes):
+    """
+    Converts a 3-byte representation back into an integer.
+    Assumes three_bytes is a bytes-like object of length 3.
+    """
+    return (three_bytes[0] << 16) | (three_bytes[1] << 8) | three_bytes[2]

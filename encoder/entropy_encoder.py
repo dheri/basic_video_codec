@@ -1,39 +1,71 @@
+import math
+
 import numpy as np
 from bitarray import bitarray
 
+from common import get_logger
+
+logger = get_logger()
+
+
 def exp_golomb_encode(value):
+    """
+    Encodes an integer using Exp-Golomb encoding.
+    """
     if value == 0:
         return '0'
-    if value > 0:
-        mapped_value = 2 * value - 1
-    else:
-        mapped_value = -2 * value
-    m = int(np.log2(mapped_value + 1))
+
+    # Map value for Exp-Golomb: positive values -> 2*value - 1, negative values -> -2*value
+    mapped_value = 2 * value - 1 if value > 0 else -2 * value
+
+    # Calculate prefix length (number of leading zeros)
+    m = int(math.log2(mapped_value + 1))
     prefix = '0' * m + '1'
+
+    # Calculate suffix
     suffix = format(mapped_value - (1 << m), f'0{m}b')
+
     return prefix + suffix
 
-def exp_golomb_decode(bitstream):
-    # Ensure we are working with a bitarray and convert it to string for easier parsing
-    bit_str = bitstream.to01()  # Convert bitstream to binary string
 
+def exp_golomb_decode(bitstream):
+    """
+    Decodes an Exp-Golomb encoded integer from a bitstream.
+    This optimized version operates directly on the bitarray without string conversions.
+    """
+    # Find the number of leading zeros (m), directly in the bitarray
     m = 0
-    # Find the first '1' in the bitstream (this is the start of the Golomb code)
-    while m < len(bit_str) and bit_str[m] == '0':
+    while m < len(bitstream) and not bitstream[m]:
         m += 1
 
-    if m >= len(bit_str):  # If we run out of bits, return an error
-        raise ValueError("Not enough bits to decode the exp-Golomb code.")
+    logger.info(f"m [{m:3}] bit_str: {bitstream[m + 1:m + 1 + m]}")
 
-    # Compute the value from the Golomb code (m leading zeroes followed by '1' and m-bit suffix)
-    if m + 1 + m > len(bit_str):  # Ensure we have enough bits for suffix
-        raise ValueError("Insufficient bits in the stream to decode.")
+    # Check if we reached the end of the bitstream without finding a '1'
+    if m >= len(bitstream):
+        raise ValueError("Not enough bits to decode the exp-Golomb code (prefix error).")
 
-    value = (1 << m) + int(bit_str[m + 1:m + 1 + m], 2)
+    # Calculate the value of the Exp-Golomb code
+    # The prefix '1' bit is at position m, followed by m bits for the suffix
+    value = (1 << m)  # This is 2^m, the base value
 
-    # Return the decoded symbol and the remaining bitstream
-    remaining_bitstream = bitarray(bit_str[m + 1 + m:])
-    return value, remaining_bitstream
+    # Make sure there are enough bits to read the suffix
+    if m > 0:
+        if m + 1 + m > len(bitstream):  # Ensure there are m bits after the '1' prefix
+            raise ValueError("Not enough bits in the stream to decode the suffix.")
+
+        # Extract the suffix using bit shifts
+        suffix = 0
+        for i in range(m):
+            suffix = (suffix << 1) | bitstream[m + 1 + i]
+        value += suffix
+
+    # Map back to the original signed integer
+    decoded_value = (value + 1) // 2 if value % 2 else -(value // 2)
+
+    # Create the remaining bitstream by slicing from the next position after the suffix
+    remaining_bitstream = bitstream[m + 1 + m:]
+    return decoded_value, remaining_bitstream
+
 
 def rle_encode(coeffs):
     encoded = []
