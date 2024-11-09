@@ -3,4 +3,7 @@ data
 !data/foreman_cif.yuv
 !data/benchmark.y
 .idea
+venv
+results
+
 
