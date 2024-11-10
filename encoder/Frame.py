@@ -88,12 +88,7 @@ class Frame:
             block = inverse_zigzag_order(decoded_coffs, block_size)
             decoded_blocks.append(block)
 
-        # # Step 3: Split coefficients into blocks and apply inverse zigzag order
-        # num_blocks = len(decoded_coeffs) // (block_size * block_size)
-        # for i in range(num_blocks):
-        #     block_coeffs = decoded_coeffs[i * (block_size * block_size):(i + 1) * (block_size * block_size)]
-        #     block = inverse_zigzag_order(block_coeffs, block_size)
-        #     decoded_blocks.append(block)
+
 
         # Step 4: Reconstruct the frame from the blocks
         self.quantized_dct_residual_frame = merge_blocks(decoded_blocks, block_size, (params.height, params.width) )

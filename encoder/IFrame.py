@@ -73,6 +73,7 @@ class IFrame(Frame):
                 decoded_block = np.clip(idct_residual_block + predicted_b, 0, 255).astype(np.uint8)
                 reconstructed_frame[y:y + encoder_config.block_size, x:x + encoder_config.block_size] = decoded_block
 
+        self.curr_frame = reconstructed_frame
         return reconstructed_frame  # This should be the reconstructed frame
 
     def generate_prediction_data(self):

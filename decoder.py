@@ -1,14 +1,10 @@
 from contextlib import ExitStack
 
-import numpy as np
-
-from common import get_logger, bytes_to_int_3
 from encoder.IFrame import IFrame
-from encoder.PFrame import construct_frame_from_dct_and_mv, PFrame
+from encoder.PFrame import  PFrame
 from encoder.PredictionMode import PredictionMode
 from file_io import write_y_only_frame, FileIOHelper
 from input_parameters import InputParameters
-from motion_vector import parse_mv
 from skimage.metrics import peak_signal_noise_ratio
 from encoder.entropy_encoder import *
 logger = get_logger()
@@ -31,9 +27,6 @@ def decode_video(params: InputParameters):
     frame_size = width * height
     prev_frame = np.full((height, width), 128, dtype=np.uint8)
 
-    # Read the stored frame sizes
-    # with open('frame_sizes.txt', 'r') as frame_sizes_file:
-    #     frame_sizes = list(map(int, frame_sizes_file.read().split(',')))
 
     with ExitStack() as stack:
         quant_dct_coff_fh = stack.enter_context(open(file_io.get_quant_dct_coff_fh_file_name(), 'rb'))
@@ -48,7 +41,7 @@ def decode_video(params: InputParameters):
             if not quant_dct_coff or frame_index > frames_to_process or not encoded_fh:
                 break  # End of file or end of frames
             prediction_mode = int.from_bytes(encoded_fh.read(1))
-            logger.info(f"Decoding {PredictionMode(prediction_mode)} {frame_index}/{frames_to_process}")
+            logger.debug(f"Decoding {PredictionMode(prediction_mode)} {frame_index}/{frames_to_process}")
 
             if prediction_mode == PredictionMode.INTRA_FRAME.value:
                 frame = IFrame()
@@ -64,35 +57,16 @@ def decode_video(params: InputParameters):
             frame.entropy_decode_dct_coffs(params)
 
 
-            # Use the stored frame size for decoding
-            # bytes_per_frame = frame_sizes[frame_index - 1] // 8
-            # len_of_frame = bytes_to_int_3(encoded_fh.read(3))
-            # Read the entropy encoded bitstream as bytes
-            # entropy_encoded_bytes = encoded_fh.read(len_of_frame)
-            # logger.info(f"Reading {len_of_frame:8d} Bytes from stream")
-
-            # Convert the bytes to a bitarray
-            # entropy_encoded_bitstream = bitarray()
-            # entropy_encoded_bitstream.frombytes(entropy_encoded_bytes)
-
-            # logger.info(f"len of entropy_encoded_bitstream {len(entropy_encoded_bitstream):9d} ")
-
-            # Decode the entropy-encoded bitstream
-            # decoded_symbols = entropy_decode(entropy_encoded_bitstream)
-
-            # logger.info(f"Decoded {len(decoded_symbols)} symbols for frame {frame_index}")
-
-            # Construct the frame metadata using the decoded symbols
-            # frame.construct_frame_metadata_from_bit_stream(params, decoded_symbols)
-
             # Decode the frame
             decoded_frame = frame.decode((params.height, params.width), encoder_config=params.encoder_config)
 
             # Read and compare with the reconstructed frame
             reconstructed_frame = np.frombuffer(reconstructed_file_fh.read(frame_size), dtype=np.uint8).reshape((height, width))
             psnr = peak_signal_noise_ratio(decoded_frame, reconstructed_frame)
+            dct_coffs_extremes = frame.get_quat_dct_coffs_extremes()
 
-            logger.info(f"{frame_index:2}: psnr [{round(psnr, 2):6.2f}]")
+            logger.info(
+                f"{frame_index:2}: psnr [{round(psnr, 2):6.2f}], q_dct_range: [{dct_coffs_extremes[0]:4}, {dct_coffs_extremes[1]:3}]")
 
             # Write the decoded frame to the output file
             write_y_only_frame(decoded_fh, decoded_frame)
