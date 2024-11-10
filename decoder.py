@@ -57,7 +57,7 @@ def decode_video(params: InputParameters):
 
             prediction_data_len = int.from_bytes(encoded_fh.read(2))
             prediction_data = encoded_fh.read(prediction_data_len)
-            frame.entropy_decode_prediction_data(prediction_data)
+            frame.entropy_decode_prediction_data(prediction_data, params)
 
             ee_dct_coffs_len = int.from_bytes(encoded_fh.read(3))
             frame.entropy_encoded_DCT_coffs = encoded_fh.read(ee_dct_coffs_len)

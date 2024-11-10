@@ -27,52 +27,45 @@ def exp_golomb_encode(value):
 
     # Step 3: Count the bits in binary representation and add leading zeros
     num_bits = len(binary_rep)
-    leading_zeros = bitarray('0' * (num_bits - 1))
+    leading_zeros = bitarray((num_bits - 1))
     result = leading_zeros + binary_rep  # Concatenate the leading zeros with the binary representation
 
     return result
 
 
-def exp_golomb_decode(bitstream):
-    """
-    Decodes an Exp-Golomb encoded integer from a bitstream.
-    This optimized version operates directly on the bitarray without string conversions.
-    """
-    # Find the number of leading zeros (m), directly in the bitarray
+def exp_golomb_decode(bitstream: bitarray):
+    # Step 1: Find the number of leading zeros (m), directly in the bitarray
     m = 0
     while m < len(bitstream) and not bitstream[m]:
         m += 1
 
-    # if len(bitstream) < 12:
-    #     logger.info(f"m [{m:3}] bit_str: {bitstream[m + 1:m + 1 + m]}, remaining len:{len(bitstream):6d}")
-    #     logger.info(f"{bitstream}")
-
-    # Check if we reached the end of the bitstream without finding a '1'
+    # Check if there are enough bits in the stream for decoding
     if m >= len(bitstream):
-        # raise ValueError("Not enough bits to decode the exp-Golomb code (prefix error).")
         logger.info(f" leftover bitstream: {bitstream} ")
+        if len(bitstream) < 8:
+            logger.info(f"end of bitstream, Assume remaining {len(bitstream)} bits in [{bitstream.to01()}] are padding ")
+            return None, None
+        else:
+            raise ValueError("Not enough bits to decode the exp-Golomb code (prefix error).")
 
-    # Calculate the value of the Exp-Golomb code
-    # The prefix '1' bit is at position m, followed by m bits for the suffix
-    value = (1 << m)  # This is 2^m, the base value
 
-    # Make sure there are enough bits to read the suffix
-    if m > 0:
-        if m + 1 + m > len(bitstream):  # Ensure there are m bits after the '1' prefix
-            raise ValueError("Not enough bits in the stream to decode the suffix.")
+    # Step 2: Calculate the base value (2^m) which corresponds to the prefix "1" bit
+    value = 1  # Start with the '1' after leading zeros
+    for i in range(1, m + 1):
+        value = (value << 1) | bitstream[m + i]
 
-        # Extract the suffix using bit shifts
-        suffix = 0
-        for i in range(m):
-            suffix = (suffix << 1) | bitstream[m + 1 + i]
-        value += suffix
+    # Step 4: Decode x by subtracting 1 from value
+    value = value - 1
 
-    # Map back to the original signed integer
-    decoded_value = (value + 1) // 2 if value % 2 else -(value // 2)
+    # Step 5: convert to signed int
 
-    # Create the remaining bitstream by slicing from the next position after the suffix
-    remaining_bitstream = bitstream[m + 1 + m:]
+    decoded_value = -(value // 2) if value % 2 == 0 else (value + 1) // 2
+
+    # Step 6: Create the remaining bitstream after reading the encoded value
+    remaining_bitstream = bitstream[m + 1 + m:]  # Skip the prefix and suffix
+
     return decoded_value, remaining_bitstream
+
 
 def rle_encode(coeffs):
     encoded = []
@@ -95,7 +88,7 @@ def rle_encode(coeffs):
                 nonzero_count += 1
                 i += 1
             encoded.append(-nonzero_count)  # Negative for run of non-zeros
-            encoded.extend(coeffs[start_idx:i])  # Append the actual non-zero terms
+            encoded.extend( x.item() for x in coeffs[start_idx:i])  # Append the actual non-zero terms
 
     return encoded
 

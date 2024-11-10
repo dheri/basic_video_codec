@@ -16,18 +16,18 @@ import numpy as np
 
 logger = get_logger()
 
-def entropy_encode(coeffs):
-    rle_encoded = rle_encode(coeffs)
-    encoded_stream = bitarray()
-    for symbol in rle_encoded:
-        encoded_symbol = exp_golomb_encode(symbol)
-        # Ensure the encoded symbol contains only '0' and '1'
-        valid_bitstring = ''.join(c for c in encoded_symbol if c in '01')
-        encoded_stream.extend(bitarray(valid_bitstring))
-        missing_bits =  len(encoded_stream) % 8
-        for i in range( 8 - missing_bits):
-            encoded_stream.append(0)
-    return encoded_stream
+# def entropy_encode(coeffs):
+#     rle_encoded = rle_encode(coeffs)
+#     encoded_stream = bitarray()
+#     for symbol in rle_encoded:
+#         encoded_symbol = exp_golomb_encode(symbol)
+#         # Ensure the encoded symbol contains only '0' and '1'
+#         valid_bitstring = ''.join(c for c in encoded_symbol if c in '01')
+#         encoded_stream.extend(bitarray(valid_bitstring))
+#         missing_bits =  len(encoded_stream) % 8
+#         for i in range( 8 - missing_bits):
+#             encoded_stream.append(0)
+#     return encoded_stream
 
 
 def encode_video(params: InputParameters):
@@ -68,7 +68,7 @@ def encode_video(params: InputParameters):
             y_frame = f_in.read(y_size)
             if not y_frame or frame_index > frames_to_process:
                 break  # End of file or end of frames
-            logger.debug(f"Processing frame {frame_index}/{frames_to_process}")
+            # logger.info(f"Encoding frame {frame_index}/{frames_to_process}")
             y_plane = np.frombuffer(y_frame, dtype=np.uint8).reshape((height, width))
             padded_frame = pad_frame(y_plane, block_size)
 
@@ -80,12 +80,10 @@ def encode_video(params: InputParameters):
             frame.encode(params.encoder_config)
             # frame.populate_bit_stream_buffer(params.encoder_config)
 
-            #TODO: entropy encode prediction info of each block. using exp golomb
             # frame.generate_prediction_data()
             frame.entropy_encode_prediction_data()
 
 
-            #TODO: entropy encode dct coffs of each block passed through RLE
             frame.entropy_encode_dct_coffs(block_size)
             # 1 byte for prediction_mode
             encoded_fh.write(frame.prediction_mode.value.to_bytes(1))
@@ -130,6 +128,9 @@ def encode_video(params: InputParameters):
             # encoded_fh.write(frame_len_in_3_bytes)
             # Write encoded data to file
             # encoded_fh.write(entropy_encoded_stream.tobytes())
+            dct_coffs_extremes = frame.get_quat_dct_coffs_extremes()
+            logger.info(
+                f"{frame_index:2}: i={params.encoder_config.block_size} r={params.encoder_config.search_range}, qp={params.encoder_config.quantization_factor}, , mae [{round(frame.avg_mae, 2):7.2f}] psnr [{round(frame_psnr, 2):6.2f}], q_dct_range: [{dct_coffs_extremes[0]:4}, {dct_coffs_extremes[1]:3}]")
 
             frame.write_encoded_to_file( mv_fh, quant_dct_coff_fh, residual_w_mc_yuv_fh, residual_wo_mc_yuv_fh, reconstructed_fh, params.encoder_config)
 

@@ -2,18 +2,17 @@ import concurrent
 
 import numpy as np
 from bitarray import bitarray
-from skimage.metrics import peak_signal_noise_ratio
 
 from common import get_logger, generate_residual_block, find_mv_predicted_block, signed_to_unsigned, unsigned_to_signed
 from encoder.Frame import Frame
 from encoder.PredictionMode import PredictionMode
 from encoder.block_predictor import predict_block
 from encoder.dct import apply_dct_2d, generate_quantization_matrix, quantize_block, rescale_block, apply_idct_2d
-from encoder.entropy_encoder import exp_golomb_encode
+from encoder.entropy_encoder import exp_golomb_encode, exp_golomb_decode
 from encoder.params import EncoderConfig, EncodedBlock
 from concurrent import futures
 
-from file_io import write_mv_to_file, write_y_only_frame
+from input_parameters import InputParameters
 
 logger = get_logger()
 
@@ -127,7 +126,50 @@ class PFrame(Frame):
             enc_1 = exp_golomb_encode(mv[1])
             self.entropy_encoded_prediction_data.extend(enc_1)
 
-        logger.info(f" entropy_encoded_prediction_data  len : {len(self.entropy_encoded_prediction_data)}, {len(self.entropy_encoded_prediction_data) // 8}")
+        # logger.info(f" entropy_encoded_prediction_data  len : {len(self.entropy_encoded_prediction_data)}, {len(self.entropy_encoded_prediction_data) // 8}")
+
+    def entropy_decode_prediction_data(self, enc, params : InputParameters):
+        width_ = params.width
+        height_ = params.height
+        block_size_ = params.encoder_config.block_size
+
+        self.mv_field = {}  # Initialize an empty dictionary to store the decoded motion vectors
+
+        # Convert `enc` to a bitarray if it isn't already one
+        bitstream = bitarray()
+        bitstream.frombytes(enc)
+
+        # Initialize an index to track the current block
+        index = 0
+
+        # Decode each pair of motion vector components (mv_x and mv_y) from the bitstream
+        while bitstream:
+            try:
+                # Decode the first component of the motion vector (mv_x)
+                mv_x, bitstream = exp_golomb_decode(bitstream)
+
+                # Decode the second component of the motion vector (mv_y)
+                mv_y, bitstream = exp_golomb_decode(bitstream)
+
+                # Calculate the pixel coordinates (column_index, row_index) for the block's top-left corner
+                row_index = (index // (width_ // block_size_)) * block_size_  # Y-coordinate
+                column_index = (index % (width_ // block_size_)) * block_size_  # X-coordinate
+
+                # Ensure the calculated coordinates are within the frame dimensions
+                if row_index < height_ and column_index < width_:
+                    # Store the motion vector in the dictionary with the (column_index, row_index) as the key
+                    self.mv_field[(column_index, row_index)] = [mv_x, mv_y]
+                else:
+                    print(f"Warning: Calculated coordinates {(column_index, row_index)} are out of bounds.")
+
+                index += 1  # Move to the next block
+
+            except ValueError:
+                # If there's an issue in decoding (e.g., insufficient bits), exit the loop
+                print("Decoding error or incomplete bitstream.")
+                break
+
+        return self.mv_field
 
     def generate_prediction_data(self):
         # convert mv or inta-modes to byte array

@@ -43,6 +43,9 @@ class Frame:
 
     def entropy_encode_prediction_data(self):
         raise NotImplementedError(f"{type(self)} need to be overridden")
+    def entropy_decode_prediction_data(self, enc, params : InputParameters ):
+        raise NotImplementedError(f"{type(self)} need to be overridden")
+
 
     def entropy_encode_dct_coffs(self, block_size):
         self.entropy_encoded_DCT_coffs = bitarray()
@@ -55,18 +58,21 @@ class Frame:
                 enc = exp_golomb_encode(symbol)
                 self.entropy_encoded_DCT_coffs.extend(enc)
 
-        logger.info(f" entropy_encoded_DCT_coffs  len : {len(self.entropy_encoded_DCT_coffs)}, {len(self.entropy_encoded_DCT_coffs) // 8}")
+        # logger.info(f" entropy_encoded_DCT_coffs  len : {len(self.entropy_encoded_DCT_coffs)}, {len(self.entropy_encoded_DCT_coffs) // 8}")
 
     def entropy_decode_dct_coffs(self, params: InputParameters):
         block_size = params.encoder_config.block_size
         decoded_blocks = []
-        bitstream = self.entropy_encoded_DCT_coffs
+        # bitstream = self.entropy_encoded_DCT_coffs
+        bit_array = bitarray()
+        bit_array.frombytes(self.entropy_encoded_DCT_coffs)
+
         rle_decoded = []
 
         # Step 1: Decode the Exponential-Golomb encoded symbols
-        while bitstream:
-            symbol, bitstream = exp_golomb_decode(bitstream)
-            if symbol == 0:
+        while bit_array:
+            symbol, bit_array = exp_golomb_decode(bit_array)
+            if not symbol :
                 break  # Stop if 0 is encountered, indicating end of meaningful data
             rle_decoded.append(symbol)
 

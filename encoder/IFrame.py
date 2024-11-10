@@ -56,7 +56,7 @@ class IFrame(Frame):
         height, width = frame_shape
         reconstructed_frame = np.zeros((height, width), dtype=np.uint8)
         Q = generate_quantization_matrix(block_size, encoder_config.quantization_factor)
-        logger.info(self.intra_modes)
+        # logger.info(self.intra_modes)
 
         # Iterate over blocks to reconstruct the frame
         for y in range(0, height, block_size):
@@ -90,14 +90,14 @@ class IFrame(Frame):
 
     def entropy_encode_prediction_data(self):
         self.entropy_encoded_prediction_data = bitarray()
-        logger.info(self.intra_modes)
+        # logger.info(self.intra_modes)
         for m in self.intra_modes:
             enc = exp_golomb_encode(m)
             self.entropy_encoded_prediction_data.extend(enc)
         # logger.info(f" entropy_encoded_prediction_data  len : {len(self.entropy_encoded_prediction_data)}, {len(self.entropy_encoded_prediction_data) // 8}")
-        logger.info(self.entropy_encoded_prediction_data)
+        # logger.info(self.entropy_encoded_prediction_data)
 
-    def entropy_decode_prediction_data(self, enc):
+    def entropy_decode_prediction_data(self, enc, params = None):
         decoded_modes = []
         bitstream = bitarray()  # Ensure `enc` is a bitarray
         bitstream.frombytes(enc)
