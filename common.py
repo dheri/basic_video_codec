@@ -133,3 +133,20 @@ def bytes_to_int_3(three_bytes):
     Assumes three_bytes is a bytes-like object of length 3.
     """
     return (three_bytes[0] << 16) | (three_bytes[1] << 8) | three_bytes[2]
+
+
+def pad_with_zeros(array, desired_length):
+    """
+    Pads the array with zeros until it reaches the desired length.
+
+    Parameters:
+    - array (list): The original array to pad.
+    - desired_length (int): The target length of the array.
+
+    Returns:
+    - list: Input array padded with zeros.
+    """
+    if len(array) < desired_length:
+        zeros_to_add = desired_length - len(array)
+        array.extend([0] * zeros_to_add)
+    return array

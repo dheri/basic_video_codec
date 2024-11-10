@@ -5,7 +5,7 @@ import numpy as np
 from bitarray import bitarray
 from skimage.metrics import peak_signal_noise_ratio
 
-from common import get_logger, split_into_blocks, merge_blocks
+from common import get_logger, split_into_blocks, merge_blocks, pad_with_zeros
 from encoder.PredictionMode import PredictionMode
 from encoder.byte_stream_buffer import BitStreamBuffer
 from encoder.entropy_encoder import zigzag_order, rle_encode, exp_golomb_encode, exp_golomb_decode, rle_decode, \
@@ -17,6 +17,7 @@ from input_parameters import InputParameters
 logger = get_logger()
 
 class Frame:
+    EOB_MARKER = 8190
     def __init__(self, curr_frame=None, prev_frame=None, ):
         self.bitstream_buffer : Optional[BitStreamBuffer] = None
         self.prev_frame = prev_frame
@@ -30,6 +31,7 @@ class Frame:
         self.quantized_dct_residual_frame = None
         self.reconstructed_frame = None
         self.avg_mae = None
+
 
     def encode(self, encoder_config: EncoderConfig):
         raise NotImplementedError(f"{type(self)} need to be overridden")
@@ -57,11 +59,12 @@ class Frame:
             for symbol in rle:
                 enc = exp_golomb_encode(symbol)
                 self.entropy_encoded_DCT_coffs.extend(enc)
-
+            self.entropy_encoded_DCT_coffs.extend(exp_golomb_encode(Frame.EOB_MARKER))
         # logger.info(f" entropy_encoded_DCT_coffs  len : {len(self.entropy_encoded_DCT_coffs)}, {len(self.entropy_encoded_DCT_coffs) // 8}")
 
     def entropy_decode_dct_coffs(self, params: InputParameters):
         block_size = params.encoder_config.block_size
+        rle_blocks = []
         decoded_blocks = []
         # bitstream = self.entropy_encoded_DCT_coffs
         bit_array = bitarray()
@@ -69,22 +72,28 @@ class Frame:
 
         rle_decoded = []
 
-        # Step 1: Decode the Exponential-Golomb encoded symbols
+        # Step 1: Decode the Exponential-Golomb encoded symbols to construct rle blocks
         while bit_array:
             symbol, bit_array = exp_golomb_decode(bit_array)
-            if not symbol :
-                break  # Stop if 0 is encountered, indicating end of meaningful data
+            if symbol == Frame.EOB_MARKER :
+                rle_blocks.append(rle_decoded)
+                rle_decoded = []  # Reset for the next block
+                continue
             rle_decoded.append(symbol)
 
         # Step 2: Apply RLE decoding to reconstruct the zigzag order of coefficients
-        decoded_coeffs = rle_decode(rle_decoded)  # Assuming rle_decode is defined
-
-        # Step 3: Split coefficients into blocks and apply inverse zigzag order
-        num_blocks = len(decoded_coeffs) // (block_size * block_size)
-        for i in range(num_blocks):
-            block_coeffs = decoded_coeffs[i * (block_size * block_size):(i + 1) * (block_size * block_size)]
-            block = inverse_zigzag_order(block_coeffs, block_size)
+        for rle_block in rle_blocks:
+            decoded_coffs = rle_decode(rle_block)
+            pad_with_zeros(decoded_coffs, block_size**2)
+            block = inverse_zigzag_order(decoded_coffs, block_size)
             decoded_blocks.append(block)
+
+        # # Step 3: Split coefficients into blocks and apply inverse zigzag order
+        # num_blocks = len(decoded_coeffs) // (block_size * block_size)
+        # for i in range(num_blocks):
+        #     block_coeffs = decoded_coeffs[i * (block_size * block_size):(i + 1) * (block_size * block_size)]
+        #     block = inverse_zigzag_order(block_coeffs, block_size)
+        #     decoded_blocks.append(block)
 
         # Step 4: Reconstruct the frame from the blocks
         self.quantized_dct_residual_frame = merge_blocks(decoded_blocks, block_size, (params.height, params.width) )

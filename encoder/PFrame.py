@@ -135,7 +135,6 @@ class PFrame(Frame):
 
         self.mv_field = {}  # Initialize an empty dictionary to store the decoded motion vectors
 
-        # Convert `enc` to a bitarray if it isn't already one
         bitstream = bitarray()
         bitstream.frombytes(enc)
 
@@ -147,6 +146,8 @@ class PFrame(Frame):
             try:
                 # Decode the first component of the motion vector (mv_x)
                 mv_x, bitstream = exp_golomb_decode(bitstream)
+                if not bitstream:
+                    break
 
                 # Decode the second component of the motion vector (mv_y)
                 mv_y, bitstream = exp_golomb_decode(bitstream)
@@ -160,7 +161,7 @@ class PFrame(Frame):
                     # Store the motion vector in the dictionary with the (column_index, row_index) as the key
                     self.mv_field[(column_index, row_index)] = [mv_x, mv_y]
                 else:
-                    print(f"Warning: Calculated coordinates {(column_index, row_index)} are out of bounds.")
+                    logger.info(f"Warning: Calculated coordinates {(column_index, row_index)} are out of bounds.")
 
                 index += 1  # Move to the next block
 

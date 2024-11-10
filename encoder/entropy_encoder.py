@@ -41,7 +41,6 @@ def exp_golomb_decode(bitstream: bitarray):
 
     # Check if there are enough bits in the stream for decoding
     if m >= len(bitstream):
-        logger.info(f" leftover bitstream: {bitstream} ")
         if len(bitstream) < 8:
             logger.info(f"end of bitstream, Assume remaining {len(bitstream)} bits in [{bitstream.to01()}] are padding ")
             return None, None
