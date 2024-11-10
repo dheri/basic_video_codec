@@ -5,6 +5,7 @@ import numpy as np
 from common import get_logger, bytes_to_int_3
 from encoder.IFrame import IFrame
 from encoder.PFrame import construct_frame_from_dct_and_mv, PFrame
+from encoder.PredictionMode import PredictionMode
 from file_io import write_y_only_frame, FileIOHelper
 from input_parameters import InputParameters
 from motion_vector import parse_mv
@@ -46,32 +47,43 @@ def decode_video(params: InputParameters):
             quant_dct_coff = quant_dct_coff_fh.read(frame_size * 2)  # quant_dct_coff are stored as int16. i.e. 2 bytes
             if not quant_dct_coff or frame_index > frames_to_process or not encoded_fh:
                 break  # End of file or end of frames
-            logger.info(f"Decoding frame {frame_index}/{frames_to_process}")
-            if (frame_index - 1) % params.encoder_config.I_Period == 0:
+            prediction_mode = int.from_bytes(encoded_fh.read(1))
+            logger.info(f"Decoding {PredictionMode(prediction_mode)} {frame_index}/{frames_to_process}")
+
+            if prediction_mode == PredictionMode.INTRA_FRAME.value:
                 frame = IFrame()
             else:
                 frame = PFrame(prev_frame=prev_frame)
 
+            prediction_data_len = int.from_bytes(encoded_fh.read(2))
+            prediction_data = encoded_fh.read(prediction_data_len)
+            frame.entropy_decode_prediction_data(prediction_data)
+
+            ee_dct_coffs_len = int.from_bytes(encoded_fh.read(3))
+            frame.entropy_encoded_DCT_coffs = encoded_fh.read(ee_dct_coffs_len)
+            frame.entropy_decode_dct_coffs(params)
+
+
             # Use the stored frame size for decoding
             # bytes_per_frame = frame_sizes[frame_index - 1] // 8
-            len_of_frame = bytes_to_int_3(encoded_fh.read(3))
+            # len_of_frame = bytes_to_int_3(encoded_fh.read(3))
             # Read the entropy encoded bitstream as bytes
-            entropy_encoded_bytes = encoded_fh.read(len_of_frame)
-            logger.info(f"Reading {len_of_frame:8d} Bytes from stream")
+            # entropy_encoded_bytes = encoded_fh.read(len_of_frame)
+            # logger.info(f"Reading {len_of_frame:8d} Bytes from stream")
 
             # Convert the bytes to a bitarray
-            entropy_encoded_bitstream = bitarray()
-            entropy_encoded_bitstream.frombytes(entropy_encoded_bytes)
+            # entropy_encoded_bitstream = bitarray()
+            # entropy_encoded_bitstream.frombytes(entropy_encoded_bytes)
 
-            logger.info(f"len of entropy_encoded_bitstream {len(entropy_encoded_bitstream):9d} ")
+            # logger.info(f"len of entropy_encoded_bitstream {len(entropy_encoded_bitstream):9d} ")
 
             # Decode the entropy-encoded bitstream
-            decoded_symbols = entropy_decode(entropy_encoded_bitstream)
+            # decoded_symbols = entropy_decode(entropy_encoded_bitstream)
 
-            logger.info(f"Decoded {len(decoded_symbols)} symbols for frame {frame_index}")
+            # logger.info(f"Decoded {len(decoded_symbols)} symbols for frame {frame_index}")
 
             # Construct the frame metadata using the decoded symbols
-            frame.construct_frame_metadata_from_bit_stream(params, decoded_symbols)
+            # frame.construct_frame_metadata_from_bit_stream(params, decoded_symbols)
 
             # Decode the frame
             decoded_frame = frame.decode((params.height, params.width), encoder_config=params.encoder_config)

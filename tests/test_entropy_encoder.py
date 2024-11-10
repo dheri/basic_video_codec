@@ -2,7 +2,7 @@ from unittest import TestCase
 
 import numpy as np
 
-from encoder.entropy_encoder import zigzag_order, inverse_zigzag_order, rle_encode, rle_decode
+from encoder.entropy_encoder import zigzag_order, inverse_zigzag_order, rle_encode, rle_decode, exp_golomb_encode
 
 
 class Test(TestCase):
@@ -35,10 +35,10 @@ class Test_rel(TestCase):
         nums = np.arange(1, 17).astype(np.int8)
         rle = rle_encode(nums)
         print(rle)
+
     def test_rle_encode2(self):
         nums_1 = np.arange(1, 9)
         nums_2 = np.arange(1, 5)
-
 
         # Concatenate the arrays
         numbers = np.concatenate((
@@ -64,3 +64,11 @@ class Test_rel(TestCase):
             0])
         decoded = rle_decode(rle)
         print(decoded)
+
+
+class TestExpGolomb(TestCase):
+    def test_exp_golomb_encode(self):
+        to_enc= [ 1, 0, 0, 1, 1 ]
+        for s in to_enc:
+            enc = exp_golomb_encode(s)
+            print(enc)

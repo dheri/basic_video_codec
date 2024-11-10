@@ -69,6 +69,41 @@ def split_into_blocks(nd_array, block_size):
             blocks.append(block)
     return blocks
 
+
+def merge_blocks(blocks, block_size, frame_shape):
+    """
+    Merges a list of blocks into a single frame matrix.
+
+    Parameters:
+    - blocks: List of 2D arrays (each block is block_size x block_size).
+    - block_size: The size of each block (e.g., 4 for a 4x4 block).
+    - frame_size: The size of the full frame (e.g., 16 for a 16x16 frame).
+
+    Returns:
+    - A 2D NumPy array representing the full frame.
+    """
+    # Calculate the number of blocks per row and column
+    num_blocks_per_row = frame_shape[1] // block_size
+
+    # Initialize an empty matrix for the full frame
+    frame = np.zeros(shape = frame_shape, dtype=int)
+
+    # Place each block in its correct position in the frame
+    for idx, block in enumerate(blocks):
+        # Calculate the position of the block in the full frame
+        row_block = idx // num_blocks_per_row
+        col_block = idx % num_blocks_per_row
+
+        # Calculate the top-left corner coordinates for this block in the frame
+        row_start = row_block * block_size
+        col_start = col_block * block_size
+
+        # Place the block into the frame
+        frame[row_start:row_start + block_size, col_start:col_start + block_size] = block
+
+    return frame
+
+
 def signed_to_unsigned(value, bits):
     """Convert a signed integer to an unsigned integer."""
     if value < 0:

@@ -1,6 +1,7 @@
 import concurrent
 
 import numpy as np
+from bitarray import bitarray
 from skimage.metrics import peak_signal_noise_ratio
 
 from common import get_logger, generate_residual_block, find_mv_predicted_block, signed_to_unsigned, unsigned_to_signed
@@ -70,7 +71,7 @@ class PFrame(Frame):
         self.residual_frame = residual_frame_with_mc
         self.quantized_dct_residual_frame = quat_dct_coffs_frame_with_mc
         self.reconstructed_frame = reconstructed_frame_with_mc
-        self.generate_prediction_data()
+        # self.generate_prediction_data()
         return self
 
 
@@ -119,7 +120,7 @@ class PFrame(Frame):
         self.mv_field = byte_array_to_mv_field(self.prediction_data, params.width, params.height, params.encoder_config.block_size )  # Convert back to motion vector field
 
     def entropy_encode_prediction_data(self):
-        self.entropy_encoded_prediction_data = bytearray()
+        self.entropy_encoded_prediction_data = bitarray()
         for mv in self.mv_field.values():
             enc_0 = exp_golomb_encode(mv[0])
             self.entropy_encoded_prediction_data.extend(enc_0)

@@ -81,12 +81,30 @@ def encode_video(params: InputParameters):
             # frame.populate_bit_stream_buffer(params.encoder_config)
 
             #TODO: entropy encode prediction info of each block. using exp golomb
-            frame.generate_prediction_data()
+            # frame.generate_prediction_data()
             frame.entropy_encode_prediction_data()
 
 
             #TODO: entropy encode dct coffs of each block passed through RLE
             frame.entropy_encode_dct_coffs(block_size)
+            # 1 byte for prediction_mode
+            encoded_fh.write(frame.prediction_mode.value.to_bytes(1))
+
+            # 2 byte for len of entropy_encoded_prediction_data
+            num_of_byte_in_entropy_encoded_prediction_data = (len(frame.entropy_encoded_prediction_data) + 7) // 8  # plus 7 to get ceiling of bytes
+            # logger.info(f"num_of_byte_in_entropy_encoded_prediction_data  {num_of_byte_in_entropy_encoded_prediction_data.to_bytes(2)}")
+            encoded_fh.write(num_of_byte_in_entropy_encoded_prediction_data.to_bytes(2))
+
+            # n bytes for entropy_encoded_prediction_data
+            encoded_fh.write(frame.entropy_encoded_prediction_data.tobytes())
+
+            # 3 byte for len of entropy_encoded_DCT_coffs
+            num_of_byte_in_entropy_encoded_DCT_coffs = (len(frame.entropy_encoded_DCT_coffs) + 7) // 8  # plus 7 to get ceiling of bytes
+            # logger.info(f"num_of_byte_in_entropy_encoded_prediction_data  {num_of_byte_in_entropy_encoded_DCT_coffs.to_bytes(3)}")
+            encoded_fh.write(num_of_byte_in_entropy_encoded_DCT_coffs.to_bytes(3))
+
+            # n bytes for entropy_encoded_DCT_coffs
+            encoded_fh.write(frame.entropy_encoded_DCT_coffs.tobytes())
 
             # Apply entropy encoding
             # quantized_coeffs = frame.quantized_dct_residual_frame.flatten()
@@ -113,7 +131,7 @@ def encode_video(params: InputParameters):
             # Write encoded data to file
             # encoded_fh.write(entropy_encoded_stream.tobytes())
 
-            frame.write_encoded_to_file(encoded_fh, mv_fh, quant_dct_coff_fh, residual_w_mc_yuv_fh, residual_wo_mc_yuv_fh, reconstructed_fh, params.encoder_config)
+            frame.write_encoded_to_file( mv_fh, quant_dct_coff_fh, residual_w_mc_yuv_fh, residual_wo_mc_yuv_fh, reconstructed_fh, params.encoder_config)
 
             prev_frame = frame.reconstructed_frame
     # with open('frame_sizes.txt', 'w') as frame_sizes_file:

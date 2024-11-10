@@ -47,13 +47,14 @@ def exp_golomb_decode(bitstream):
     while m < len(bitstream) and not bitstream[m]:
         m += 1
 
-    logger.info(f"m [{m:3}] bit_str: {bitstream[m + 1:m + 1 + m]}, remaining len:{len(bitstream):6d}")
-    if(len(bitstream) < 10):
-        logger.info(f"{bitstream}")
+    # if len(bitstream) < 12:
+    #     logger.info(f"m [{m:3}] bit_str: {bitstream[m + 1:m + 1 + m]}, remaining len:{len(bitstream):6d}")
+    #     logger.info(f"{bitstream}")
 
     # Check if we reached the end of the bitstream without finding a '1'
     if m >= len(bitstream):
-        raise ValueError("Not enough bits to decode the exp-Golomb code (prefix error).")
+        # raise ValueError("Not enough bits to decode the exp-Golomb code (prefix error).")
+        logger.info(f" leftover bitstream: {bitstream} ")
 
     # Calculate the value of the Exp-Golomb code
     # The prefix '1' bit is at position m, followed by m bits for the suffix

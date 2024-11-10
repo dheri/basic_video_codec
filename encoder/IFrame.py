@@ -1,10 +1,11 @@
 import numpy as np
+from bitarray import bitarray
 
 from common import get_logger, split_into_blocks
 from encoder.Frame import Frame
 from encoder.PredictionMode import PredictionMode
 from encoder.dct import apply_dct_2d, generate_quantization_matrix, quantize_block, rescale_block, apply_idct_2d
-from encoder.entropy_encoder import exp_golomb_encode, zigzag_order, rle_encode
+from encoder.entropy_encoder import exp_golomb_encode, zigzag_order, rle_encode, exp_golomb_decode
 from encoder.params import EncoderConfig
 
 logger = get_logger()
@@ -55,6 +56,7 @@ class IFrame(Frame):
         height, width = frame_shape
         reconstructed_frame = np.zeros((height, width), dtype=np.uint8)
         Q = generate_quantization_matrix(block_size, encoder_config.quantization_factor)
+        logger.info(self.intra_modes)
 
         # Iterate over blocks to reconstruct the frame
         for y in range(0, height, block_size):
@@ -64,7 +66,7 @@ class IFrame(Frame):
 
                 rescaled_dct_coffs_block = rescale_block(dct_coffs_block, Q)
                 idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block)
-                predicted_b = find_intra_predict_block(self.prediction_data[(y // encoder_config.block_size) * (
+                predicted_b = find_intra_predict_block(self.intra_modes[(y // encoder_config.block_size) * (
                             width // encoder_config.block_size) + (x // encoder_config.block_size)],
                                                        reconstructed_frame, x, y, encoder_config.block_size)
 
@@ -87,16 +89,30 @@ class IFrame(Frame):
         # self.mv_field = byte_array_to_mv_field(self.prediction_data, params.width, params.height, params.encoder_config.block_size )  # Convert back to motion vector field
 
     def entropy_encode_prediction_data(self):
-        self.entropy_encoded_prediction_data = bytearray()
+        self.entropy_encoded_prediction_data = bitarray()
+        logger.info(self.intra_modes)
         for m in self.intra_modes:
             enc = exp_golomb_encode(m)
             self.entropy_encoded_prediction_data.extend(enc)
-        logger.info(f" entropy_encoded_prediction_data  len : {len(self.entropy_encoded_prediction_data)}, {len(self.entropy_encoded_prediction_data) // 8}")
+        # logger.info(f" entropy_encoded_prediction_data  len : {len(self.entropy_encoded_prediction_data)}, {len(self.entropy_encoded_prediction_data) // 8}")
+        logger.info(self.entropy_encoded_prediction_data)
 
-    def entropy_decode_prediction_data(self):
-        # TODO: implement
-        pass
+    def entropy_decode_prediction_data(self, enc):
+        decoded_modes = []
+        bitstream = bitarray()  # Ensure `enc` is a bitarray
+        bitstream.frombytes(enc)
 
+        # Decode each encoded mode
+        while bitstream:
+            try:
+                decoded_value, bitstream = exp_golomb_decode(bitstream)
+                decoded_modes.append(decoded_value)
+            except ValueError as e:
+                # Handle the case where bitstream is exhausted or an error occurs
+                print(f"Decoding error: {e}")
+                break
+        self.intra_modes = decoded_modes
+        return decoded_modes
 
 
 def find_intra_predict_block(prediction_mode, reconstructed_frame, x, y, block_size):
@@ -106,7 +122,7 @@ def find_intra_predict_block(prediction_mode, reconstructed_frame, x, y, block_s
     elif prediction_mode == 1:  # Vertical prediction mode
         return vertical_intra_prediction(reconstructed_frame, x, y, block_size)
     else:
-        raise ValueError("Invalid prediction mode: must be 0 (horizontal) or 1 (vertical).")
+        raise ValueError(f"Invalid prediction mode [{prediction_mode}]: must be 0 (horizontal) or 1 (vertical).")
 
 
 def intra_predict_block(curr_block, reconstructed_frame, x, y, block_size):
