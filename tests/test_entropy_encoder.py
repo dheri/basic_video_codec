@@ -2,7 +2,8 @@ from unittest import TestCase
 
 import numpy as np
 
-from encoder.entropy_encoder import zigzag_order, inverse_zigzag_order, rle_encode, rle_decode, exp_golomb_encode
+from encoder.entropy_encoder import zigzag_order, inverse_zigzag_order, rle_encode, rle_decode, exp_golomb_encode, \
+    exp_golomb_decode
 
 
 class Test(TestCase):
@@ -68,7 +69,8 @@ class Test_rel(TestCase):
 
 class TestExpGolomb(TestCase):
     def test_exp_golomb_encode(self):
-        to_enc= [ 1, 0, 0, 1, 1 ]
+        to_enc= [ 0, 1, -1, 2, -3, 4 ]
         for s in to_enc:
             enc = exp_golomb_encode(s)
-            print(enc)
+            # print(f"{s} -> {enc}")
+            print(exp_golomb_decode(enc))

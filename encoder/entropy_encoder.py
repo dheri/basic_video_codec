@@ -8,33 +8,29 @@ from common import get_logger
 logger = get_logger()
 
 
-def map_to_non_negative(value):
-    """
-    Maps a signed integer to a non-negative integer suitable for Exp-Golomb encoding.
-    """
-    # Ensure that mapping produces only non-negative integers
-    return 2 * value if value >= 0 else -2 * value - 1
-
 
 def exp_golomb_encode(value):
     """
     Encodes a non-negative integer using Exp-Golomb encoding.
     """
-    value = map_to_non_negative(value)
-    if value == 0:
-        return bitarray('0')
+    mapped_value  =  -2 * value if value <= 0 else 2 * value - 1
 
-    # Calculate the number of leading zeros (m)
-    m = 0
-    temp_value = value + 1  # +1 to account for the '1' delimiter in Exp-Golomb coding
-    while temp_value >> m > 1:
-        m += 1
+    # Step 1: Calculate (mapped_value + 1) in binary
+    encoded_value = mapped_value + 1
 
-    # Generate the prefix and suffix
-    prefix = '0' * m + '1'  # m leading zeros followed by a '1'
-    suffix = format(value - ((1 << m) - 1), f'0{m}b')  # binary representation of the remainder
+    # Step 2: Calculate the binary representation of encoded_value
+    binary_rep = bitarray()
+    binary_rep.frombytes(encoded_value.to_bytes((encoded_value.bit_length() + 7) // 8, byteorder='big'))
 
-    return bitarray(prefix + suffix)
+    # Remove leading zero bits that may result from byte padding
+    binary_rep = binary_rep[binary_rep.index(1):]
+
+    # Step 3: Count the bits in binary representation and add leading zeros
+    num_bits = len(binary_rep)
+    leading_zeros = bitarray('0' * (num_bits - 1))
+    result = leading_zeros + binary_rep  # Concatenate the leading zeros with the binary representation
+
+    return result
 
 
 def exp_golomb_decode(bitstream):
