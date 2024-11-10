@@ -5,9 +5,10 @@ import numpy as np
 from bitarray import bitarray
 from skimage.metrics import peak_signal_noise_ratio
 
-from common import get_logger
+from common import get_logger, split_into_blocks
 from encoder.PredictionMode import PredictionMode
 from encoder.byte_stream_buffer import BitStreamBuffer
+from encoder.entropy_encoder import zigzag_order, rle_encode, exp_golomb_encode
 from encoder.params import EncoderConfig
 from file_io import write_y_only_frame
 from input_parameters import InputParameters
@@ -21,6 +22,9 @@ class Frame:
         self.curr_frame = curr_frame
         self.prediction_mode: PredictionMode = PredictionMode.INTER_FRAME
         self.prediction_data : Optional[bytearray] = None # should always be byte arrays of unit8
+        self.entropy_encoded_prediction_data  : Optional[bytearray] = None
+        self.entropy_encoded_DCT_coffs  : Optional[bytearray] = None
+
         self.residual_frame = None
         self.quantized_dct_residual_frame = None
         self.reconstructed_frame = None
@@ -35,6 +39,23 @@ class Frame:
         raise NotImplementedError(f"{type(self)} need to be overridden")
     def parse_prediction_data(self, params: InputParameters):
         raise NotImplementedError(f"{type(self)} need to be overridden")
+
+    def entropy_encode_prediction_data(self):
+        raise NotImplementedError(f"{type(self)} need to be overridden")
+
+    def entropy_encode_dct_coffs(self, block_size):
+        self.entropy_encoded_DCT_coffs = bytearray()
+
+        blocks = split_into_blocks(self.quantized_dct_residual_frame, block_size)
+        for block in blocks:
+            zigzag_dct_coffs = zigzag_order(block)
+            rle = rle_encode(zigzag_dct_coffs)
+            for symbol in rle:
+                enc = exp_golomb_encode(symbol)
+                self.entropy_encoded_DCT_coffs.extend(enc)
+
+        logger.info(f" entropy_encoded_DCT_coffs  len : {len(self.entropy_encoded_DCT_coffs)}, {len(self.entropy_encoded_DCT_coffs) // 8}")
+
 
     def write_metrics_data(self, metrics_csv_writer, frame_index, encoder_config: EncoderConfig):
         psnr = peak_signal_noise_ratio(self.curr_frame, self.reconstructed_frame)

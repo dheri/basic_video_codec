@@ -8,24 +8,33 @@ from common import get_logger
 logger = get_logger()
 
 
+def map_to_non_negative(value):
+    """
+    Maps a signed integer to a non-negative integer suitable for Exp-Golomb encoding.
+    """
+    # Ensure that mapping produces only non-negative integers
+    return 2 * value if value >= 0 else -2 * value - 1
+
+
 def exp_golomb_encode(value):
     """
-    Encodes an integer using Exp-Golomb encoding.
+    Encodes a non-negative integer using Exp-Golomb encoding.
     """
+    value = map_to_non_negative(value)
     if value == 0:
-        return '0'
+        return bitarray('0')
 
-    # Map value for Exp-Golomb: positive values -> 2*value - 1, negative values -> -2*value
-    mapped_value = 2 * value - 1 if value > 0 else -2 * value
+    # Calculate the number of leading zeros (m)
+    m = 0
+    temp_value = value + 1  # +1 to account for the '1' delimiter in Exp-Golomb coding
+    while temp_value >> m > 1:
+        m += 1
 
-    # Calculate prefix length (number of leading zeros)
-    m = int(math.log2(mapped_value + 1))
-    prefix = '0' * m + '1'
+    # Generate the prefix and suffix
+    prefix = '0' * m + '1'  # m leading zeros followed by a '1'
+    suffix = format(value - ((1 << m) - 1), f'0{m}b')  # binary representation of the remainder
 
-    # Calculate suffix
-    suffix = format(mapped_value - (1 << m), f'0{m}b')
-
-    return prefix + suffix
+    return bitarray(prefix + suffix)
 
 
 def exp_golomb_decode(bitstream):
@@ -38,7 +47,9 @@ def exp_golomb_decode(bitstream):
     while m < len(bitstream) and not bitstream[m]:
         m += 1
 
-    logger.info(f"m [{m:3}] bit_str: {bitstream[m + 1:m + 1 + m]}")
+    logger.info(f"m [{m:3}] bit_str: {bitstream[m + 1:m + 1 + m]}, remaining len:{len(bitstream):6d}")
+    if(len(bitstream) < 10):
+        logger.info(f"{bitstream}")
 
     # Check if we reached the end of the bitstream without finding a '1'
     if m >= len(bitstream):
@@ -66,7 +77,6 @@ def exp_golomb_decode(bitstream):
     remaining_bitstream = bitstream[m + 1 + m:]
     return decoded_value, remaining_bitstream
 
-
 def rle_encode(coeffs):
     encoded = []
     i = 0
@@ -76,7 +86,11 @@ def rle_encode(coeffs):
             while i < len(coeffs) and coeffs[i] == 0:
                 zero_count += 1
                 i += 1
-            encoded.append(zero_count)  # Positive for run of zeros
+            # Only add the zero count if there are remaining non-zero terms
+            if i < len(coeffs):
+                encoded.append(zero_count)  # Positive for run of zeros
+            else:
+                encoded.append(0)  # Indicates end of meaningful data (all remaining zeros)
         else:
             nonzero_count = 0
             start_idx = i
@@ -84,6 +98,80 @@ def rle_encode(coeffs):
                 nonzero_count += 1
                 i += 1
             encoded.append(-nonzero_count)  # Negative for run of non-zeros
-            encoded.extend(coeffs[start_idx:i])
-    encoded.append(0)  # End of block
+            encoded.extend(coeffs[start_idx:i])  # Append the actual non-zero terms
+
     return encoded
+
+
+def rle_decode(encoded):
+    decoded = []
+    i = 0
+    while i < len(encoded):
+        count = encoded[i]
+
+        if count == 0:
+            # 0 indicates that the rest of the values are all zeros, stop decoding
+            break
+        elif count > 0:
+            # Positive count represents a run of zeros
+            decoded.extend([0] * count)
+        else:
+            # Negative count represents non-zero terms, append the following terms
+            count = -count  # Convert to positive to get the number of terms
+            i += 1
+            decoded.extend(encoded[i:i + count])
+            i += count - 1  # Move index past the non-zero terms
+
+        i += 1  # Move to the next element in encoded list
+
+    return decoded
+
+
+
+def zigzag_order(matrix):
+    """
+    Takes a square matrix and returns a list of elements in zigzag order.
+    """
+    n = len(matrix)  # Assuming a square matrix
+    result = []
+
+    # Traverse diagonals
+    for s in range(2 * n - 1):
+        if s % 2 == 0:
+            # For even diagonals, go from bottom-left to top-right
+            for i in range(s + 1):
+                if i < n and (s - i) < n:
+                    result.append(matrix[i][s - i])
+        else:
+            # For odd diagonals, go from top-right to bottom-left
+            for i in range(s + 1):
+                if i < n and (s - i) < n:
+                    result.append(matrix[s - i][i])
+
+    return result
+
+
+def inverse_zigzag_order(arr, n):
+    """
+    Takes a zigzag-ordered list and reconstructs the original n x n square matrix.
+    """
+    matrix = [[0] * n for _ in range(n)]
+    idx = 0
+
+    # Traverse diagonals
+    for s in range(2 * n - 1):
+        if s % 2 == 0:
+            # For even diagonals, go from bottom-left to top-right
+            for i in range(s + 1):
+                if i < n and (s - i) < n:
+                    matrix[i][s - i] = arr[idx]
+                    idx += 1
+        else:
+            # For odd diagonals, go from top-right to bottom-left
+            for i in range(s + 1):
+                if i < n and (s - i) < n:
+                    matrix[s - i][i] = arr[idx]
+                    idx += 1
+
+    return matrix
+

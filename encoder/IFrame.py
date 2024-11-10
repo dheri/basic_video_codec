@@ -1,9 +1,10 @@
 import numpy as np
 
-from common import get_logger
+from common import get_logger, split_into_blocks
 from encoder.Frame import Frame
 from encoder.PredictionMode import PredictionMode
 from encoder.dct import apply_dct_2d, generate_quantization_matrix, quantize_block, rescale_block, apply_idct_2d
+from encoder.entropy_encoder import exp_golomb_encode, zigzag_order, rle_encode
 from encoder.params import EncoderConfig
 
 logger = get_logger()
@@ -73,10 +74,7 @@ class IFrame(Frame):
         return reconstructed_frame  # This should be the reconstructed frame
 
     def generate_prediction_data(self):
-        """Puts
-
-
-         intra_modes onto prediction_data"""
+        """Puts intra_modes onto prediction_data"""
         if self.intra_modes is None:
             raise ValueError("Intra modes have not been initialized.")
 
@@ -87,6 +85,18 @@ class IFrame(Frame):
         prediction_data = self.prediction_data
         # logger.info(f"parse prediction data: [{len(prediction_data)}] {prediction_data.hex()}")  # Log the byte array in hex format
         # self.mv_field = byte_array_to_mv_field(self.prediction_data, params.width, params.height, params.encoder_config.block_size )  # Convert back to motion vector field
+
+    def entropy_encode_prediction_data(self):
+        self.entropy_encoded_prediction_data = bytearray()
+        for m in self.intra_modes:
+            enc = exp_golomb_encode(m)
+            self.entropy_encoded_prediction_data.extend(enc)
+        logger.info(f" entropy_encoded_prediction_data  len : {len(self.entropy_encoded_prediction_data)}, {len(self.entropy_encoded_prediction_data) // 8}")
+
+    def entropy_decode_prediction_data(self):
+        # TODO: implement
+        pass
+
 
 
 def find_intra_predict_block(prediction_mode, reconstructed_frame, x, y, block_size):

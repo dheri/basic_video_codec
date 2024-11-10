@@ -78,32 +78,40 @@ def encode_video(params: InputParameters):
                 frame = PFrame(padded_frame, prev_frame)
 
             frame.encode(params.encoder_config)
-            frame.populate_bit_stream_buffer(params.encoder_config)
+            # frame.populate_bit_stream_buffer(params.encoder_config)
+
+            #TODO: entropy encode prediction info of each block. using exp golomb
+            frame.generate_prediction_data()
+            frame.entropy_encode_prediction_data()
+
+
+            #TODO: entropy encode dct coffs of each block passed through RLE
+            frame.entropy_encode_dct_coffs(block_size)
 
             # Apply entropy encoding
-            quantized_coeffs = frame.quantized_dct_residual_frame.flatten()
-            entropy_encoded_stream = entropy_encode(quantized_coeffs)
+            # quantized_coeffs = frame.quantized_dct_residual_frame.flatten()
+            # entropy_encoded_stream = entropy_encode(quantized_coeffs)
 
             # Calculate the bit count for the current frame (bitstream size * 8 for bits)
-            bit_count = len(entropy_encoded_stream)  # Now we use the entropy encoded stream length
-            num_of_byte_in_entropy_encoded_frame = (bit_count + 7) // 8 # plus 7 to get ceiling of bytes
-            logger.info(f"b {bit_count:8d}, B {num_of_byte_in_entropy_encoded_frame:8d}")
-            frame_len_in_3_bytes =  int_to_3_bytes(num_of_byte_in_entropy_encoded_frame) # these 3 bytes tell frame length in entropy_encoded_stream
+            # bit_count = len(entropy_encoded_stream)  # Now we use the entropy encoded stream length
+            # num_of_byte_in_entropy_encoded_frame = (bit_count + 7) // 8 # plus 7 to get ceiling of bytes
+            # logger.info(f"b {bit_count:8d}, B {num_of_byte_in_entropy_encoded_frame:8d}")
+            # frame_len_in_3_bytes =  int_to_3_bytes(num_of_byte_in_entropy_encoded_frame) # these 3 bytes tell frame length in entropy_encoded_stream
 
 
-            frame_sizes.append(bit_count)
+            # frame_sizes.append(bit_count)
 
             # Calculate PSNR and MAE
             frame_psnr = peak_signal_noise_ratio(frame.curr_frame, frame.reconstructed_frame)
             mae = frame.avg_mae
 
             # Write metrics including QP, I_Period, and total bit size
-            metrics_csv_writer.writerow([frame_index, mae, frame_psnr, bit_count, quantization_factor, I_Period, bit_count])
+            # metrics_csv_writer.writerow([frame_index, mae, frame_psnr, bit_count, quantization_factor, I_Period, bit_count])
 
             # write frame len in 3 bytes
-            encoded_fh.write(frame_len_in_3_bytes)
+            # encoded_fh.write(frame_len_in_3_bytes)
             # Write encoded data to file
-            encoded_fh.write(entropy_encoded_stream.tobytes())
+            # encoded_fh.write(entropy_encoded_stream.tobytes())
 
             frame.write_encoded_to_file(encoded_fh, mv_fh, quant_dct_coff_fh, residual_w_mc_yuv_fh, residual_wo_mc_yuv_fh, reconstructed_fh, params.encoder_config)
 

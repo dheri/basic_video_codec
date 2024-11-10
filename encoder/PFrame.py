@@ -8,6 +8,7 @@ from encoder.Frame import Frame
 from encoder.PredictionMode import PredictionMode
 from encoder.block_predictor import predict_block
 from encoder.dct import apply_dct_2d, generate_quantization_matrix, quantize_block, rescale_block, apply_idct_2d
+from encoder.entropy_encoder import exp_golomb_encode
 from encoder.params import EncoderConfig, EncodedBlock
 from concurrent import futures
 
@@ -116,6 +117,16 @@ class PFrame(Frame):
         prediction_data = self.prediction_data
         # logger.info(f"parse prediction data: [{len(prediction_data)}] {prediction_data.hex()}")  # Log the byte array in hex format
         self.mv_field = byte_array_to_mv_field(self.prediction_data, params.width, params.height, params.encoder_config.block_size )  # Convert back to motion vector field
+
+    def entropy_encode_prediction_data(self):
+        self.entropy_encoded_prediction_data = bytearray()
+        for mv in self.mv_field.values():
+            enc_0 = exp_golomb_encode(mv[0])
+            self.entropy_encoded_prediction_data.extend(enc_0)
+            enc_1 = exp_golomb_encode(mv[1])
+            self.entropy_encoded_prediction_data.extend(enc_1)
+
+        logger.info(f" entropy_encoded_prediction_data  len : {len(self.entropy_encoded_prediction_data)}, {len(self.entropy_encoded_prediction_data) // 8}")
 
     def generate_prediction_data(self):
         # convert mv or inta-modes to byte array
