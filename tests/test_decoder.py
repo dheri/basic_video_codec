@@ -64,7 +64,7 @@ class TestDecoder(TestCase):
 
                     # Encode the frame to get motion vectors, residuals, and reconstructed frame
                     p_frame = PFrame(curr_f, prev_f)
-                    encoded_frame = p_frame.encode(encoder_parameters)
+                    encoded_frame = p_frame.encode_mc_q_dct(encoder_parameters)
                     mv_field = encoded_frame.mv_field
                     residuals_with_mc = encoded_frame.residual_frame
                     quat_dct_coffs_with_mc = encoded_frame.quantized_dct_residual_frame

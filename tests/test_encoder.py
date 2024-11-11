@@ -64,7 +64,7 @@ class TestEncoder(TestCase):
         # print(mv_field)
         encoder_params = EncoderConfig(block_size, search_range, I_Period=8, quantization_factor=0)
         p_frame = PFrame(curr_f, prev_f)
-        encoded_frame = p_frame.encode(encoder_params)
+        encoded_frame = p_frame.encode_mc_q_dct(encoder_params)
 
 
         mv_field = encoded_frame.mv_field
@@ -117,7 +117,7 @@ class TestEncoder(TestCase):
                     # Perform motion estimation with encode_frame
                     encoder_params = EncoderConfig(block_size, search_range, I_Period=8, quantization_factor=0)
                     p_frame = PFrame(curr_f, prev_f)
-                    encoded_frame = p_frame.encode(encoder_params)
+                    encoded_frame = p_frame.encode_mc_q_dct(encoder_params)
                     mv_field = encoded_frame.mv_field
                     avg_mae = encoded_frame.avg_mae
                     reconstructed_with_mc = encoded_frame.reconstructed_frame
@@ -183,7 +183,7 @@ class TestEncoder(TestCase):
                     # Perform motion estimation with encode_frame
                     encoder_params = EncoderConfig(block_size, search_range, I_Period=8, quantization_factor=0)
                     p_frame = PFrame(curr_f, prev_f)
-                    encoded_frame = p_frame.encode(encoder_params)
+                    encoded_frame = p_frame.encode_mc_q_dct(encoder_params)
 
 
                     mv_field = encoded_frame.mv_field

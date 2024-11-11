@@ -64,7 +64,7 @@ def encode_video(params: InputParameters):
 
             # frame = PFrame(padded_frame, prev_frame)
 
-            frame.encode(params.encoder_config)
+            frame.encode_mc_q_dct(params.encoder_config)
 
             frame.entropy_encode_prediction_data()
             frame.entropy_encode_dct_coffs(block_size)

@@ -89,7 +89,7 @@ class TestFrame(TestCase):
         frame_to_encode.curr_frame = curr_frame
         frame_to_encode.prev_frame = prev_frame
 
-        frame_to_encode.encode(encoder_config)
+        frame_to_encode.encode_mc_q_dct(encoder_config)
         frame_to_encode.populate_bit_stream_buffer(params.encoder_config)
 
         # check prediction_data is generated of correct length
@@ -102,7 +102,7 @@ class TestFrame(TestCase):
         byte_stream_copy = frame_to_encode.bitstream_buffer.bit_stream.copy()
         decoded_frame.construct_frame_metadata_from_bit_stream(params, byte_stream_copy)
 
-        df = decoded_frame.decode(None, encoder_config)
+        df = decoded_frame.decode_mc_q_dct(None, encoder_config)
 
         np.testing.assert_array_equal(decoded_frame.quantized_dct_residual_frame, frame_to_encode.quantized_dct_residual_frame)
         logger.info(f"quantized_dct_residual_frame  matched ")

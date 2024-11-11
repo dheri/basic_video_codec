@@ -58,7 +58,7 @@ def decode_video(params: InputParameters):
 
 
             # Decode the frame
-            decoded_frame = frame.decode((params.height, params.width), encoder_config=params.encoder_config)
+            decoded_frame = frame.decode_mc_q_dct((params.height, params.width), encoder_config=params.encoder_config)
 
             # Read and compare with the reconstructed frame
             reconstructed_frame = np.frombuffer(reconstructed_file_fh.read(frame_size), dtype=np.uint8).reshape((height, width))

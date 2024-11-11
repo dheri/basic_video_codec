@@ -24,7 +24,6 @@ class Frame:
         self.prev_frame = prev_frame
         self.curr_frame = curr_frame
         self.prediction_mode: PredictionMode = PredictionMode.INTER_FRAME
-        # self.prediction_data : Optional[bytearray] = None # should always be byte arrays of unit8
         self.entropy_encoded_prediction_data  : Optional[bitarray] = None
         self.entropy_encoded_DCT_coffs  : Optional[bitarray] = None
 
@@ -35,15 +34,11 @@ class Frame:
         self.avg_mae = None
 
 
-    def encode(self, encoder_config: EncoderConfig):
+    def encode_mc_q_dct(self, encoder_config: EncoderConfig):
         raise NotImplementedError(f"{type(self)} need to be overridden")
 
-    def decode(self, frame_shape, encoder_config: EncoderConfig):
+    def decode_mc_q_dct(self, frame_shape, encoder_config: EncoderConfig):
         raise NotImplementedError(f"{type(self)} need to be overridden")
-    # def generate_prediction_data(self):
-    #     raise NotImplementedError(f"{type(self)} need to be overridden")
-    # def parse_prediction_data(self, params: InputParameters):
-    #     raise NotImplementedError(f"{type(self)} need to be overridden")
 
     def entropy_encode_prediction_data(self):
         raise NotImplementedError(f"{type(self)} need to be overridden")
@@ -113,46 +108,6 @@ class Frame:
 
 
 
-    # def construct_frame_metadata_from_bit_stream(self, params : InputParameters, encoded_frame_bytes: bytes):
-    #     """
-    #     reads encoded_frame_bytes and populates prediction_mode, prediction_data, quantized_dct_residual_frame
-    #     :param params:
-    #     :param encoded_frame_bytes: bitstream to read
-    #     :return:
-    #     """
-    #     self.bitstream_buffer = BitStreamBuffer()
-    #     bit_arr = bitarray()
-    #     bit_arr.frombytes(encoded_frame_bytes)
-    #     self.bitstream_buffer.bit_stream = bit_arr
-    #
-    #     self.prediction_mode = PredictionMode(self.bitstream_buffer.read_bit()) # pop first
-    #     self.prediction_data = self.bitstream_buffer.read_prediction_data(self.prediction_mode, params)
-    #     self.parse_prediction_data(params)
-    #
-    #
-    #     self.quantized_dct_residual_frame = self.bitstream_buffer.read_quantized_coeffs(params.height, params.width, params.encoder_config.block_size).astype(np.int16)
-    #
-    #     dct_coffs_extremes = self.get_quat_dct_coffs_extremes()
-    #     logger.info(f"quantized_dct shape [{self.quantized_dct_residual_frame.shape}], range: [{dct_coffs_extremes[0]:4}, {dct_coffs_extremes[1]:3}]")
-    #
-
-
-    # def encoded_frame_data_length(self, params: InputParameters):
-    #     block_size = params.encoder_config.block_size
-    #     num_of_blocks = (params.height // block_size) * (params.width // block_size)
-    #     bits_per_block = 0
-    #
-    #     if self.prediction_mode == PredictionMode.INTRA_FRAME:
-    #         bits_per_block +=   1  # 1 bit for inta frame (h/v)
-    #     elif self.prediction_mode == PredictionMode.INTER_FRAME:
-    #         bits_per_block +=   2 * 8 # 2 int8 for mv
-    #     else:
-    #         raise ValueError(f"unexpected prediction_mode: {self.prediction_mode}")
-    #     bits_per_block += (block_size **  2) * (2 * 8) # 16 bits per pixel in block
-    #     bits_per_frame = 1 + (bits_per_block * num_of_blocks)
-    #     bytes_per_frame = math.ceil(bits_per_frame / 8)
-    #
-    #     return bytes_per_frame
 
     def get_quat_dct_coffs_extremes(self):
         # Ensure quat_dct_coffs_with_mc is a numpy array to use numpy's min/max

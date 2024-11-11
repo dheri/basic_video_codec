@@ -25,7 +25,7 @@ class PFrame(Frame):
         self.mv_field = None
         self.avg_mae = None
 
-    def encode(self, encoder_config: EncoderConfig):
+    def encode_mc_q_dct(self, encoder_config: EncoderConfig):
         block_size = encoder_config.block_size
         search_range = encoder_config.search_range
         quantization_factor = encoder_config.quantization_factor
@@ -63,7 +63,6 @@ class PFrame(Frame):
         avg_mae = mae_of_blocks / num_of_blocks
 
         self.mv_field = mv_field  # Populate the motion vector field
-        # self.prediction_data = mv_field_to_bytearray(self.mv_field)  # Convert to byte array
 
 
         self.avg_mae = avg_mae
@@ -111,13 +110,9 @@ class PFrame(Frame):
 
         return motion_vector, best_match_mae
 
-    def decode(self, frame_shape, encoder_config: EncoderConfig):
+    def decode_mc_q_dct(self, frame_shape, encoder_config: EncoderConfig):
         return construct_frame_from_dct_and_mv(self.quantized_dct_residual_frame, self.prev_frame, self.mv_field, encoder_config)
 
-    # def parse_prediction_data(self, params):
-    #     prediction_data = self.prediction_data
-    #     # logger.info(f"parse prediction data: [{len(prediction_data)}] {prediction_data.hex()}")  # Log the byte array in hex format
-    #     self.mv_field = byte_array_to_mv_field(self.prediction_data, params.width, params.height, params.encoder_config.block_size )  # Convert back to motion vector field
 
     def entropy_encode_prediction_data(self):
         self.entropy_encoded_prediction_data = bitarray()
@@ -173,52 +168,6 @@ class PFrame(Frame):
 
         return self.mv_field
 
-    # def generate_prediction_data(self):
-    #     # convert mv or inta-modes to byte array
-    #     self.prediction_data = bytearray()
-    #     # Iterate over the motion vector field
-    #     for (i, j), (mv_x, mv_y) in self.mv_field.items():
-    #         self.prediction_data.append(signed_to_unsigned(mv_x, 8))
-    #         self.prediction_data.append(signed_to_unsigned(mv_y, 8))
-    #
-
-
-# def mv_field_to_bytearray(mv_field):
-#     byte_stream = bytearray()
-#     for mv in mv_field.values():
-#         for value in mv:
-#             unsigned_byte = (value + 256) % 256
-#             byte_stream.append(unsigned_byte)
-#     return byte_stream
-
-# def byte_array_to_mv_field(byte_stream, width, height, block_size):
-#     mv_field = {}
-#     index = 0
-#     # Iterate through the byte stream in pairs
-#     for i in range(0, len(byte_stream), 2):
-#         if i + 1 >= len(byte_stream):
-#             break
-#
-#         mv_x_byte = byte_stream[i]
-#         mv_y_byte = byte_stream[i + 1]
-#
-#         mv_x = unsigned_to_signed(mv_x_byte, 8)
-#         mv_y = unsigned_to_signed(mv_y_byte, 8)
-#
-#         # Calculate the pixel coordinates (i, j) for the top-left corner of the block
-#         row_index = (index // (width // block_size)) * block_size  # Row (y-coordinate)
-#         column_index = (index % (width // block_size)) * block_size    # Column (x-coordinate)
-#
-#         # Ensure the calculated (i, j) is within the frame dimensions
-#         if row_index < height and column_index < width:
-#             # Store the motion vector in the dictionary with the (i, j) as the key
-#             mv_field[(column_index, row_index)] = [mv_x, mv_y]  # Using tuple for fixed size
-#         else:
-#             print(f"Warning: Calculated coordinates {(column_index, row_index)} are out of bounds.")
-#
-#         index += 1  # Increment the index for the next motion vector
-#
-#     return mv_field
 
 
 def construct_frame_from_dct_and_mv(quant_dct_coff_frame, prev_frame, mv_field, encoder_config: EncoderConfig):

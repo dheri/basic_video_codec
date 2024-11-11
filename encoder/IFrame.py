@@ -15,7 +15,7 @@ class IFrame(Frame):
         self.prediction_mode = PredictionMode.INTRA_FRAME
         self.intra_modes = None
 
-    def encode(self, encoder_config: EncoderConfig):
+    def encode_mc_q_dct(self, encoder_config: EncoderConfig):
         curr_frame = self.curr_frame
         block_size = encoder_config.block_size
         height, width = curr_frame.shape
@@ -31,10 +31,7 @@ class IFrame(Frame):
             for x in range(0, width, block_size):
                 curr_block = curr_frame[y:y + block_size, x:x + block_size]
 
-                # Process the block
-                # mode, mae, reconstructed_block, quantized_dct_residual_block, residual_block = process_block(
-                #     curr_block, reconstructed_frame, x, y, block_size, encoder_config.quantization_factor
-                # )
+
                 encoded_block = process_block(
                     curr_block, reconstructed_frame, x, y, block_size, encoder_config.quantization_factor
                 )
@@ -57,7 +54,7 @@ class IFrame(Frame):
         # doesnt make sense for w/o mc in INTRA
         self.residual_wo_mc_frame = residual_w_mc_frame
 
-    def decode(self, frame_shape, encoder_config: EncoderConfig):
+    def decode_mc_q_dct(self, frame_shape, encoder_config: EncoderConfig):
         block_size = encoder_config.block_size
         height, width = frame_shape
         reconstructed_frame = np.zeros((height, width), dtype=np.uint8)
@@ -82,19 +79,6 @@ class IFrame(Frame):
 
         self.curr_frame = reconstructed_frame
         return reconstructed_frame  # This should be the reconstructed frame
-
-    def generate_prediction_data(self):
-        """Puts intra_modes onto prediction_data"""
-        if self.intra_modes is None:
-            raise ValueError("Intra modes have not been initialized.")
-
-        self.prediction_data = self.intra_modes
-
-
-    def parse_prediction_data(self, params):
-        prediction_data = self.prediction_data
-        # logger.info(f"parse prediction data: [{len(prediction_data)}] {prediction_data.hex()}")  # Log the byte array in hex format
-        # self.mv_field = byte_array_to_mv_field(self.prediction_data, params.width, params.height, params.encoder_config.block_size )  # Convert back to motion vector field
 
     def entropy_encode_prediction_data(self):
         self.entropy_encoded_prediction_data = bitarray()
