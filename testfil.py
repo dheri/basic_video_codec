@@ -46,7 +46,7 @@ from common import get_logger, generate_residual_block, find_predicted_block
 from encoder.Frame import Frame, PredictionMode
 from encoder.block_predictor import predict_block
 from encoder.dct import apply_dct_2d, generate_quantization_matrix, quantize_block, rescale_block, apply_idct_2d
-from encoder.params import EncoderConfig, EncodedBlock
+from encoder.params import EncoderConfig, EncodedPBlock
 from concurrent import futures
 
 from file_io import write_mv_to_file, write_y_only_frame
@@ -702,7 +702,7 @@ class PFrame(Frame):
                 x, y = block_cords
 
                 # Update frames with the encoded block data
-                reconstructed_frame_with_mc[y:y + block_size, x:x + block_size] = encoded_block.reconstructed_block_with_mc
+                reconstructed_frame_with_mc[y:y + block_size, x:x + block_size] = encoded_block.reconstructed_block
                 residual_frame_with_mc[y:y + block_size, x:x + block_size] = encoded_block.reconstructed_residual_block
                 quat_dct_coffs_frame_with_mc[y:y + block_size, x:x + block_size] = encoded_block.quantized_dct_coffs
 
@@ -734,7 +734,7 @@ class PFrame(Frame):
         # Reconstruct the block using the predicted and inverse DCT
         clipped_reconstructed_block, idct_residual_block = reconstruct_block(quantized_dct_coffs, Q, predicted_block_with_mc)
 
-        return EncodedBlock((x, y), motion_vector, best_match_mae, quantized_dct_coffs, idct_residual_block, clipped_reconstructed_block)
+        return EncodedPBlock((x, y), motion_vector, best_match_mae, quantized_dct_coffs, idct_residual_block, clipped_reconstructed_block)
 
 
     def get_motion_vector(self, curr_block, x, y, block_size, search_range, width, height):
