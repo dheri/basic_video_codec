@@ -1,29 +1,26 @@
 import assign1
-from assign1 import ex4
+import assign2
+from assign1 import ex2
+from assign2 import MultipleReferenceFrames
 from encoder.params import EncoderConfig
 from input_parameters import InputParameters
 
 if __name__ == "__main__":
     encoder_parameters = EncoderConfig(
         block_size=8,
-        search_range=2,
-        quantization_factor=1,
-        I_Period=3,
+        search_range=3,
+        quantization_factor=4,
+        I_Period=7,
     )
 
     input_params = InputParameters(
-        y_only_file='data/foreman_cif.y',
+        y_only_file='data/synthetic.y',
         width=352,
         height=288,
         encoder_config=encoder_parameters,
-        frames_to_process=7
+        frames_to_process=22
     )
 
-    # ex2.main(input_params)
-    # generate_sample_file(input_file, num_frames=300)
+    assign1.ex2.save_y_frames_to_file(input_params)
 
-    # ex2.save_y_frames_to_file(input_params)
-
-    # ex3.main(input_params)
-
-    assign1.ex4.main(input_params)
+    assign2.MultipleReferenceFrames.main(input_params)
