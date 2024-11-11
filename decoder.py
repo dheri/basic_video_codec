@@ -1,5 +1,6 @@
 from contextlib import ExitStack
 
+import numpy as np
 from skimage.metrics import peak_signal_noise_ratio
 
 from encoder.IFrame import IFrame
