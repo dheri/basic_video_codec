@@ -25,7 +25,7 @@ def encode_video(params: InputParameters):
 
     with ExitStack() as stack:
         f_in = stack.enter_context(open(params.y_only_file, 'rb'))
-        mv_fh = stack.enter_context(open(file_io.get_mv_file_name(), 'wb'))
+        mv_fh = stack.enter_context(open(file_io.get_mv_file_name(), 'wt'))
         quant_dct_coff_fh = stack.enter_context(open(file_io.get_quant_dct_coff_fh_file_name(), 'wb'))
         residual_w_mc_yuv_fh = stack.enter_context(open(file_io.get_residual_w_mc_file_name(), 'wb'))
         residual_wo_mc_yuv_fh = stack.enter_context(open(file_io.get_residual_wo_mc_file_name(), 'wb'))
@@ -49,7 +49,7 @@ def encode_video(params: InputParameters):
         logger.info(
             f"[ i={params.encoder_config.block_size} r={params.encoder_config.search_range} q={params.encoder_config.quantization_factor}]")
         while True:
-            encoded_fh_idx = encoded_fh.tell()
+            start_of_bock_idx = encoded_fh.tell()
             frame_index += 1
             y_frame = f_in.read(y_size)
             if not y_frame or frame_index > frames_to_process:
@@ -76,28 +76,30 @@ def encode_video(params: InputParameters):
             # 2 byte for len of entropy_encoded_prediction_data
             num_of_byte_in_entropy_encoded_prediction_data = (
                                                                          len(frame.entropy_encoded_prediction_data) + 7) // 8  # plus 7 to get ceiling of bytes
-            logger.debug(
-                f"num_of_byte_in_entropy_encoded_prediction_data  {num_of_byte_in_entropy_encoded_prediction_data.to_bytes(2)}")
+            # logger.info(
+            #     f"num_of_byte_in_entropy_encoded_prediction_data [{num_of_byte_in_entropy_encoded_prediction_data:4}] [0x{(num_of_byte_in_entropy_encoded_prediction_data.to_bytes(2)).hex()}]")
             encoded_fh.write(num_of_byte_in_entropy_encoded_prediction_data.to_bytes(2))
 
             # n bytes for entropy_encoded_prediction_data
+            start_of_prediction_data_idx = encoded_fh.tell()
             encoded_fh.write(frame.entropy_encoded_prediction_data.tobytes())
 
             # 3 byte for len of entropy_encoded_DCT_coffs
             num_of_byte_in_entropy_encoded_dct_coffs = (
                                                                    len(frame.entropy_encoded_DCT_coffs) + 7) // 8  # plus 7 to get ceiling of bytes
-            logger.debug(
-                f"num_of_byte_in_entropy_encoded_prediction_data  {num_of_byte_in_entropy_encoded_dct_coffs.to_bytes(3)}")
+            # logger.info(
+            #     f"num_of_byte_in_entropy_encoded_dct_coffs       [{num_of_byte_in_entropy_encoded_dct_coffs:4}]  [0x{(num_of_byte_in_entropy_encoded_dct_coffs.to_bytes(3)).hex()}]")
             encoded_fh.write(num_of_byte_in_entropy_encoded_dct_coffs.to_bytes(3))
 
             # n bytes for entropy_encoded_DCT_coffs
+            start_of_dct_coffs_idx = encoded_fh.tell()
             encoded_fh.write(frame.entropy_encoded_DCT_coffs.tobytes())
 
             frame_psnr = peak_signal_noise_ratio(frame.curr_frame, frame.reconstructed_frame)
             mae = frame.avg_mae
             dct_coffs_extremes = frame.get_quat_dct_coffs_extremes()
 
-            encoded_frame_size = encoded_fh.tell() - encoded_fh_idx
+            encoded_frame_size = encoded_fh.tell() - start_of_bock_idx
             metrics_csv_writer.writerow(
                 [frame_index, mae, frame_psnr, encoded_frame_size, quantization_factor, I_Period, ])
 
@@ -107,8 +109,10 @@ def encode_video(params: InputParameters):
                 f"psnr [{round(frame_psnr, 2):6.2f}], "
                 f"q_dct_range: [{dct_coffs_extremes[0]:4}, "
                 f"{dct_coffs_extremes[1]:3}] "
-                f"SoB [{encoded_fh_idx:7}] "
-                f"size: [{encoded_frame_size}] "
+                f"size: [{encoded_frame_size:6}] "
+                f"SoB [{hex(start_of_bock_idx):7}] "
+                f"SoPD [{hex(start_of_prediction_data_idx):7}] "
+                f"SoDCTCoffs [{hex(start_of_dct_coffs_idx):7}] "
             )
             logger.info(frame_info_str)
 
