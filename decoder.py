@@ -1,3 +1,4 @@
+from collections import deque
 from contextlib import ExitStack
 
 import numpy as np
@@ -29,7 +30,9 @@ def decode_video(params: InputParameters):
     decoded_yuv = file_io.get_mc_decoded_file_name()
 
     frame_size = width * height
-    prev_frame = np.full((height, width), 128, dtype=np.uint8)
+    # prev_frame = np.full((height, width), 128, dtype=np.uint8)
+    reference_frames = deque()
+    reference_frames.append(np.full((height, width), 128, dtype=np.uint8))
 
     with ExitStack() as stack:
         reconstructed_file_fh = stack.enter_context(open(file_io.get_mc_reconstructed_file_name(), 'rb'))
@@ -46,8 +49,9 @@ def decode_video(params: InputParameters):
 
             if prediction_mode == PredictionMode.INTRA_FRAME.value:
                 frame = IFrame()
+                reference_frames.clear()
             else:
-                frame = PFrame(prev_frame=prev_frame)
+                frame = PFrame(reference_frames=reference_frames)
 
             prediction_data_len = int.from_bytes(encoded_fh.read(2))
             prediction_data = encoded_fh.read(prediction_data_len)
@@ -73,6 +77,8 @@ def decode_video(params: InputParameters):
             write_y_only_frame(decoded_fh, decoded_frame)
 
             # Update the previous frame
-            prev_frame = decoded_frame
-
+            # prev_frame = decoded_frame
+            if len(reference_frames) >= 3:
+                reference_frames.popleft()
+            reference_frames.append(decoded_frame)
     logger.info('End decoding')

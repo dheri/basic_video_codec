@@ -1,3 +1,4 @@
+from collections import deque
 from typing import Optional
 
 import numpy as np
@@ -20,9 +21,9 @@ logger = get_logger()
 class Frame:
     EOB_MARKER = 8190
 
-    def __init__(self, curr_frame=None, prev_frame=None, ):
+    def __init__(self, curr_frame=None, reference_frames=None, ):
         self.bitstream_buffer: Optional[BitStreamBuffer] = None
-        self.prev_frame = prev_frame
+        self.reference_frames : deque = reference_frames
         self.curr_frame = curr_frame
         self.prediction_mode: PredictionMode = PredictionMode.INTER_FRAME
         self.entropy_encoded_prediction_data: Optional[bitarray] = None

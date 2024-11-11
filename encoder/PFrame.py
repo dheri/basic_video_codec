@@ -18,8 +18,8 @@ logger = get_logger()
 
 
 class PFrame(Frame):
-    def __init__(self, curr_frame=None, prev_frame=None):
-        super().__init__(curr_frame, prev_frame)
+    def __init__(self, curr_frame=None, reference_frames=None):
+        super().__init__(curr_frame, reference_frames)
         self.prediction_mode = PredictionMode.INTER_FRAME
         self.mv_field = None
         self.avg_mae = None
@@ -71,13 +71,13 @@ class PFrame(Frame):
         self.residual_wo_mc_frame = residual_frame_wo_mc
         self.quantized_dct_residual_frame = quat_dct_coffs_frame_with_mc
         self.reconstructed_frame = reconstructed_frame_with_mc
-        # self.generate_prediction_data()
         return self
 
     def process_block(self, x, y, block_size, search_range, quantization_factor, width, height,
                       mv_field) -> EncodedPBlock:
         curr_block = self.curr_frame[y:y + block_size, x:x + block_size].astype(np.int16)
-        prev_block = self.prev_frame[y:y + block_size, x:x + block_size].astype(np.int16)
+        # consider latest ref frame for no mv
+        prev_block = self.reference_frames[0][y:y + block_size, x:x + block_size].astype(np.int16)
 
         # Get motion vector and MAE
         motion_vector, best_match_mae = self.get_motion_vector(curr_block, x, y, block_size, search_range, width,
@@ -85,7 +85,7 @@ class PFrame(Frame):
         mv_field[(x, y)] = motion_vector
 
         # Generate residual and predicted block
-        predicted_block_with_mc, residual_block_with_mc = generate_residual_block(curr_block, self.prev_frame,
+        predicted_block_with_mc, residual_block_with_mc = generate_residual_block(curr_block, self.reference_frames,
                                                                                   motion_vector, x, y, block_size)
         residual_block_wo_mc = np.subtract(curr_block, prev_block)
         # Apply DCT and quantization
@@ -104,15 +104,20 @@ class PFrame(Frame):
         prev_partial_frame_x_end_idx = min(x + block_size + search_range, width)
         prev_partial_frame_y_start_idx = max(y - search_range, 0)
         prev_partial_frame_y_end_idx = min(y + block_size + search_range, height)
+        prev_partial_frames = list()
+        for ref_frame in self.reference_frames:
+            prev_partial_frame = ref_frame[prev_partial_frame_y_start_idx:prev_partial_frame_y_end_idx,
+            prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
+            prev_partial_frames.append(prev_partial_frame)
 
-        prev_partial_frame = self.prev_frame[prev_partial_frame_y_start_idx:prev_partial_frame_y_end_idx,
-                             prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
-
-        best_mv_within_search_window, best_match_mae, best_match_block = predict_block(curr_block, prev_partial_frame,
+        best_mv_within_search_window, best_match_mae, best_match_block = predict_block(curr_block, prev_partial_frames,
                                                                                        block_size)
 
         motion_vector = [best_mv_within_search_window[0] + prev_partial_frame_x_start_idx - x,
-                         best_mv_within_search_window[1] + prev_partial_frame_y_start_idx - y]
+                         best_mv_within_search_window[1] + prev_partial_frame_y_start_idx - y,
+                         best_mv_within_search_window[2]
+                         ]
+
 
         return motion_vector, best_match_mae
 
