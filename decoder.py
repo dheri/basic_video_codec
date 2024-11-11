@@ -78,7 +78,7 @@ def decode_video(params: InputParameters):
 
             # Update the previous frame
             # prev_frame = decoded_frame
-            if len(reference_frames) >= 3:
+            if len(reference_frames) >= params.encoder_config.nRefFrames:
                 reference_frames.popleft()
             reference_frames.append(decoded_frame)
     logger.info('End decoding')
