@@ -46,10 +46,9 @@ def encode_video(params: InputParameters):
         # Include QP, I_Period, and total bit size in the CSV header
         metrics_csv_writer.writerow(['Frame Index', 'Average MAE', 'PSNR', 'Encoded Frame Size in Bytes', 'QP', 'I_Period', 'Total Bit Size'])
         frame_index = 0
-
+        logger.info(f"[ i={params.encoder_config.block_size} r={params.encoder_config.search_range} q={params.encoder_config.quantization_factor}]")
         while True:
             encoded_fh_idx =encoded_fh.tell()
-
             frame_index += 1
             y_frame = f_in.read(y_size)
             if not y_frame or frame_index > frames_to_process:
@@ -58,27 +57,24 @@ def encode_video(params: InputParameters):
             y_plane = np.frombuffer(y_frame, dtype=np.uint8).reshape((height, width))
             padded_frame = pad_frame(y_plane, block_size)
 
-            # if (frame_index - 1) % I_Period == 0:
-            #     frame = IFrame(padded_frame)
-            # else:
-            #     frame = PFrame(padded_frame, prev_frame)
+            if (frame_index - 1) % I_Period == 0:
+                frame = IFrame(padded_frame)
+            else:
+                frame = PFrame(padded_frame, prev_frame)
 
-            frame = PFrame(padded_frame, prev_frame)
+            # frame = PFrame(padded_frame, prev_frame)
 
             frame.encode(params.encoder_config)
-            # frame.populate_bit_stream_buffer(params.encoder_config)
 
-            # frame.generate_prediction_data()
             frame.entropy_encode_prediction_data()
-
-
             frame.entropy_encode_dct_coffs(block_size)
+
             # 1 byte for prediction_mode
             encoded_fh.write(frame.prediction_mode.value.to_bytes(1))
 
             # 2 byte for len of entropy_encoded_prediction_data
             num_of_byte_in_entropy_encoded_prediction_data = (len(frame.entropy_encoded_prediction_data) + 7) // 8  # plus 7 to get ceiling of bytes
-            # logger.info(f"num_of_byte_in_entropy_encoded_prediction_data  {num_of_byte_in_entropy_encoded_prediction_data.to_bytes(2)}")
+            logger.debug(f"num_of_byte_in_entropy_encoded_prediction_data  {num_of_byte_in_entropy_encoded_prediction_data.to_bytes(2)}")
             encoded_fh.write(num_of_byte_in_entropy_encoded_prediction_data.to_bytes(2))
 
             # n bytes for entropy_encoded_prediction_data
@@ -86,24 +82,30 @@ def encode_video(params: InputParameters):
 
             # 3 byte for len of entropy_encoded_DCT_coffs
             num_of_byte_in_entropy_encoded_dct_coffs = (len(frame.entropy_encoded_DCT_coffs) + 7) // 8  # plus 7 to get ceiling of bytes
-            # logger.info(f"num_of_byte_in_entropy_encoded_prediction_data  {num_of_byte_in_entropy_encoded_dct_coffs.to_bytes(3)}")
+            logger.debug(f"num_of_byte_in_entropy_encoded_prediction_data  {num_of_byte_in_entropy_encoded_dct_coffs.to_bytes(3)}")
             encoded_fh.write(num_of_byte_in_entropy_encoded_dct_coffs.to_bytes(3))
 
             # n bytes for entropy_encoded_DCT_coffs
             encoded_fh.write(frame.entropy_encoded_DCT_coffs.tobytes())
 
 
-            # Calculate PSNR and MAE
             frame_psnr = peak_signal_noise_ratio(frame.curr_frame, frame.reconstructed_frame)
             mae = frame.avg_mae
+            dct_coffs_extremes = frame.get_quat_dct_coffs_extremes()
 
             encoded_frame_size = encoded_fh.tell() -  encoded_fh_idx
             metrics_csv_writer.writerow([frame_index, mae, frame_psnr, encoded_frame_size, quantization_factor, I_Period, ])
 
 
-            dct_coffs_extremes = frame.get_quat_dct_coffs_extremes()
-            frame_info_str = (f"{frame_index:2}: {params.encoder_config.block_size} {params.encoder_config.search_range} {params.encoder_config.quantization_factor}, mae [{round(frame.avg_mae, 2):7.2f}] psnr [{round(frame_psnr, 2):6.2f}], q_dct_range: [{dct_coffs_extremes[0]:4},"
-                              f" {dct_coffs_extremes[1]:3}] SOB [{encoded_fh_idx}] size: [{encoded_frame_size}] ")
+            frame_info_str = (
+                f"{frame_index:2}: {frame.prediction_mode} "
+                f" mae [{round(frame.avg_mae, 2):6.2f}] "
+                f"psnr [{round(frame_psnr, 2):6.2f}], "
+                f"q_dct_range: [{dct_coffs_extremes[0]:4}, "
+                f"{dct_coffs_extremes[1]:3}] "
+                f"SoB [{encoded_fh_idx:7}] "
+                f"size: [{encoded_frame_size}] "
+            )
             logger.info(frame_info_str)
 
             frame.write_encoded_to_file( mv_fh, quant_dct_coff_fh, residual_w_mc_yuv_fh, residual_wo_mc_yuv_fh, reconstructed_fh, params.encoder_config)

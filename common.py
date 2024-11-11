@@ -5,7 +5,7 @@ import numpy as np
 
 
 def get_logger():
-    logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-7s [%(filename)s:%(lineno)d] %(message)s',
+    logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-7s [%(filename)s:%(lineno)-3d] %(message)s',
                         datefmt='%H:%M:%S', )
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
