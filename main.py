@@ -19,7 +19,7 @@ if __name__ == "__main__":
         width=352,
         height=288,
         encoder_config=encoder_parameters,
-        frames_to_process=6
+        frames_to_process=30
     )
 
     assign1.ex2.save_y_frames_to_file(input_params)
