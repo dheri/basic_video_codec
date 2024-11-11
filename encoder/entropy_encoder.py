@@ -1,6 +1,3 @@
-import math
-
-import numpy as np
 from bitarray import bitarray
 
 from common import get_logger

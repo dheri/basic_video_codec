@@ -1,12 +1,12 @@
 import numpy as np
 from bitarray import bitarray
 
-from common import get_logger, split_into_blocks
+from common import get_logger
 from encoder.Frame import Frame, apply_dct_and_quantization, reconstruct_block
 from encoder.PredictionMode import PredictionMode
-from encoder.dct import apply_dct_2d, generate_quantization_matrix, quantize_block, rescale_block, apply_idct_2d
-from encoder.entropy_encoder import exp_golomb_encode, zigzag_order, rle_encode, exp_golomb_decode
-from encoder.params import EncoderConfig, EncodedPBlock, EncodedIBlock
+from encoder.dct import generate_quantization_matrix, rescale_block, apply_idct_2d
+from encoder.entropy_encoder import exp_golomb_encode, exp_golomb_decode
+from encoder.params import EncoderConfig, EncodedIBlock
 
 logger = get_logger()
 class IFrame(Frame):

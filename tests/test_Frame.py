@@ -1,13 +1,12 @@
 from unittest import TestCase
 
 import numpy as np
-from fontTools.unicodedata import block
 
 from common import get_logger
-from encoder.PredictionMode import PredictionMode
 from encoder.IFrame import IFrame
 from encoder.PFrame import PFrame, mv_field_to_bytearray, byte_array_to_mv_field
-from encoder.byte_stream_buffer import BitStreamBuffer, compare_bits
+from encoder.PredictionMode import PredictionMode
+from encoder.byte_stream_buffer import BitStreamBuffer
 from encoder.params import EncoderConfig
 from input_parameters import InputParameters
 

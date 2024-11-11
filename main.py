@@ -1,8 +1,7 @@
 
 import ex4
-from input_parameters import InputParameters
 from encoder.params import EncoderConfig
-
+from input_parameters import InputParameters
 
 if __name__ == "__main__":
 

@@ -1,7 +1,10 @@
 import csv
+
 from matplotlib import pyplot as plt
+
 from file_io import FileIOHelper
 from input_parameters import InputParameters
+
 
 def plot_metrics(params: InputParameters):
     file_io = FileIOHelper(params)

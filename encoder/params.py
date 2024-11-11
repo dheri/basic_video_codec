@@ -1,7 +1,5 @@
 import math
 
-import numpy as np
-
 
 class EncoderConfig:
     def __init__(self, block_size, search_range, I_Period , quantization_factor):

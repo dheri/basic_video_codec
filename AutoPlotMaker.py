@@ -1,5 +1,6 @@
-import pandas as pd
 import matplotlib.pyplot as plt
+import pandas as pd
+
 
 # Function to read CSV files and extract the second column
 def read_and_extract(file_path):

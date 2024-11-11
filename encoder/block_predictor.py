@@ -2,6 +2,7 @@ import numpy as np
 
 from common import mae
 
+
 def intra_predict_block(curr_block, reconstructed_frame, x, y, block_size):
     # Horizontal predictor
     if x > 0:  # Not on the left border

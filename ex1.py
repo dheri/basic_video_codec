@@ -1,6 +1,8 @@
 import os
+
 import numpy as np
 from scipy.ndimage import zoom
+
 from common import calculate_num_frames
 
 

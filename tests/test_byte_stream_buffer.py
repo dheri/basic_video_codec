@@ -1,8 +1,10 @@
 from unittest import TestCase
 
+import numpy as np
+
 from encoder.PredictionMode import PredictionMode
 from encoder.byte_stream_buffer import BitStreamBuffer
-import numpy as np
+
 
 class TestBitStreamBuffer(TestCase):
     def test_read_bits_2(self):

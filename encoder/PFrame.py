@@ -1,17 +1,16 @@
 import concurrent
+from concurrent import futures
 
 import numpy as np
 from bitarray import bitarray
 
-from common import get_logger, generate_residual_block, find_mv_predicted_block, signed_to_unsigned, unsigned_to_signed
+from common import get_logger, generate_residual_block, find_mv_predicted_block
 from encoder.Frame import Frame, apply_dct_and_quantization, reconstruct_block
 from encoder.PredictionMode import PredictionMode
 from encoder.block_predictor import predict_block
 from encoder.dct import generate_quantization_matrix, rescale_block, apply_idct_2d
 from encoder.entropy_encoder import exp_golomb_encode, exp_golomb_decode
 from encoder.params import EncoderConfig, EncodedPBlock
-from concurrent import futures
-
 from input_parameters import InputParameters
 
 logger = get_logger()

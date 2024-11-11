@@ -1,12 +1,14 @@
 from contextlib import ExitStack
 
+from skimage.metrics import peak_signal_noise_ratio
+
 from encoder.IFrame import IFrame
-from encoder.PFrame import  PFrame
+from encoder.PFrame import PFrame
 from encoder.PredictionMode import PredictionMode
+from encoder.entropy_encoder import *
 from file_io import write_y_only_frame, FileIOHelper
 from input_parameters import InputParameters
-from skimage.metrics import peak_signal_noise_ratio
-from encoder.entropy_encoder import *
+
 logger = get_logger()
 
 def entropy_decode(bitstream):

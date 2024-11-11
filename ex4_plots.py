@@ -1,11 +1,3 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import time
-import csv
-import os
-import ex4
-from encoder.params import EncoderConfig
-from input_parameters import InputParameters
 """
 block_sizes = [8, 16]
 search_range = 2
@@ -126,11 +118,13 @@ plot_bitcount_vs_frame(results, 16, 4)  # Block size 16, QP=4
 """
 
 
-import numpy as np
-import matplotlib.pyplot as plt
-import time
 import csv
 import os
+import time
+
+import matplotlib.pyplot as plt
+import numpy as np
+
 import ex4
 from encoder.params import EncoderConfig
 from input_parameters import InputParameters

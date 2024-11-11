@@ -2,7 +2,6 @@ from unittest import TestCase
 
 import numpy as np
 
-from decoder import logger
 from common import find_mv_predicted_block
 from encoder.PFrame import construct_frame_from_dct_and_mv, PFrame
 from encoder.params import EncoderConfig
