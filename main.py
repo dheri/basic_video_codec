@@ -11,6 +11,7 @@ if __name__ == "__main__":
         search_range=3,
         quantization_factor=4,
         I_Period=7,
+        nRefFrames= 1,
     )
 
     input_params = InputParameters(
