@@ -12,10 +12,12 @@ def apply_dct_2d(block):
     block = block.astype(np.float32)
     return dct(dct(block.T, norm='ortho').T, norm='ortho')
 
+
 def apply_idct_2d(block):
     """Applies 2D Inverse DCT to a block."""
     block = block.astype(np.float32)
     return idct(idct(block.T, norm='ortho').T, norm='ortho')
+
 
 def generate_quantization_matrix(i, qp):
     """Generates the quantization matrix Q for a given block size i and quantization parameter QP."""
@@ -30,9 +32,11 @@ def generate_quantization_matrix(i, qp):
                 Q[x, y] = 2 ** (qp + 2)
     return Q
 
+
 def quantize_block(dct_block, Q):
     """Quantizes a block by dividing by Q and rounding."""
     return np.round(dct_block / Q)
+
 
 def rescale_block(quantized_block, Q):
     """Rescales the quantized block by multiplying by Q."""

@@ -1,10 +1,11 @@
 import numpy as np
 
+
 def generate_marked_frame(f_size, block_size, block_x_idx, block_y_idx, marker_size, marker_fill):
     # Determine marker's initial position within the current block
 
     marker_x_start = block_size * block_x_idx + 0
-    marker_y_start = block_size * block_y_idx  + 0
+    marker_y_start = block_size * block_y_idx + 0
 
     prev_f = np.zeros((f_size, f_size), dtype=np.uint8)
 
@@ -13,6 +14,7 @@ def generate_marked_frame(f_size, block_size, block_x_idx, block_y_idx, marker_s
         (marker_size, marker_size), marker_fill)
 
     return prev_f
+
 
 def generate_circle_quadrant(width, height):
     """Generates a smooth gradient circle quadrant with a radial fade, placed in the top-right corner."""
@@ -48,6 +50,7 @@ def generate_triangle(width, height):
                 triangle[y, x] = np.clip(255 - (255 * distance_to_edge / base), 0, 255).astype(np.uint8)
     return triangle
 
+
 def generate_checkerboard(width, height):
     """Generates a checkerboard pattern with 32x32 squares, subdivided accordingly."""
     min_block_size = 32
@@ -61,6 +64,7 @@ def generate_checkerboard(width, height):
                     img[y:y + block_size, x:x + block_size] = 255
         block_size *= 2
     return img
+
 
 def generate_frame(width, height, frame_number):
     """Generates a single Y-frame for a given frame number."""
@@ -108,7 +112,7 @@ def calculate_shift_value(frame_number):
     return shift_value
 
 
-def shift_frame(frame, shift_value,  direction="horizontal", ):
+def shift_frame(frame, shift_value, direction="horizontal", ):
     # Apply shift based on direction
     shifted_frame = None
     if direction == "horizontal":
@@ -120,6 +124,7 @@ def shift_frame(frame, shift_value,  direction="horizontal", ):
         shifted_frame = np.roll(shifted_frame, shift_value, axis=0)  # Vertical shift
 
     return shifted_frame
+
 
 def generate_video_stream(base_frame, width, height, num_frames=None):
     # Total frames required for full horizontal, vertical, and diagonal loops
@@ -178,10 +183,12 @@ def save_yuv_to_file(filename, width, height, num_frames=None):
     with open(filename, 'wb') as f:
         f.write(byte_stream)
 
+
 # Example usage:
 
-def generate_sample_file(filename, width = 352, height=288, num_frames = 12):
+def generate_sample_file(filename, width=352, height=288, num_frames=12):
     save_yuv_to_file(filename, width, height, num_frames)
 
-def generate_sample_vide_bitstream(width = 352, height=288, num_frames = 12):
+
+def generate_sample_vide_bitstream(width=352, height=288, num_frames=12):
     generate_yuv_bytestream(width, height, num_frames)

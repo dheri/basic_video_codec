@@ -28,8 +28,10 @@ def intra_predict_block(curr_block, reconstructed_frame, x, y, block_size):
     else:
         return vertical_pred, 1  # Vertical mode (1)
 
+
 def differential_encode_mode(current_mode, previous_mode):
     return current_mode - previous_mode
+
 
 def differential_decode_mode(diff_mode, previous_mode):
     return diff_mode + previous_mode
@@ -38,13 +40,14 @@ def differential_decode_mode(diff_mode, previous_mode):
 def predict_block(curr_block, prev_partial_frame, block_size):
     return find_lowest_mae_block(curr_block, prev_partial_frame, block_size)
 
+
 def find_lowest_mae_block(curr_block, prev_partial_frame, block_size):
     """Find the block with the lowest MAE from a smaller previous partial frame."""
     height, width = prev_partial_frame.shape
     if width < block_size or height < block_size:
         raise ValueError(f"width [{width}] or height [{height}] of given block  < block_size [{block_size}]")
     min_mae = float('inf')
-    best_mv = [0,0]  # motion vector wrt origin of prev_partial_frame
+    best_mv = [0, 0]  # motion vector wrt origin of prev_partial_frame
 
     # Loop through all possible positions in the previous partial frame
     ref_block = None
@@ -57,7 +60,6 @@ def find_lowest_mae_block(curr_block, prev_partial_frame, block_size):
             # Update best match if a lower MAE is found, breaking ties as described
             if error < min_mae or (error == min_mae and abs(ref_x) + abs(ref_y) < abs(best_mv[0]) + abs(best_mv[1])):
                 min_mae = error
-                best_mv = [ref_x , ref_y]  # (dx, dy)
-
+                best_mv = [ref_x, ref_y]  # (dx, dy)
 
     return best_mv, min_mae, ref_block

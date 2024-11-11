@@ -70,7 +70,7 @@ class Test_rel(TestCase):
 
 class TestExpGolomb(TestCase):
     def test_exp_golomb_encode(self):
-        to_enc= [ 0, 1, -1, 2, -3, 4, -4]
+        to_enc = [0, 1, -1, 2, -3, 4, -4]
         bit_array = bitarray()
         idx = 0
         for s in to_enc:
@@ -80,7 +80,7 @@ class TestExpGolomb(TestCase):
             print(f"{s} -> {enc} => {decoded}")
             np.testing.assert_equal(s, decoded[0])
         while bit_array:
-            decoded , bit_array = exp_golomb_decode(bit_array)
+            decoded, bit_array = exp_golomb_decode(bit_array)
             np.testing.assert_equal(decoded, to_enc[idx])
             print(f" _ {decoded}, {bit_array}")
             idx += 1
@@ -89,6 +89,5 @@ class TestExpGolomb(TestCase):
         bit_array = bitarray('010101000100')
 
         while bit_array:
-            decoded , bit_array = exp_golomb_decode(bit_array)
+            decoded, bit_array = exp_golomb_decode(bit_array)
             print(decoded)
-

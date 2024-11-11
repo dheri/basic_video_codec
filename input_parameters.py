@@ -9,5 +9,3 @@ class InputParameters:
         self.height = height
         self.frames_to_process = frames_to_process
         self.encoder_config = encoder_config
-
-

@@ -7,6 +7,7 @@ def read_and_extract(file_path):
     df = pd.read_csv(file_path)
     return df.iloc[:, 2]  # Extracting the second column
 
+
 # List of file paths for CSV files in different locations
 file_paths = [
     "./data/foreman_cif/8_2_0/metrics.csv"
@@ -25,7 +26,7 @@ for file_path in file_paths:
 plt.figure(figsize=(10, 6))
 
 for i, data in enumerate(data_list):
-    plt.plot(data, label=f'File {i+1}')
+    plt.plot(data, label=f'File {i + 1}')
 
 plt.xlabel('Index')
 plt.ylabel('Value')

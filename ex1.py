@@ -27,6 +27,7 @@ def read_yuv420(file, width, height):
 
     return y_plane, u_plane, v_plane
 
+
 # Function to convert YUV 4:4:4 to RGB
 def yuv_to_rgb(y_plane, u_plane, v_plane):
     height, width = y_plane.shape
@@ -172,7 +173,6 @@ def main(input_file, width, height):
 
                 # Construct the grid with masked channels
                 grid = construct_grid(channels, masks, width, height, half_border, spacing, random_values)
-
 
                 # Write grid to the output file
                 f_out.write(grid.tobytes())

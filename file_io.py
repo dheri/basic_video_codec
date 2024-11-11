@@ -4,8 +4,7 @@ from input_parameters import InputParameters
 
 
 class FileIOHelper:
-    def __init__(self, params:InputParameters):
-
+    def __init__(self, params: InputParameters):
         self.y_only_file = params.y_only_file
         self.block_size = params.encoder_config.block_size
         self.search_range = params.encoder_config.search_range
@@ -24,10 +23,10 @@ class FileIOHelper:
         return f'{self.file_prefix}/{suffix}'
 
     def get_y_file_name(self):
-        return  f'{self.file_prefix}.y'
+        return f'{self.file_prefix}.y'
 
     def get_yuv_file_name(self):
-        return  f'{self.file_prefix}.yuv'
+        return f'{self.file_prefix}.yuv'
 
     def get_mv_file_name(self):
         return self.get_file_name('mv.bin')
@@ -47,17 +46,17 @@ class FileIOHelper:
     def get_quant_dct_coff_fh_file_name(self):
         return self.get_file_name('mc_quant_dct_coff.bin')
 
-
     def get_encoded_file_name(self):
         return self.get_file_name('encoded.bin')
 
     def get_mc_reconstructed_file_name(self):
         return self.get_file_name('mc_reconstructed.yuv')
+
     def get_mc_decoded_file_name(self):
         return self.get_file_name('mc_decoded.yuv')
 
 
-def write_mv_to_file(file_handle, data, new_line_per_block = False):
+def write_mv_to_file(file_handle, data, new_line_per_block=False):
     # file_handle.write(f'\nFrame: {frame_idx}\n')
     new_line_char = f'\n' if new_line_per_block else ''
     for k in sorted(data.keys()):

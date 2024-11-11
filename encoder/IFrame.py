@@ -9,8 +9,10 @@ from encoder.entropy_encoder import exp_golomb_encode, exp_golomb_decode
 from encoder.params import EncoderConfig, EncodedIBlock
 
 logger = get_logger()
+
+
 class IFrame(Frame):
-    def __init__(self, curr_frame=None ):
+    def __init__(self, curr_frame=None):
         super().__init__(curr_frame)
         self.prediction_mode = PredictionMode.INTRA_FRAME
         self.intra_modes = None
@@ -31,7 +33,6 @@ class IFrame(Frame):
             for x in range(0, width, block_size):
                 curr_block = curr_frame[y:y + block_size, x:x + block_size]
 
-
                 encoded_block = process_block(
                     curr_block, reconstructed_frame, x, y, block_size, encoder_config.quantization_factor
                 )
@@ -42,8 +43,10 @@ class IFrame(Frame):
 
                 # Update reconstructed frame and quantized residuals
                 reconstructed_frame[y:y + block_size, x:x + block_size] = encoded_block.reconstructed_block
-                quantized_dct_residual_frame[y:y + block_size, x:x + block_size] = encoded_block.quantized_dct_coffs # quantized_dct_residual_block
-                residual_w_mc_frame [y:y + block_size, x:x + block_size] = encoded_block.residual_block_wo_mc # residual_block
+                quantized_dct_residual_frame[y:y + block_size,
+                x:x + block_size] = encoded_block.quantized_dct_coffs  # quantized_dct_residual_block
+                residual_w_mc_frame[y:y + block_size,
+                x:x + block_size] = encoded_block.residual_block_wo_mc  # residual_block
 
         avg_mae = mae_of_blocks / ((height // block_size) * (width // block_size))
         self.reconstructed_frame = reconstructed_frame
@@ -70,7 +73,7 @@ class IFrame(Frame):
                 rescaled_dct_coffs_block = rescale_block(dct_coffs_block, Q)
                 idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block)
                 predicted_b = find_intra_predict_block(self.intra_modes[(y // encoder_config.block_size) * (
-                            width // encoder_config.block_size) + (x // encoder_config.block_size)],
+                        width // encoder_config.block_size) + (x // encoder_config.block_size)],
                                                        reconstructed_frame, x, y, encoder_config.block_size)
 
                 decoded_block = np.round(idct_residual_block + predicted_b).astype(np.int16)
@@ -89,7 +92,7 @@ class IFrame(Frame):
         # logger.info(f" entropy_encoded_prediction_data  len : {len(self.entropy_encoded_prediction_data)}, {len(self.entropy_encoded_prediction_data) // 8}")
         # logger.info(self.entropy_encoded_prediction_data)
 
-    def entropy_decode_prediction_data(self, enc, params = None):
+    def entropy_decode_prediction_data(self, enc, params=None):
         decoded_modes = []
         bitstream = bitarray()  # Ensure `enc` is a bitarray
         bitstream.frombytes(enc)
@@ -139,6 +142,7 @@ def horizontal_intra_prediction(reconstructed_frame, x, y, block_size):
     else:
         return np.full((block_size, block_size), 128)  # Use 128 for border
 
+
 def vertical_intra_prediction(reconstructed_frame, x, y, block_size):
     """Perform vertical intra prediction using the top border samples."""
     if y > 0:
@@ -154,7 +158,7 @@ def process_block(curr_block, reconstructed_frame, x, y, block_size, quantizatio
 
     # Compute the residual
     # residual_block = curr_block.astype(np.int16) - predicted_block.astype(np.int16)
-    residual_block = np.subtract(curr_block.astype(np.int16) , predicted_block.astype(np.int16))
+    residual_block = np.subtract(curr_block.astype(np.int16), predicted_block.astype(np.int16))
 
     # Apply DCT
     quantized_dct_coffs, Q = apply_dct_and_quantization(residual_block, block_size, quantization_factor)
@@ -163,8 +167,6 @@ def process_block(curr_block, reconstructed_frame, x, y, block_size, quantizatio
                                                                          predicted_block)
 
     return EncodedIBlock((x, y), mode, mae, quantized_dct_coffs, idct_residual_block, residual_block,
-                  clipped_reconstructed_block)
+                         clipped_reconstructed_block)
 
     # return mode, mae, clipped_reconstructed_block, quantized_dct_coffs, residual_block
-
-

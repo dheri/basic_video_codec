@@ -11,6 +11,7 @@ from input_parameters import InputParameters
 
 logger = get_logger()
 
+
 def entropy_decode(bitstream):
     decoded_symbols = []
     while len(bitstream) > 0:
@@ -28,7 +29,6 @@ def decode_video(params: InputParameters):
 
     frame_size = width * height
     prev_frame = np.full((height, width), 128, dtype=np.uint8)
-
 
     with ExitStack() as stack:
         quant_dct_coff_fh = stack.enter_context(open(file_io.get_quant_dct_coff_fh_file_name(), 'rb'))
@@ -58,12 +58,12 @@ def decode_video(params: InputParameters):
             frame.entropy_encoded_DCT_coffs = encoded_fh.read(ee_dct_coffs_len)
             frame.entropy_decode_dct_coffs(params)
 
-
             # Decode the frame
             decoded_frame = frame.decode_mc_q_dct((params.height, params.width), encoder_config=params.encoder_config)
 
             # Read and compare with the reconstructed frame
-            reconstructed_frame = np.frombuffer(reconstructed_file_fh.read(frame_size), dtype=np.uint8).reshape((height, width))
+            reconstructed_frame = np.frombuffer(reconstructed_file_fh.read(frame_size), dtype=np.uint8).reshape(
+                (height, width))
             psnr = peak_signal_noise_ratio(decoded_frame, reconstructed_frame)
             dct_coffs_extremes = frame.get_quat_dct_coffs_extremes()
 

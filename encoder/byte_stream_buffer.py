@@ -81,8 +81,8 @@ class BitStreamBuffer:
 
     def flush(self):
         # raise ValueError("flush not needed anymore")
-        missing_bits =  len(self.bit_stream) % 8
-        for i in range( 8 - missing_bits):
+        missing_bits = len(self.bit_stream) % 8
+        for i in range(8 - missing_bits):
             self.bit_stream.append(0)
 
     def write_quantized_coeffs(self, quantized_dct_residual_frame, block_size):
@@ -94,8 +94,6 @@ class BitStreamBuffer:
             for coeff in block.flatten():  # Flatten the block to write coefficients sequentially
                 self.write_int16(coeff)
 
-
-
     def write_prediction_data(self, prediction_mode, differential_data):
         if prediction_mode == PredictionMode.INTER_FRAME:
             for i in range(0, len(differential_data), 2):
@@ -103,15 +101,16 @@ class BitStreamBuffer:
                 mv_y = differential_data[i + 1]
                 # differential_data  will be unit 8 it
                 self.write_bits(mv_x, 8)
-                self.write_bits(mv_y, 8 )
+                self.write_bits(mv_y, 8)
         elif prediction_mode == PredictionMode.INTRA_FRAME:
             for mode in differential_data:
                 self.write_bit(mode)
         else:
             raise ValueError("Invalid prediction mode")
 
-    def read_prediction_data(self, prediction_mode, params : InputParameters):
-        num_blocks = (params.height // params.encoder_config.block_size) * (params.width // params.encoder_config.block_size)
+    def read_prediction_data(self, prediction_mode, params: InputParameters):
+        num_blocks = (params.height // params.encoder_config.block_size) * (
+                    params.width // params.encoder_config.block_size)
 
         prediction_data = bytearray()
         if prediction_mode == PredictionMode.INTER_FRAME:
@@ -151,8 +150,9 @@ class BitStreamBuffer:
         return coeffs_frame
 
     def __repr__(self):
-        bin_rep =  ''.join(f'{byte:08b}' for byte in bytes(self.bit_stream))
-        return f"hex:\t{ ba2hex(self.bit_stream)} \nbin:\t{bin_rep}"
+        bin_rep = ''.join(f'{byte:08b}' for byte in bytes(self.bit_stream))
+        return f"hex:\t{ba2hex(self.bit_stream)} \nbin:\t{bin_rep}"
+
 
 def compare_bits(byte_array, byte_index, bit_index, expected_value):
     """
@@ -172,4 +172,3 @@ def compare_bits(byte_array, byte_index, bit_index, expected_value):
     bit_value = (byte & mask) >> bit_index
 
     return bit_value == expected_value
-

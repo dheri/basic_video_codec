@@ -16,22 +16,23 @@ from input_parameters import InputParameters
 
 logger = get_logger()
 
+
 class Frame:
     EOB_MARKER = 8190
+
     def __init__(self, curr_frame=None, prev_frame=None, ):
-        self.bitstream_buffer : Optional[BitStreamBuffer] = None
+        self.bitstream_buffer: Optional[BitStreamBuffer] = None
         self.prev_frame = prev_frame
         self.curr_frame = curr_frame
         self.prediction_mode: PredictionMode = PredictionMode.INTER_FRAME
-        self.entropy_encoded_prediction_data  : Optional[bitarray] = None
-        self.entropy_encoded_DCT_coffs  : Optional[bitarray] = None
+        self.entropy_encoded_prediction_data: Optional[bitarray] = None
+        self.entropy_encoded_DCT_coffs: Optional[bitarray] = None
 
         self.residual_frame = None
         self.residual_wo_mc_frame = None
         self.quantized_dct_residual_frame = None
         self.reconstructed_frame = None
         self.avg_mae = None
-
 
     def encode_mc_q_dct(self, encoder_config: EncoderConfig):
         raise NotImplementedError(f"{type(self)} need to be overridden")
@@ -41,9 +42,9 @@ class Frame:
 
     def entropy_encode_prediction_data(self):
         raise NotImplementedError(f"{type(self)} need to be overridden")
-    def entropy_decode_prediction_data(self, enc, params : InputParameters ):
-        raise NotImplementedError(f"{type(self)} need to be overridden")
 
+    def entropy_decode_prediction_data(self, enc, params: InputParameters):
+        raise NotImplementedError(f"{type(self)} need to be overridden")
 
     def entropy_encode_dct_coffs(self, block_size):
         self.entropy_encoded_DCT_coffs = bitarray()
@@ -71,7 +72,7 @@ class Frame:
         # Step 1: Decode the Exponential-Golomb encoded symbols to construct rle blocks
         while bit_array:
             symbol, bit_array = exp_golomb_decode(bit_array)
-            if symbol == Frame.EOB_MARKER :
+            if symbol == Frame.EOB_MARKER:
                 rle_blocks.append(rle_decoded)
                 rle_decoded = []  # Reset for the next block
                 continue
@@ -80,14 +81,12 @@ class Frame:
         # Step 2: Apply RLE decoding to reconstruct the zigzag order of coefficients
         for rle_block in rle_blocks:
             decoded_coffs = rle_decode(rle_block)
-            pad_with_zeros(decoded_coffs, block_size**2)
+            pad_with_zeros(decoded_coffs, block_size ** 2)
             block = inverse_zigzag_order(decoded_coffs, block_size)
             decoded_blocks.append(block)
 
-
-
         # Step 4: Reconstruct the frame from the blocks
-        self.quantized_dct_residual_frame = merge_blocks(decoded_blocks, block_size, (params.height, params.width) )
+        self.quantized_dct_residual_frame = merge_blocks(decoded_blocks, block_size, (params.height, params.width))
 
         return self.quantized_dct_residual_frame
 
@@ -98,15 +97,13 @@ class Frame:
             f" {self.prediction_mode:1} {frame_index:2}: i={encoder_config.block_size} r={encoder_config.search_range}, qp={encoder_config.quantization_factor}, mae[{round(self.avg_mae, 2):7.2f}] psnr [{round(psnr, 2):6.2f}], q_dct_range: [{dct_coffs_extremes[0]:4}, {dct_coffs_extremes[1]:3}]")
         metrics_csv_writer.writerow([frame_index, self.avg_mae, psnr])
 
-    def write_encoded_to_file(self, mv_fh, quant_dct_coff_fh,residual_yuv_fh, residual_wo_mc_yuv_fh, reconstructed_fh, encoder_config):
+    def write_encoded_to_file(self, mv_fh, quant_dct_coff_fh, residual_yuv_fh, residual_wo_mc_yuv_fh, reconstructed_fh,
+                              encoder_config):
 
         write_y_only_frame(residual_yuv_fh, self.residual_frame)
         write_y_only_frame(residual_wo_mc_yuv_fh, self.residual_wo_mc_frame)
         write_y_only_frame(quant_dct_coff_fh, self.quantized_dct_residual_frame)
         write_y_only_frame(reconstructed_fh, self.reconstructed_frame)
-
-
-
 
     def get_quat_dct_coffs_extremes(self):
         # Ensure quat_dct_coffs_with_mc is a numpy array to use numpy's min/max

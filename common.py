@@ -11,10 +11,12 @@ def get_logger():
     logger.setLevel(logging.INFO)
     return logger
 
+
 def calculate_num_frames(file_path, width, height):
     file_size = os.path.getsize(file_path)
     frame_size = width * height + 2 * (width // 2) * (height // 2)
     return file_size // frame_size
+
 
 def pad_frame(frame, block_size, pad_value=128):
     height, width = frame.shape
@@ -27,12 +29,14 @@ def pad_frame(frame, block_size, pad_value=128):
         return padded_frame
     return frame
 
+
 # Function to split the frame into blocks of size (block_size x block_size)
 def split_into_blocks_ex2(frame, block_size):
     height, width = frame.shape
     return (frame.reshape(height // block_size, block_size, -1, block_size)
-                 .swapaxes(1, 2)
-                 .reshape(-1, block_size, block_size))
+            .swapaxes(1, 2)
+            .reshape(-1, block_size, block_size))
+
 
 def mae(block1, block2):
     """Compute Mean Absolute Error between two blocks."""
@@ -86,7 +90,7 @@ def merge_blocks(blocks, block_size, frame_shape):
     num_blocks_per_row = frame_shape[1] // block_size
 
     # Initialize an empty matrix for the full frame
-    frame = np.zeros(shape = frame_shape, dtype=int)
+    frame = np.zeros(shape=frame_shape, dtype=int)
 
     # Place each block in its correct position in the frame
     for idx, block in enumerate(blocks):
@@ -110,11 +114,13 @@ def signed_to_unsigned(value, bits):
         return (1 << bits) + value  # Add 2^bits to negative values
     return value
 
+
 def unsigned_to_signed(value, bits):
     """Convert an unsigned integer to a signed integer."""
     if value >= (1 << (bits - 1)):
         return value - (1 << bits)  # Subtract 2^bits if value is in the upper half
     return value
+
 
 def int_to_3_bytes(value):
     """
@@ -122,8 +128,8 @@ def int_to_3_bytes(value):
     Assumes value is within the 24-bit range (0 to 16,777,215).
     """
     byte1 = (value >> 16) & 0xFF  # Highest 8 bits
-    byte2 = (value >> 8) & 0xFF   # Middle 8 bits
-    byte3 = value & 0xFF          # Lowest 8 bits
+    byte2 = (value >> 8) & 0xFF  # Middle 8 bits
+    byte3 = value & 0xFF  # Lowest 8 bits
     return bytes([byte1, byte2, byte3])
 
 

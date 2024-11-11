@@ -5,12 +5,11 @@ from common import get_logger
 logger = get_logger()
 
 
-
 def exp_golomb_encode(value):
     """
     Encodes a non-negative integer using Exp-Golomb encoding.
     """
-    mapped_value  =  -2 * value if value <= 0 else 2 * value - 1
+    mapped_value = -2 * value if value <= 0 else 2 * value - 1
 
     # Step 1: Calculate (mapped_value + 1) in binary
     encoded_value = mapped_value + 1
@@ -39,11 +38,11 @@ def exp_golomb_decode(bitstream: bitarray):
     # Check if there are enough bits in the stream for decoding
     if m >= len(bitstream):
         if len(bitstream) < 8:
-            logger.debug(f"end of bitstream, Assume remaining {len(bitstream)} bits in [{bitstream.to01()}] are padding ")
+            logger.debug(
+                f"end of bitstream, Assume remaining {len(bitstream)} bits in [{bitstream.to01()}] are padding ")
             return None, None
         else:
             raise ValueError("Not enough bits to decode the exp-Golomb code (prefix error).")
-
 
     # Step 2: Calculate the base value (2^m) which corresponds to the prefix "1" bit
     value = 1  # Start with the '1' after leading zeros
@@ -84,7 +83,7 @@ def rle_encode(coeffs):
                 nonzero_count += 1
                 i += 1
             encoded.append(-nonzero_count)  # Negative for run of non-zeros
-            encoded.extend( x.item() for x in coeffs[start_idx:i])  # Append the actual non-zero terms
+            encoded.extend(x.item() for x in coeffs[start_idx:i])  # Append the actual non-zero terms
 
     return encoded
 
@@ -111,7 +110,6 @@ def rle_decode(encoded):
         i += 1  # Move to the next element in encoded list
 
     return decoded
-
 
 
 def zigzag_order(matrix):
@@ -160,4 +158,3 @@ def inverse_zigzag_order(arr, n):
                     idx += 1
 
     return matrix
-

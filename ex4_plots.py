@@ -117,7 +117,6 @@ plot_bitcount_vs_frame(results, 16, 4)  # Block size 16, QP=4
 
 """
 
-
 import csv
 import os
 import time
@@ -140,6 +139,7 @@ height = 288
 
 output_dir = 'results'
 os.makedirs(output_dir, exist_ok=True)
+
 
 def run_experiment(block_size, qp, I_Period):
     # Directory naming convention: blocksize_searchrange_qp
@@ -169,6 +169,7 @@ def run_experiment(block_size, qp, I_Period):
     psnr_values, bit_counts, total_bit_count = collect_metrics(metrics_csv_path)
     return elapsed_time, psnr_values, bit_counts, total_bit_count
 
+
 def collect_metrics(metrics_csv_path):
     psnr_values = []
     bit_counts = []
@@ -184,13 +185,17 @@ def collect_metrics(metrics_csv_path):
             total_bit_count = int(total_bits)  # Take total bit count
     return psnr_values, bit_counts, total_bit_count
 
+
 def save_results_to_csv(results, filename):
     with open(filename, 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(['Block Size', 'QP', 'I_Period', 'PSNR', 'Bit Count', 'Total Bit Count', 'Elapsed Time (s)'])
         for result in results:
             for psnr, bit_count in zip(result['psnr_values'], result['bit_counts']):
-                writer.writerow([result['block_size'], result['qp'], result['I_Period'], psnr, bit_count, result['total_bit_count'], result['elapsed_time']])
+                writer.writerow(
+                    [result['block_size'], result['qp'], result['I_Period'], psnr, bit_count, result['total_bit_count'],
+                     result['elapsed_time']])
+
 
 results = []
 for block_size in block_sizes:
@@ -211,6 +216,7 @@ for block_size in block_sizes:
 
 save_results_to_csv(results, os.path.join(output_dir, 'rd_experiment_results.csv'))
 
+
 def plot_rd_curve(results, block_size, I_Period):
     plt.figure(figsize=(10, 6))
     for result in results:
@@ -227,11 +233,12 @@ def plot_rd_curve(results, block_size, I_Period):
     plt.savefig(f"rd_curve_block_{block_size}_I_Period_{I_Period}.png")
     plt.show()
 
+
 def plot_bitcount_vs_frame(results, block_size, qp):
     plt.figure(figsize=(10, 6))
     for result in results:
         if result['block_size'] == block_size and result['qp'] == qp:
-            plt.plot(range(1, num_frames+1), result['bit_counts'], label=f'I_Period={result["I_Period"]}')
+            plt.plot(range(1, num_frames + 1), result['bit_counts'], label=f'I_Period={result["I_Period"]}')
 
     plt.xlabel("Frame Index")
     plt.ylabel("Bit Count (bits)")
@@ -240,6 +247,7 @@ def plot_bitcount_vs_frame(results, block_size, qp):
     plt.grid(True)
     plt.savefig(f"bitcount_vs_frame_block_{block_size}_QP_{qp}.png")
     plt.show()
+
 
 for block_size in block_sizes:
     for I_Period in I_Periods:

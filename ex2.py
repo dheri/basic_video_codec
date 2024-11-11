@@ -27,7 +27,7 @@ def read_y_component(file_path, width, height, num_frames):
 
 
 # Function to save Y-only frames to individual files
-def save_y_frames_to_file(params : InputParameters, frames_to_extract=None):
+def save_y_frames_to_file(params: InputParameters, frames_to_extract=None):
     if params.yuv_file is None:
         guessed_yuv_file_name = FileIOHelper(params).get_yuv_file_name()
         logger.info(f"No yuv file provided, assuming yuv = [{guessed_yuv_file_name}] ")
@@ -35,8 +35,9 @@ def save_y_frames_to_file(params : InputParameters, frames_to_extract=None):
 
     input_file = params.yuv_file
 
-    output_file= params.y_only_file
-    num_frames = frames_to_extract if frames_to_extract else calculate_num_frames(params.yuv_file, params.width, params.height)
+    output_file = params.y_only_file
+    num_frames = frames_to_extract if frames_to_extract else calculate_num_frames(params.yuv_file, params.width,
+                                                                                  params.height)
     if os.path.exists(params.y_only_file):
         logger.info(f"y only {output_file} already exists. skipping...")
         return
@@ -48,20 +49,22 @@ def save_y_frames_to_file(params : InputParameters, frames_to_extract=None):
 def calculate_block_average(block):
     return np.round(np.mean(block)).astype(np.uint8)
 
+
 def replace_with_average(blocks):
     return np.array([np.full_like(block, calculate_block_average(block)) for block in blocks])
+
 
 def reconstruct_frame_from_blocks(blocks, frame_shape, block_size):
     height, width = frame_shape
     rows = height // block_size
     cols = width // block_size
     return (blocks.reshape(rows, cols, block_size, block_size)
-                   .swapaxes(1, 2)
-                   .reshape(height, width))
+            .swapaxes(1, 2)
+            .reshape(height, width))
 
 
 # Function to process Y-only files and split them into blocks
-def process_y_frames(params : InputParameters, block_sizes):
+def process_y_frames(params: InputParameters, block_sizes):
     input_file = params.y_only_file
     width = params.width
     height = params.height
@@ -116,6 +119,7 @@ def process_y_frames(params : InputParameters, block_sizes):
     for handle in file_handles.values():
         handle.close()
 
+
 def calculate_psnr_ssim(original_file, averaged_file, width, height):
     psnr_values = []
     ssim_values = []
@@ -146,6 +150,7 @@ def calculate_psnr_ssim(original_file, averaged_file, width, height):
 
     logger.info(f"Average PSNR: {average_psnr}, Average SSIM: {average_ssim}")
     return average_psnr, average_ssim
+
 
 # g. Plot graphs
 def plot_quality_metrics(block_sizes, psnr_values, ssim_values):
@@ -192,5 +197,3 @@ def main(params: InputParameters):
         ssim_results.append(average_ssim)
 
     plot_quality_metrics(block_sizes, psnr_results, ssim_results)
-
-

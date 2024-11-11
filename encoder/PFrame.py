@@ -16,7 +16,6 @@ from input_parameters import InputParameters
 logger = get_logger()
 
 
-
 class PFrame(Frame):
     def __init__(self, curr_frame=None, prev_frame=None):
         super().__init__(curr_frame, prev_frame)
@@ -42,9 +41,11 @@ class PFrame(Frame):
 
         # Process blocks in parallel
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            futuress = [executor.submit(self.process_block,  x, y, block_size, search_range, quantization_factor, width, height, mv_field)
-                       for y in range(0, height, block_size)
-                       for x in range(0, width, block_size)]
+            futuress = [
+                executor.submit(self.process_block, x, y, block_size, search_range, quantization_factor, width, height,
+                                mv_field)
+                for y in range(0, height, block_size)
+                for x in range(0, width, block_size)]
 
             for f in concurrent.futures.as_completed(futuress):
                 encoded_block = f.result()
@@ -63,7 +64,6 @@ class PFrame(Frame):
 
         self.mv_field = mv_field  # Populate the motion vector field
 
-
         self.avg_mae = avg_mae
         self.residual_frame = residual_frame_with_mc
         self.residual_wo_mc_frame = residual_frame_wo_mc
@@ -72,26 +72,29 @@ class PFrame(Frame):
         # self.generate_prediction_data()
         return self
 
-
-    def process_block(self, x, y, block_size, search_range, quantization_factor, width, height, mv_field) -> EncodedPBlock:
+    def process_block(self, x, y, block_size, search_range, quantization_factor, width, height,
+                      mv_field) -> EncodedPBlock:
         curr_block = self.curr_frame[y:y + block_size, x:x + block_size].astype(np.int16)
         prev_block = self.prev_frame[y:y + block_size, x:x + block_size].astype(np.int16)
 
         # Get motion vector and MAE
-        motion_vector, best_match_mae = self.get_motion_vector(curr_block, x, y, block_size, search_range, width, height)
+        motion_vector, best_match_mae = self.get_motion_vector(curr_block, x, y, block_size, search_range, width,
+                                                               height)
         mv_field[(x, y)] = motion_vector
 
         # Generate residual and predicted block
-        predicted_block_with_mc, residual_block_with_mc = generate_residual_block(curr_block, self.prev_frame, motion_vector, x, y, block_size)
+        predicted_block_with_mc, residual_block_with_mc = generate_residual_block(curr_block, self.prev_frame,
+                                                                                  motion_vector, x, y, block_size)
         residual_block_wo_mc = np.subtract(curr_block, prev_block)
         # Apply DCT and quantization
         quantized_dct_coffs, Q = apply_dct_and_quantization(residual_block_with_mc, block_size, quantization_factor)
 
         # Reconstruct the block using the predicted and inverse DCT
-        clipped_reconstructed_block, idct_residual_block = reconstruct_block(quantized_dct_coffs, Q, predicted_block_with_mc)
+        clipped_reconstructed_block, idct_residual_block = reconstruct_block(quantized_dct_coffs, Q,
+                                                                             predicted_block_with_mc)
 
-        return EncodedPBlock((x, y), motion_vector, best_match_mae, quantized_dct_coffs, idct_residual_block, residual_block_wo_mc, clipped_reconstructed_block)
-
+        return EncodedPBlock((x, y), motion_vector, best_match_mae, quantized_dct_coffs, idct_residual_block,
+                             residual_block_wo_mc, clipped_reconstructed_block)
 
     def get_motion_vector(self, curr_block, x, y, block_size, search_range, width, height):
         prev_partial_frame_x_start_idx = max(x - search_range, 0)
@@ -100,9 +103,10 @@ class PFrame(Frame):
         prev_partial_frame_y_end_idx = min(y + block_size + search_range, height)
 
         prev_partial_frame = self.prev_frame[prev_partial_frame_y_start_idx:prev_partial_frame_y_end_idx,
-                                        prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
+                             prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
 
-        best_mv_within_search_window, best_match_mae, best_match_block = predict_block(curr_block, prev_partial_frame, block_size)
+        best_mv_within_search_window, best_match_mae, best_match_block = predict_block(curr_block, prev_partial_frame,
+                                                                                       block_size)
 
         motion_vector = [best_mv_within_search_window[0] + prev_partial_frame_x_start_idx - x,
                          best_mv_within_search_window[1] + prev_partial_frame_y_start_idx - y]
@@ -110,8 +114,8 @@ class PFrame(Frame):
         return motion_vector, best_match_mae
 
     def decode_mc_q_dct(self, frame_shape, encoder_config: EncoderConfig):
-        return construct_frame_from_dct_and_mv(self.quantized_dct_residual_frame, self.prev_frame, self.mv_field, encoder_config)
-
+        return construct_frame_from_dct_and_mv(self.quantized_dct_residual_frame, self.prev_frame, self.mv_field,
+                                               encoder_config)
 
     def entropy_encode_prediction_data(self):
         self.entropy_encoded_prediction_data = bitarray()
@@ -123,7 +127,7 @@ class PFrame(Frame):
 
         # logger.info(f" entropy_encoded_prediction_data  len : {len(self.entropy_encoded_prediction_data)}, {len(self.entropy_encoded_prediction_data) // 8}")
 
-    def entropy_decode_prediction_data(self, enc, params : InputParameters):
+    def entropy_decode_prediction_data(self, enc, params: InputParameters):
         width_ = params.width
         height_ = params.height
         block_size_ = params.encoder_config.block_size
@@ -168,7 +172,6 @@ class PFrame(Frame):
         return self.mv_field
 
 
-
 def construct_frame_from_dct_and_mv(quant_dct_coff_frame, prev_frame, mv_field, encoder_config: EncoderConfig):
     block_size = encoder_config.block_size
     quantization_factor = encoder_config.quantization_factor
@@ -200,8 +203,8 @@ def construct_frame_from_dct_and_mv(quant_dct_coff_frame, prev_frame, mv_field, 
             # Ensure the predicted block size matches the residual block size
             if predicted_b.shape != idct_residual_block.shape:
                 # Adjust the shape of the predicted block to match the residual block
-                predicted_b = np.pad(predicted_b, 
-                                     ((0, idct_residual_block.shape[0] - predicted_b.shape[0]), 
+                predicted_b = np.pad(predicted_b,
+                                     ((0, idct_residual_block.shape[0] - predicted_b.shape[0]),
                                       (0, idct_residual_block.shape[1] - predicted_b.shape[1])),
                                      mode='edge')  # Padding to match the size
 
