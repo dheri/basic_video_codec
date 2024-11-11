@@ -1,4 +1,5 @@
-import ex4
+import assign1
+from assign1 import ex4
 from encoder.params import EncoderConfig
 from input_parameters import InputParameters
 
@@ -25,4 +26,4 @@ if __name__ == "__main__":
 
     # ex3.main(input_params)
 
-    ex4.main(input_params)
+    assign1.ex4.main(input_params)

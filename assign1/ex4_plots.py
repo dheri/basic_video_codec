@@ -133,11 +133,11 @@ search_range = 2
 qp_values = {8: [0, 3, 6, 9], 16: [1, 4, 7, 10]}
 I_Periods = [1, 4, 10]
 num_frames = 10
-input_file = 'data/foreman_cif.yuv'
+input_file = '../data/foreman_cif.yuv'
 width = 352
 height = 288
 
-output_dir = 'results'
+output_dir = '../results'
 os.makedirs(output_dir, exist_ok=True)
 
 
