@@ -8,6 +8,7 @@ from skimage.metrics import peak_signal_noise_ratio
 from common import get_logger, split_into_blocks, merge_blocks, pad_with_zeros
 from encoder.PredictionMode import PredictionMode
 from encoder.byte_stream_buffer import BitStreamBuffer
+from encoder.dct import apply_dct_2d, generate_quantization_matrix, quantize_block
 from encoder.entropy_encoder import zigzag_order, rle_encode, exp_golomb_encode, exp_golomb_decode, rle_decode, \
     inverse_zigzag_order
 from encoder.params import EncoderConfig
@@ -165,3 +166,9 @@ class Frame:
         else:
             raise TypeError(f"{self.quantized_dct_residual_frame} quantized_dct_residual_frame must be a numpy array")
 
+
+def apply_dct_and_quantization(residual_block, block_size, quantization_factor):
+    dct_coffs = apply_dct_2d(residual_block)
+    Q = generate_quantization_matrix(block_size, quantization_factor)
+    quantized_dct_coffs = quantize_block(dct_coffs, Q)
+    return quantized_dct_coffs, Q

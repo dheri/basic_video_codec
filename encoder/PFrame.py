@@ -4,10 +4,10 @@ import numpy as np
 from bitarray import bitarray
 
 from common import get_logger, generate_residual_block, find_mv_predicted_block, signed_to_unsigned, unsigned_to_signed
-from encoder.Frame import Frame
+from encoder.Frame import Frame, apply_dct_and_quantization
 from encoder.PredictionMode import PredictionMode
 from encoder.block_predictor import predict_block
-from encoder.dct import apply_dct_2d, generate_quantization_matrix, quantize_block, rescale_block, apply_idct_2d
+from encoder.dct import generate_quantization_matrix, rescale_block, apply_idct_2d
 from encoder.entropy_encoder import exp_golomb_encode, exp_golomb_decode
 from encoder.params import EncoderConfig, EncodedBlock
 from concurrent import futures
@@ -218,14 +218,6 @@ def byte_array_to_mv_field(byte_stream, width, height, block_size):
         index += 1  # Increment the index for the next motion vector
 
     return mv_field
-
-
-
-def apply_dct_and_quantization(residual_block, block_size, quantization_factor):
-    dct_coffs = apply_dct_2d(residual_block)
-    Q = generate_quantization_matrix(block_size, quantization_factor)
-    quantized_dct_coffs = quantize_block(dct_coffs, Q)
-    return quantized_dct_coffs, Q
 
 
 def reconstruct_block(quantized_dct_coffs, Q, predicted_block_with_mc):

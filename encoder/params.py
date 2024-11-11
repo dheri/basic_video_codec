@@ -18,22 +18,6 @@ def validate_qp(i,qp):
     if qp > (math.log2(i) + 7):
         raise ValueError(f" qp [{qp}] > {(math.log2(i) + 7)}")
 
-# class EncodedPFrame:
-#     def __init__(self, mv_field, avg_mae, residual_frame_with_mc, quat_dct_coffs_with_mc, reconstructed_frame_with_mc):
-#         self.mv_field = mv_field
-#         self.avg_mae = avg_mae
-#         self.residual_frame_with_mc = residual_frame_with_mc
-#         self.quat_dct_coffs_with_mc = quat_dct_coffs_with_mc
-#         self.reconstructed_frame_with_mc = reconstructed_frame_with_mc
-#
-#     def get_quat_dct_coffs_extremes(self):
-#         # Ensure quat_dct_coffs_with_mc is a numpy array to use numpy's min/max
-#         if isinstance(self.quat_dct_coffs_with_mc, np.ndarray):
-#             min_value = np.min(self.quat_dct_coffs_with_mc)
-#             max_value = np.max(self.quat_dct_coffs_with_mc)
-#             return [min_value, max_value]
-#         else:
-#             raise TypeError("quat_dct_coffs_with_mc must be a numpy array")
 
 
 class EncodedBlock:

@@ -2,7 +2,8 @@ import numpy as np
 from bitarray import bitarray
 
 from common import get_logger, split_into_blocks
-from encoder.Frame import Frame
+from encoder.Frame import Frame, apply_dct_and_quantization
+from encoder.PFrame import reconstruct_block
 from encoder.PredictionMode import PredictionMode
 from encoder.dct import apply_dct_2d, generate_quantization_matrix, quantize_block, rescale_block, apply_idct_2d
 from encoder.entropy_encoder import exp_golomb_encode, zigzag_order, rle_encode, exp_golomb_decode
@@ -62,7 +63,7 @@ class IFrame(Frame):
         for y in range(0, height, block_size):
             for x in range(0, width, block_size):
                 dct_coffs_block = self.quantized_dct_residual_frame[y:y + block_size, x:x + block_size]
-                # logger.info(f" dct_coffs_block extreams : [{np.min(dct_coffs_block)}, {np.max(dct_coffs_block)} ]")
+                # logger.info(f" dct_coffs_block extremes : [{np.min(dct_coffs_block)}, {np.max(dct_coffs_block)} ]")
 
                 rescaled_dct_coffs_block = rescale_block(dct_coffs_block, Q)
                 idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block)
@@ -162,21 +163,20 @@ def process_block(curr_block, reconstructed_frame, x, y, block_size, quantizatio
     predicted_block, mode, mae = intra_predict_block(curr_block, reconstructed_frame, x, y, block_size)
 
     # Compute the residual
-    residual_block = curr_block.astype(np.int16) - predicted_block.astype(np.int16)
-
+    # residual_block = curr_block.astype(np.int16) - predicted_block.astype(np.int16)
+    residual_block = np.subtract(curr_block.astype(np.int16) , predicted_block.astype(np.int16))
     # Apply DCT
-    dct_residual_block = apply_dct_2d(residual_block)
+    quantized_dct_residual_block, Q = apply_dct_and_quantization(residual_block, block_size, quantization_factor)
 
-    # Quantization
-    Q = generate_quantization_matrix(block_size, quantization_factor)
-    quantized_dct_residual_block = quantize_block(dct_residual_block, Q)
+    # clipped_reconstructed_block, idct_residual_block = reconstruct_block(quantized_dct_residual_block, Q,
+    #                                                                      predicted_block)
 
     # Inverse quantization and IDCT
     dequantized_dct_residual_block = rescale_block(quantized_dct_residual_block, Q)
     reconstructed_residual_block = apply_idct_2d(dequantized_dct_residual_block)
 
     # Reconstruct the block
-    reconstructed_block = np.round(predicted_block + reconstructed_residual_block).astype(np.uint8)
+    reconstructed_block = np.clip((predicted_block + reconstructed_residual_block).astype(np.int16), 0, 255).astype(np.uint8)
 
     return mode, mae, reconstructed_block, quantized_dct_residual_block, residual_block
 
