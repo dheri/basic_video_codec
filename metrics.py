@@ -19,7 +19,8 @@ def plot_metrics(params: InputParameters):
         csv_reader = csv.reader(f)
         next(csv_reader)  # Skip the header
         for row in csv_reader:
-            frame, mae, psnr = row
+            # Unpack only the first three columns: Frame Index, Average MAE, PSNR
+            frame, mae, psnr, *rest = row  # Ignore extra columns by using '*rest'
             frame_numbers.append(int(frame))  # Frame index as integer
             avg_mae_values.append(float(mae))  # MAE value as float
             psnr_values.append(float(psnr))  # PSNR value as float
@@ -35,7 +36,8 @@ def plot_metrics(params: InputParameters):
     plt.plot(frame_numbers, psnr_values, marker='x', linestyle='--', color='r', label='PSNR')
 
     # Adding title and labels
-    plt.title(f'MAE and PSNR per Frame, i = {params.encoder_parameters.block_size}, r = {params.encoder_parameters.search_range}, n = {params.encoder_parameters.residual_approx_factor}')
+    plt.title(
+        f'MAE and PSNR per Frame, i = {params.encoder_config.block_size}, r = {params.encoder_config.search_range}, qp = {params.encoder_config.quantization_factor}')
     plt.xlabel('Frame Number')
     plt.ylabel('Metric Value')
 

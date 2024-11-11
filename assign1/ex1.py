@@ -1,6 +1,8 @@
 import os
+
 import numpy as np
 from scipy.ndimage import zoom
+
 from common import calculate_num_frames
 
 
@@ -24,6 +26,7 @@ def read_yuv420(file, width, height):
     v_plane = np.frombuffer(file.read(uv_size), dtype=np.uint8).reshape((height // 2, width // 2))
 
     return y_plane, u_plane, v_plane
+
 
 # Function to convert YUV 4:4:4 to RGB
 def yuv_to_rgb(y_plane, u_plane, v_plane):
@@ -170,7 +173,6 @@ def main(input_file, width, height):
 
                 # Construct the grid with masked channels
                 grid = construct_grid(channels, masks, width, height, half_border, spacing, random_values)
-
 
                 # Write grid to the output file
                 f_out.write(grid.tobytes())
