@@ -46,19 +46,19 @@ def mae(block1, block2):
     return np.mean(np.abs(block1 - block2))
 
 
-def generate_residual_block(curr_block, prev_frame, motion_vector, x, y, block_size):
-    predicted_block_with_mc = find_mv_predicted_block(motion_vector, x, y, prev_frame, block_size).astype(np.int16)
+def generate_residual_block(curr_block, reference_frames, motion_vector, x, y, block_size):
+    predicted_block_with_mc = find_mv_predicted_block(motion_vector, x, y, reference_frames, block_size).astype(np.int16)
     residual_block_with_mc = np.subtract(curr_block.astype(np.int16), predicted_block_with_mc.astype(np.int16))
     return predicted_block_with_mc, residual_block_with_mc
 
 
-def find_mv_predicted_block(mv, x, y, prev_frame, block_size):
+def find_mv_predicted_block(mv, x, y, reference_frames, block_size):
     # Calculate the predicted block coordinates
     pred_x = x + mv[0]
     pred_y = y + mv[1]
+    pred_ref_frame_idx = mv[2]
 
-
-    predicted_block = prev_frame[pred_y:pred_y + block_size, pred_x:pred_x + block_size]
+    predicted_block = reference_frames[pred_ref_frame_idx][pred_y:pred_y + block_size, pred_x:pred_x + block_size]
     return predicted_block
 
 

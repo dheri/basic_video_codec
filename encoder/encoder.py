@@ -1,6 +1,8 @@
 import csv
 import time
+from collections import deque
 from contextlib import ExitStack
+from inspect import stack
 
 import numpy as np
 from skimage.metrics import peak_signal_noise_ratio
@@ -21,7 +23,10 @@ def encode_video(params: InputParameters):
 
     start_time = time.time()
     y_size = params.width * params.height
-    prev_frame = np.full((params.height, params.width), 128, dtype=np.uint8)
+    # prev_frame = np.full((params.height, params.width), 128, dtype=np.uint8)
+
+    reference_frames = deque()
+    reference_frames.append(np.full((params.height, params.width), 128, dtype=np.uint8))
 
     with ExitStack() as stack:
         f_in = stack.enter_context(open(params.y_only_file, 'rb'))
@@ -60,8 +65,9 @@ def encode_video(params: InputParameters):
 
             if (frame_index - 1) % I_Period == 0:
                 frame = IFrame(padded_frame)
+                reference_frames.clear()
             else:
-                frame = PFrame(padded_frame, prev_frame)
+                frame = PFrame(padded_frame, reference_frames)
 
             # frame = PFrame(padded_frame, prev_frame)
 
@@ -119,7 +125,9 @@ def encode_video(params: InputParameters):
             frame.write_encoded_to_file(mv_fh, quant_dct_coff_fh, residual_w_mc_yuv_fh, residual_wo_mc_yuv_fh,
                                         reconstructed_fh, params.encoder_config)
 
-            prev_frame = frame.reconstructed_frame
+            if len(reference_frames) >= params.encoder_config.nRefFrames:
+                reference_frames.popleft()
+            reference_frames.append(frame.reconstructed_frame)
 
     end_time = time.time()
     elapsed_time = end_time - start_time
