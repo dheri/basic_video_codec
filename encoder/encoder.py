@@ -23,9 +23,8 @@ def encode_video(params: InputParameters):
 
     start_time = time.time()
     y_size = params.width * params.height
-    # prev_frame = np.full((params.height, params.width), 128, dtype=np.uint8)
 
-    reference_frames = deque()
+    reference_frames = deque(maxlen=params.encoder_config.nRefFrames)
     reference_frames.append(np.full((params.height, params.width), 128, dtype=np.uint8))
 
     with ExitStack() as stack:
@@ -68,8 +67,6 @@ def encode_video(params: InputParameters):
                 reference_frames.clear()
             else:
                 frame = PFrame(padded_frame, reference_frames)
-
-            # frame = PFrame(padded_frame, prev_frame)
 
             frame.encode_mc_q_dct(params.encoder_config)
 
@@ -125,9 +122,8 @@ def encode_video(params: InputParameters):
             frame.write_encoded_to_file(mv_fh, quant_dct_coff_fh, residual_w_mc_yuv_fh, residual_wo_mc_yuv_fh,
                                         reconstructed_fh, params.encoder_config)
 
-            if len(reference_frames) >= params.encoder_config.nRefFrames:
-                reference_frames.popleft()
             reference_frames.append(frame.reconstructed_frame)
+            # logger.debug(f"len(reference_frames): {len(reference_frames)}, {reference_frames.maxlen}")
 
     end_time = time.time()
     elapsed_time = end_time - start_time

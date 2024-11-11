@@ -30,8 +30,7 @@ def decode_video(params: InputParameters):
     decoded_yuv = file_io.get_mc_decoded_file_name()
 
     frame_size = width * height
-    # prev_frame = np.full((height, width), 128, dtype=np.uint8)
-    reference_frames = deque()
+    reference_frames = deque(maxlen=params.encoder_config.nRefFrames)
     reference_frames.append(np.full((height, width), 128, dtype=np.uint8))
 
     with ExitStack() as stack:
@@ -76,9 +75,6 @@ def decode_video(params: InputParameters):
             # Write the decoded frame to the output file
             write_y_only_frame(decoded_fh, decoded_frame)
 
-            # Update the previous frame
-            # prev_frame = decoded_frame
-            if len(reference_frames) >= params.encoder_config.nRefFrames:
-                reference_frames.popleft()
             reference_frames.append(decoded_frame)
+            # logger.debug(f"reference_frames: {len(reference_frames)}, {reference_frames.maxlen}")
     logger.info('End decoding')
