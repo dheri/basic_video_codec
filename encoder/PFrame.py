@@ -122,18 +122,20 @@ class PFrame(Frame):
         return motion_vector, best_match_mae
 
     def decode_mc_q_dct(self, frame_shape, encoder_config: EncoderConfig):
-        return construct_frame_from_dct_and_mv(self.quantized_dct_residual_frame, self.prev_frame, self.mv_field,
+        return construct_frame_from_dct_and_mv(self.quantized_dct_residual_frame, self.reference_frames, self.mv_field,
                                                encoder_config)
 
     def entropy_encode_prediction_data(self):
         self.entropy_encoded_prediction_data = bitarray()
-        for key, mv in self.mv_field.items():
-            mv_x = exp_golomb_encode(mv[0])
-            self.entropy_encoded_prediction_data.extend(mv_x)
-            mv_y = exp_golomb_encode(mv[1])
-            self.entropy_encoded_prediction_data.extend(mv_y)
+        for mv in self.mv_field.values():
+            enc_mv_x = exp_golomb_encode(mv[0])
+            self.entropy_encoded_prediction_data.extend(enc_mv_x)
+            enc_mv_y = exp_golomb_encode(mv[1])
+            self.entropy_encoded_prediction_data.extend(enc_mv_y)
+            enc_mv_ref_frame_idx = exp_golomb_encode(mv[2])
+            self.entropy_encoded_prediction_data.extend(enc_mv_ref_frame_idx)
             logger.debug(f" {key} : {mv} -> [{mv_x.to01()} {mv_y.to01()}]")
-
+            
         # logger.info(f" entropy_encoded_prediction_data  len : {len(self.entropy_encoded_prediction_data)}, {len(self.entropy_encoded_prediction_data) // 8}")
 
     def entropy_decode_prediction_data(self, enc, params: InputParameters):
@@ -157,9 +159,8 @@ class PFrame(Frame):
                 if not bitstream:
                     logger.debug(f"bitstream empty, breaking.")
                     break
-
-                # Decode the second component of the motion vector (mv_y)
                 mv_y, bitstream = exp_golomb_decode(bitstream)
+                mv_ref_frame_idx, bitstream = exp_golomb_decode(bitstream)
 
                 # Calculate the pixel coordinates (column_index, row_index) for the block's top-left corner
                 row_index = (index // (width_ // block_size_)) * block_size_  # Y-coordinate
@@ -168,7 +169,7 @@ class PFrame(Frame):
                 # Ensure the calculated coordinates are within the frame dimensions
                 if row_index < height_ and column_index < width_:
                     # Store the motion vector in the dictionary with the (column_index, row_index) as the key
-                    self.mv_field[(column_index, row_index)] = [mv_x, mv_y]
+                    self.mv_field[(column_index, row_index)] = [mv_x, mv_y, mv_ref_frame_idx]
                 else:
                     logger.warn(f"Warning: Calculated coordinates {(column_index, row_index)} are out of bounds.")
 
@@ -182,11 +183,11 @@ class PFrame(Frame):
         return self.mv_field
 
 
-def construct_frame_from_dct_and_mv(quant_dct_coff_frame, prev_frame, mv_field, encoder_config: EncoderConfig):
+def construct_frame_from_dct_and_mv(quant_dct_coff_frame, reference_frames, mv_field, encoder_config: EncoderConfig):
     block_size = encoder_config.block_size
     quantization_factor = encoder_config.quantization_factor
-    height, width = prev_frame.shape
-    decoded_frame = np.zeros_like(prev_frame, dtype=np.uint8)
+    height, width = reference_frames[0].shape
+    decoded_frame = np.zeros_like(reference_frames[0], dtype=np.uint8)
 
     # Generate the quantization matrix Q based on block size and quantization factor
     Q = generate_quantization_matrix(block_size, quantization_factor)
@@ -204,7 +205,7 @@ def construct_frame_from_dct_and_mv(quant_dct_coff_frame, prev_frame, mv_field, 
             idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block)
 
             # Get the predicted block using the motion vector
-            predicted_b = find_mv_predicted_block(mv_field.get((x, y), None), x, y, prev_frame, block_size)
+            predicted_b = find_mv_predicted_block(mv_field.get((x, y), None), x, y, reference_frames, block_size)
 
             # Check if the predicted block is valid
             mv = mv_field.get((x, y))
