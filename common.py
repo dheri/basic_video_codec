@@ -57,7 +57,7 @@ def find_mv_predicted_block(mv, x, y, reference_frames, block_size):
     pred_x = x + mv[0]
     pred_y = y + mv[1]
     pred_ref_frame_idx = mv[2]
-
+    # logger.debug(f"pred_ref_frame_idx: {pred_ref_frame_idx}")
     predicted_block = reference_frames[pred_ref_frame_idx][pred_y:pred_y + block_size, pred_x:pred_x + block_size]
     return predicted_block
 

@@ -52,7 +52,7 @@ def encode_video(params: InputParameters):
             ['Frame Index', 'Average MAE', 'PSNR', 'Encoded Frame Size in Bytes', 'QP', 'I_Period', 'Total Bit Size'])
         frame_index = 0
         logger.info(
-            f"[ i={params.encoder_config.block_size} r={params.encoder_config.search_range} q={params.encoder_config.quantization_factor}]")
+            f"[ i={params.encoder_config.block_size} r={params.encoder_config.search_range} q={params.encoder_config.quantization_factor}] , nRefFrames [{params.encoder_config.nRefFrames}]")
         while True:
             start_of_bock_idx = encoded_fh.tell()
             frame_index += 1

@@ -9,9 +9,11 @@ class FileIOHelper:
         self.block_size = params.encoder_config.block_size
         self.search_range = params.encoder_config.search_range
         self.quantization_factor = params.encoder_config.quantization_factor
+        self.nRefFrames = params.encoder_config.nRefFrames
+
         self.frames_to_process = params.frames_to_process
 
-        self.file_identifier = f'{self.block_size}_{self.search_range}_{self.quantization_factor}'
+        self.file_identifier = f'{self.block_size}_{self.search_range}_{self.quantization_factor}_{self.nRefFrames}'
         self.file_prefix = os.path.splitext(self.y_only_file)[0]
 
         os.makedirs(os.path.dirname(self.get_file_name(suffix='')), exist_ok=True)
