@@ -29,7 +29,7 @@ class FileIOHelper:
         return f'{self.file_prefix}.yuv'
 
     def get_mv_file_name(self):
-        return self.get_file_name('mv.bin')
+        return self.get_file_name('mv.txt')
 
     def get_metrics_csv_file_name(self):
         return self.get_file_name('metrics.csv')

@@ -11,7 +11,7 @@ from encoder.dct import apply_dct_2d, generate_quantization_matrix, quantize_blo
 from encoder.entropy_encoder import zigzag_order, rle_encode, exp_golomb_encode, exp_golomb_decode, rle_decode, \
     inverse_zigzag_order
 from encoder.params import EncoderConfig
-from file_io import write_y_only_frame
+from file_io import write_y_only_frame, write_mv_to_file
 from input_parameters import InputParameters
 
 logger = get_logger()
@@ -104,6 +104,11 @@ class Frame:
         write_y_only_frame(residual_wo_mc_yuv_fh, self.residual_wo_mc_frame)
         write_y_only_frame(quant_dct_coff_fh, self.quantized_dct_residual_frame)
         write_y_only_frame(reconstructed_fh, self.reconstructed_frame)
+
+        if(self.prediction_mode == PredictionMode.INTER_FRAME):
+            write_mv_to_file(mv_fh, self.mv_field)
+        else:
+            mv_fh.write('\n')
 
     def get_quat_dct_coffs_extremes(self):
         # Ensure quat_dct_coffs_with_mc is a numpy array to use numpy's min/max
