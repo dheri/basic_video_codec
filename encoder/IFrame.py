@@ -104,7 +104,7 @@ class IFrame(Frame):
                 decoded_modes.append(decoded_value)
             except ValueError as e:
                 # Handle the case where bitstream is exhausted or an error occurs
-                print(f"Decoding error: {e}")
+                logger.error(f"Decoding error: {e}")
                 break
         self.intra_modes = decoded_modes
         return decoded_modes

@@ -32,7 +32,6 @@ def decode_video(params: InputParameters):
     prev_frame = np.full((height, width), 128, dtype=np.uint8)
 
     with ExitStack() as stack:
-        quant_dct_coff_fh = stack.enter_context(open(file_io.get_quant_dct_coff_fh_file_name(), 'rb'))
         reconstructed_file_fh = stack.enter_context(open(file_io.get_mc_reconstructed_file_name(), 'rb'))
         encoded_fh = stack.enter_context(open(file_io.get_encoded_file_name(), 'rb'))
         decoded_fh = stack.enter_context(open(decoded_yuv, 'wb'))
@@ -40,8 +39,7 @@ def decode_video(params: InputParameters):
         frame_index = 0
         while True:
             frame_index += 1
-            quant_dct_coff = quant_dct_coff_fh.read(frame_size * 2)  # quant_dct_coff are stored as int16. i.e. 2 bytes
-            if not quant_dct_coff or frame_index > frames_to_process or not encoded_fh:
+            if frame_index > frames_to_process or not encoded_fh:
                 break  # End of file or end of frames
             prediction_mode = int.from_bytes(encoded_fh.read(1))
             logger.debug(f"Decoding {PredictionMode(prediction_mode)} {frame_index}/{frames_to_process}")

@@ -4,6 +4,7 @@ import os
 import numpy as np
 
 
+
 def get_logger():
     logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-7s [%(filename)s:%(lineno)-3d] %(message)s',
                         datefmt='%H:%M:%S', )
@@ -11,6 +12,7 @@ def get_logger():
     logger.setLevel(logging.INFO)
     return logger
 
+logger = get_logger()
 
 def calculate_num_frames(file_path, width, height):
     file_size = os.path.getsize(file_path)
@@ -24,6 +26,7 @@ def pad_frame(frame, block_size, pad_value=128):
     pad_width = (block_size - (width % block_size)) % block_size
 
     if pad_height > 0 or pad_width > 0:
+        logger.warning(f"frame is padded [{pad_height} , {pad_height}]")
         padded_frame = np.full((height + pad_height, width + pad_width), pad_value, dtype=np.uint8)
         padded_frame[:height, :width] = frame
         return padded_frame
@@ -54,9 +57,6 @@ def find_mv_predicted_block(mv, x, y, prev_frame, block_size):
     pred_x = x + mv[0]
     pred_y = y + mv[1]
 
-    # Clip the coordinates to ensure they are within bounds
-    # pred_x = np.clip(pred_x, 0, prev_frame.shape[1] - block_size)
-    # pred_y = np.clip(pred_y, 0, prev_frame.shape[0] - block_size)
 
     predicted_block = prev_frame[pred_y:pred_y + block_size, pred_x:pred_x + block_size]
     return predicted_block

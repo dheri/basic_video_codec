@@ -1,4 +1,5 @@
 import concurrent
+from collections import OrderedDict
 from concurrent import futures
 
 import numpy as np
@@ -62,7 +63,8 @@ class PFrame(Frame):
 
         avg_mae = mae_of_blocks / num_of_blocks
 
-        self.mv_field = mv_field  # Populate the motion vector field
+        sorted_mv_field = OrderedDict(sorted(mv_field.items(), key=lambda item: (item[0][1], item[0][0])))
+        self.mv_field = sorted_mv_field  # Populate the motion vector field
 
         self.avg_mae = avg_mae
         self.residual_frame = residual_frame_with_mc
@@ -92,6 +94,7 @@ class PFrame(Frame):
         # Reconstruct the block using the predicted and inverse DCT
         clipped_reconstructed_block, idct_residual_block = reconstruct_block(quantized_dct_coffs, Q,
                                                                              predicted_block_with_mc)
+        check_index_out_of_bounds(x, y, motion_vector,width,height, block_size)
 
         return EncodedPBlock((x, y), motion_vector, best_match_mae, quantized_dct_coffs, idct_residual_block,
                              residual_block_wo_mc, clipped_reconstructed_block)
@@ -119,11 +122,12 @@ class PFrame(Frame):
 
     def entropy_encode_prediction_data(self):
         self.entropy_encoded_prediction_data = bitarray()
-        for mv in self.mv_field.values():
-            enc_0 = exp_golomb_encode(mv[0])
-            self.entropy_encoded_prediction_data.extend(enc_0)
-            enc_1 = exp_golomb_encode(mv[1])
-            self.entropy_encoded_prediction_data.extend(enc_1)
+        for key, mv in self.mv_field.items():
+            mv_x = exp_golomb_encode(mv[0])
+            self.entropy_encoded_prediction_data.extend(mv_x)
+            mv_y = exp_golomb_encode(mv[1])
+            self.entropy_encoded_prediction_data.extend(mv_y)
+            logger.debug(f" {key} : {mv} -> [{mv_x.to01()} {mv_y.to01()}]")
 
         # logger.info(f" entropy_encoded_prediction_data  len : {len(self.entropy_encoded_prediction_data)}, {len(self.entropy_encoded_prediction_data) // 8}")
 
@@ -146,6 +150,7 @@ class PFrame(Frame):
                 # Decode the first component of the motion vector (mv_x)
                 mv_x, bitstream = exp_golomb_decode(bitstream)
                 if not bitstream:
+                    logger.debug(f"bitstream empty, breaking.")
                     break
 
                 # Decode the second component of the motion vector (mv_y)
@@ -160,7 +165,7 @@ class PFrame(Frame):
                     # Store the motion vector in the dictionary with the (column_index, row_index) as the key
                     self.mv_field[(column_index, row_index)] = [mv_x, mv_y]
                 else:
-                    logger.info(f"Warning: Calculated coordinates {(column_index, row_index)} are out of bounds.")
+                    logger.warn(f"Warning: Calculated coordinates {(column_index, row_index)} are out of bounds.")
 
                 index += 1  # Move to the next block
 
@@ -183,6 +188,7 @@ def construct_frame_from_dct_and_mv(quant_dct_coff_frame, prev_frame, mv_field, 
 
     for y in range(0, height, block_size):
         for x in range(0, width, block_size):
+            check_index_out_of_bounds(x, y, mv_field.get((x, y)), width, height, block_size)
             # Get the quantized residual block
             dct_coffs_block = quant_dct_coff_frame[y:y + block_size, x:x + block_size]
 
@@ -196,12 +202,23 @@ def construct_frame_from_dct_and_mv(quant_dct_coff_frame, prev_frame, mv_field, 
             predicted_b = find_mv_predicted_block(mv_field.get((x, y), None), x, y, prev_frame, block_size)
 
             # Check if the predicted block is valid
+            mv = mv_field.get((x, y))
             if predicted_b is None or predicted_b.size == 0:
+                pred_x = x + mv[0]
+                pred_y = y + mv[1]
+
+                logger.warning(f"predicted_b is None"
+                            f"\n\tpredicted_b @ [{y:3}, {x:3}] -> {predicted_b}\n"
+                            f"\tmv -> {mv}\n"
+                            f"\tprev_frame[{pred_y}:{pred_y + block_size}, {pred_x}:{pred_x + block_size}]")
+
                 # Handle the case where predicted_b is invalid or empty
                 predicted_b = np.zeros((block_size, block_size), dtype=np.int16)
 
             # Ensure the predicted block size matches the residual block size
             if predicted_b.shape != idct_residual_block.shape:
+                logger.warning(f"predicted_b  @ [{y:3}, {x:3}] {predicted_b.shape} != idct_residual_block {idct_residual_block.shape}\n"
+                            f"\tmv -> {mv}\n")
                 # Adjust the shape of the predicted block to match the residual block
                 predicted_b = np.pad(predicted_b,
                                      ((0, idct_residual_block.shape[0] - predicted_b.shape[0]),
@@ -218,3 +235,11 @@ def construct_frame_from_dct_and_mv(quant_dct_coff_frame, prev_frame, mv_field, 
             decoded_frame[y:y + block_size, x:x + block_size] = decoded_block
 
     return decoded_frame
+
+
+def check_index_out_of_bounds(x, y, motion_vector, width, height, block_size):
+
+    if x + motion_vector[0] < 0 or y + motion_vector[1] < 0 :
+        logger.error(f" mv [{motion_vector}] for [{x}, {y}] referencing small value [{x + motion_vector[0]}] or [{y + motion_vector[1] < 0}]")
+    if x + motion_vector[0] + block_size > width or y + motion_vector[1] + block_size > height:
+        logger.error(f" mv [{motion_vector}] for [{x}, {y}] referencing large value [{x + motion_vector[0] + block_size}]  or [{y + motion_vector[1] + block_size}]")
