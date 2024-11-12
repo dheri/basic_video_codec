@@ -7,7 +7,6 @@ from skimage.metrics import peak_signal_noise_ratio
 
 from common import get_logger, split_into_blocks, merge_blocks, pad_with_zeros
 from encoder.PredictionMode import PredictionMode
-from encoder.byte_stream_buffer import BitStreamBuffer
 from encoder.dct import apply_dct_2d, generate_quantization_matrix, quantize_block, rescale_block, apply_idct_2d
 from encoder.entropy_encoder import zigzag_order, rle_encode, exp_golomb_encode, exp_golomb_decode, rle_decode, \
     inverse_zigzag_order
@@ -22,7 +21,6 @@ class Frame:
     EOB_MARKER = 8190
 
     def __init__(self, curr_frame=None, reference_frames=None, ):
-        self.bitstream_buffer: Optional[BitStreamBuffer] = None
         self.reference_frames : deque = reference_frames
         self.curr_frame = curr_frame
         self.prediction_mode: PredictionMode = PredictionMode.INTER_FRAME
