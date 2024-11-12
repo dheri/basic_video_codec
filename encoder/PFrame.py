@@ -127,14 +127,14 @@ class PFrame(Frame):
 
     def entropy_encode_prediction_data(self):
         self.entropy_encoded_prediction_data = bitarray()
-        for mv in self.mv_field.values():
+        for key, mv in self.mv_field.items():
             enc_mv_x = exp_golomb_encode(mv[0])
             self.entropy_encoded_prediction_data.extend(enc_mv_x)
             enc_mv_y = exp_golomb_encode(mv[1])
             self.entropy_encoded_prediction_data.extend(enc_mv_y)
             enc_mv_ref_frame_idx = exp_golomb_encode(mv[2])
             self.entropy_encoded_prediction_data.extend(enc_mv_ref_frame_idx)
-            logger.debug(f" {key} : {mv} -> [{mv_x.to01()} {mv_y.to01()}]")
+            logger.debug(f" {key} : {mv} -> [{enc_mv_x.to01()} {enc_mv_y.to01()} {enc_mv_ref_frame_idx.to01()}]")
             
         # logger.info(f" entropy_encoded_prediction_data  len : {len(self.entropy_encoded_prediction_data)}, {len(self.entropy_encoded_prediction_data) // 8}")
 
