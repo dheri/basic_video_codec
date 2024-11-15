@@ -1,6 +1,4 @@
-import concurrent
 from collections import OrderedDict
-from concurrent import futures
 
 import numpy as np
 from bitarray import bitarray
@@ -40,16 +38,9 @@ class PFrame(Frame):
         residual_frame_wo_mc = np.zeros_like(self.curr_frame, dtype=np.int8)
         quat_dct_coffs_frame_with_mc = np.zeros_like(self.curr_frame, dtype=np.int16)
 
-        # Process blocks in parallel
-        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            futuress = [
-                executor.submit(self.process_block, x, y, block_size, search_range, quantization_factor, width, height,
-                                mv_field)
-                for y in range(0, height, block_size)
-                for x in range(0, width, block_size)]
-
-            for f in concurrent.futures.as_completed(futuress):
-                encoded_block = f.result()
+        for y in range(0, height, block_size):
+            for x in range(0, width, block_size):
+                encoded_block =self.process_block( x, y, block_size, search_range, quantization_factor, width, height, mv_field)
                 block_cords = encoded_block.block_coords
                 x, y = block_cords
 
