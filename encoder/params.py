@@ -21,9 +21,6 @@ class EncoderConfig:
         if self.quantization_factor > (math.log2(self.block_size) + 7):
             raise ValueError(f" qp [{self.quantization_factor}] > {(math.log2(self.block_size) + 7)}")
         if self.fastME:
-            if self.nRefFrames > 1:
-                logger.warning(f"With [fastME], nRefFrames [{self.nRefFrames}] should not be > 1")
-                self.nRefFrames = 1
             self.search_range = -1
 
 

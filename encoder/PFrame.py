@@ -91,7 +91,7 @@ class PFrame(Frame):
 
     def get_motion_vector(self, curr_block, curr_block_cords, mvp, ec:EncoderConfig):
         if ec.fastME:
-            return find_fast_me_block(curr_block, curr_block_cords, mvp, self.reference_frames[0], ec, 0)
+            return find_fast_me_block(curr_block, curr_block_cords, mvp, self.reference_frames, ec, 0)
         else:
             return find_lowest_mae_block(curr_block, curr_block_cords, self.reference_frames, ec.block_size, ec.search_range)
 

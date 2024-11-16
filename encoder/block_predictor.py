@@ -6,47 +6,57 @@ from encoder.params import EncoderConfig
 
 
 
-def find_fast_me_block(curr_block, curr_block_cords, mvp, reference_frame, ec:EncoderConfig, comparison_count):
+def find_fast_me_block(curr_block, curr_block_cords, mvp, reference_frames, ec:EncoderConfig, comparison_count):
     origin = curr_block_cords
-    candidates = {
-        "origin": lambda: mae(curr_block, get_ref_block_at_mv(reference_frame, origin, 0, 0, ec.block_size)),
-        "pmv": lambda: mae(curr_block, get_ref_block_at_mv(reference_frame, origin, mvp[0], mvp[1], ec.block_size)),
-        "pmv_top": lambda: mae(curr_block, get_ref_block_at_mv(reference_frame, origin, mvp[0], mvp[1] - 1, ec.block_size)),
-        "pmv_right": lambda: mae(curr_block, get_ref_block_at_mv(reference_frame, origin, mvp[0] + 1, mvp[1], ec.block_size)),
-        "pmv_bottom": lambda: mae(curr_block, get_ref_block_at_mv(reference_frame, origin, mvp[0], mvp[1] + 1, ec.block_size)),
-        "pmv_left": lambda: mae(curr_block, get_ref_block_at_mv(reference_frame, origin, mvp[0] - 1, mvp[1], ec.block_size)),
-    }
-    mv_map = {
-        "origin": (0, 0),
-        "pmv": (mvp[0], mvp[1]),
-        "pmv_top": (mvp[0], mvp[1] - 1),
-        "pmv_right": (mvp[0] + 1, mvp[1]),
-        "pmv_bottom": (mvp[0], mvp[1] + 1),
-        "pmv_left": (mvp[0] - 1, mvp[1]),
-    }
     min_mae = math.inf
-    best_key = None
+    best_mv_key = None
+    mv_map = {"origin0" : (0,0,0)}
+    candidates = {}
 
-    for key, func in candidates.items():
-        try:
-            current_mae = func()
-            comparison_count += 1
-            if current_mae < min_mae:
-                min_mae = current_mae
-                best_key = key
-        except Exception:
-            # Ignore errors from invalid positions
-            continue
+    for rf_idx, reference_frame  in enumerate(reference_frames):
+
+        candidates[f"origin{rf_idx}"] = lambda: mae(curr_block, get_ref_block_at_mv(reference_frame, origin, 0, 0, ec.block_size))
+        candidates[f"pmv{rf_idx}"] = lambda: mae(curr_block, get_ref_block_at_mv(reference_frame, origin, mvp[0], mvp[1], ec.block_size))
+        candidates[f"pmv_top{rf_idx}"] = lambda: mae(curr_block, get_ref_block_at_mv(reference_frame, origin, mvp[0], mvp[1] - 1,  ec.block_size))
+        candidates[f"pmv_right{rf_idx}"] = lambda: mae(curr_block, get_ref_block_at_mv(reference_frame, origin,  mvp[0] + 1, mvp[1], ec.block_size))
+        candidates[f"pmv_bottom{rf_idx}"] = lambda: mae(curr_block, get_ref_block_at_mv(reference_frame, origin, mvp[0], mvp[1] + 1, ec.block_size))
+        candidates[f"pmv_left{rf_idx}"] = lambda: mae(curr_block, get_ref_block_at_mv(reference_frame, origin, mvp[0] - 1, mvp[1], ec.block_size))
+
+        mv_map[f"origin{rf_idx}"] = (0, 0, rf_idx)
+        mv_map[f"pmv{rf_idx}"] = (mvp[0], mvp[1], rf_idx)
+        mv_map[f"pmv_top{rf_idx}"] = (mvp[0], mvp[1] - 1, rf_idx)
+        mv_map[f"pmv_right{rf_idx}"] = (mvp[0] + 1, mvp[1], rf_idx)
+        mv_map[f"pmv_bottom{rf_idx}"] = (mvp[0], mvp[1] + 1, rf_idx)
+        mv_map[f"pmv_left{rf_idx}"] = (mvp[0] - 1, mvp[1], rf_idx)
+
+        mv_map[f"origin{rf_idx}"] = (0, 0, rf_idx)
+        mv_map[f"pmv{rf_idx}"] = (mvp[0], mvp[1], rf_idx)
+        mv_map[f"pmv_top{rf_idx}"] = (mvp[0], mvp[1] - 1, rf_idx)
+        mv_map[f"pmv_right{rf_idx}"] = (mvp[0] + 1, mvp[1], rf_idx)
+        mv_map[f"pmv_bottom{rf_idx}"] = (mvp[0], mvp[1] + 1, rf_idx)
+        mv_map[f"pmv_left{rf_idx}"] = (mvp[0] - 1, mvp[1], rf_idx)
+
+        for key, func in candidates.items():
+            try:
+                current_mae = func()
+                comparison_count += 1
+                if current_mae < min_mae:
+                    min_mae = current_mae
+                    best_mv_key = key
+            except Exception as e:
+                # Ignore errors from invalid positions
+                # logger.error(e)
+                continue
 
     # If the best match is "origin", return its motion vector
-    if best_key == "origin" or best_key == "pmv":
-        return mv_map[best_key], min_mae, candidates[best_key], comparison_count
+    if "origin" in best_mv_key or   "pmv" in best_mv_key:
+        return mv_map[best_mv_key], min_mae, candidates[best_mv_key], comparison_count
 
     # Otherwise, update the origin to the best MV and recurse
-    best_mv = mv_map[best_key]
-    # logger.debug(f" {best_key} ")
+    best_mv = mv_map[best_mv_key]
+    # logger.debug(f" {best_mv_key} ")
     # new_origin = (origin[0] + best_mv[0], origin[1] + best_mv[1])
-    return find_fast_me_block(curr_block, origin, best_mv, reference_frame, ec, comparison_count)
+    return find_fast_me_block(curr_block, origin, best_mv, reference_frames, ec, comparison_count)
 
 
 def find_lowest_mae_block(curr_block, curr_block_cords, reference_frames: deque, block_size, search_range):
