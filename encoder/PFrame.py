@@ -101,17 +101,19 @@ class PFrame(Frame):
 
     def entropy_encode_prediction_data(self, encoder_config:EncoderConfig):
         self.entropy_encoded_prediction_data = bitarray()
+        prev_mv = (0,0,0)
         for key, mv in self.mv_field.items():
-            enc_mv_x = exp_golomb_encode(mv[0])
+            enc_mv_x = exp_golomb_encode(mv[0] - prev_mv[0] )
             self.entropy_encoded_prediction_data.extend(enc_mv_x)
-            enc_mv_y = exp_golomb_encode(mv[1])
+            enc_mv_y = exp_golomb_encode(mv[1] - prev_mv[1] )
             self.entropy_encoded_prediction_data.extend(enc_mv_y)
             if encoder_config.nRefFrames>1:
-                enc_mv_ref_frame_idx = exp_golomb_encode(mv[2])
+                enc_mv_ref_frame_idx = exp_golomb_encode(mv[2] - prev_mv[2])
                 self.entropy_encoded_prediction_data.extend(enc_mv_ref_frame_idx)
                 logger.debug(f" {key} : {mv} -> [{enc_mv_x.to01()} {enc_mv_y.to01()} {enc_mv_ref_frame_idx.to01()}]")
             else:
                 logger.debug(f" {key} : {mv} -> [{enc_mv_x.to01()} {enc_mv_y.to01()}]")
+            prev_mv = mv
 
         # logger.info(f" entropy_encoded_prediction_data  len : {len(self.entropy_encoded_prediction_data)}, {len(self.entropy_encoded_prediction_data) // 8}")
 
@@ -127,6 +129,7 @@ class PFrame(Frame):
 
         # Initialize an index to track the current block
         index = 0
+        prev_mv = (0,0,0)
 
         # Decode each pair of motion vector components (mv_x and mv_y) from the bitstream
         while bitstream:
@@ -142,6 +145,7 @@ class PFrame(Frame):
                 else:
                     mv_ref_frame_idx = 0
 
+                mv = (prev_mv[0] + mv_x, prev_mv[1] + mv_y, prev_mv[2] + mv_ref_frame_idx)
                 # Calculate the pixel coordinates (column_index, row_index) for the block's top-left corner
                 row_index = (index // (width_ // block_size_)) * block_size_  # Y-coordinate
                 column_index = (index % (width_ // block_size_)) * block_size_  # X-coordinate
@@ -149,11 +153,12 @@ class PFrame(Frame):
                 # Ensure the calculated coordinates are within the frame dimensions
                 if row_index < height_ and column_index < width_:
                     # Store the motion vector in the dictionary with the (column_index, row_index) as the key
-                    self.mv_field[(column_index, row_index)] = [mv_x, mv_y, mv_ref_frame_idx]
+                    self.mv_field[(column_index, row_index)] = mv
                 else:
                     logger.warn(f"Warning: Calculated coordinates {(column_index, row_index)} are out of bounds.")
 
                 index += 1  # Move to the next block
+                prev_mv = mv
 
             except ValueError:
                 # If there's an issue in decoding (e.g., insufficient bits), exit the loop

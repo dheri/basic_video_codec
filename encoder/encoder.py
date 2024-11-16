@@ -114,7 +114,7 @@ def encode_video(params: InputParameters):
             frame_info_str = (
                 f"{frame_index:2}: {frame.prediction_mode} "
                 f" mae [{round(frame.avg_mae, 2):6.2f}] "
-                f"mv_extremes: [{mv_extremes[0]:2}, {mv_extremes[1]:2}] "
+                f"mv_extremes: [{mv_extremes[0]:3}, {mv_extremes[1]:2}] "
                 f" mae_comps [{round(frame.total_mae_comparisons, 2):7d}] "
                 f"psnr [{round(frame_psnr, 2):6.2f}], "
                 f"q_dct_range: [{dct_coffs_extremes[0]:4}, {dct_coffs_extremes[1]:3}] "
