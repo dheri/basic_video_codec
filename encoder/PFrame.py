@@ -93,7 +93,7 @@ class PFrame(Frame):
         if ec.fastME:
             return find_fast_me_block(curr_block, curr_block_cords, mvp, self.reference_frames, ec, 0)
         else:
-            return find_lowest_mae_block(curr_block, curr_block_cords, self.reference_frames, ec.block_size, ec.search_range)
+            return find_lowest_mae_block(curr_block, curr_block_cords, self.reference_frames, ec)
 
     def decode_mc_q_dct(self, frame_shape, encoder_config: EncoderConfig):
         return construct_frame_from_dct_and_mv(self.quantized_dct_residual_frame, self.reference_frames, self.mv_field,

@@ -59,8 +59,9 @@ def find_fast_me_block(curr_block, curr_block_cords, mvp, reference_frames, ec:E
     return find_fast_me_block(curr_block, origin, best_mv, reference_frames, ec, comparison_count)
 
 
-def find_lowest_mae_block(curr_block, curr_block_cords, reference_frames: deque, block_size, search_range):
+def find_lowest_mae_block(curr_block, curr_block_cords, reference_frames: deque, ec:EncoderConfig):
     origin = curr_block_cords
+    block_size, search_range = ec.block_size, ec.search_range
     height, width = reference_frames[0].shape
     if width < block_size or height < block_size:
         raise ValueError(f"width [{width}] or height [{height}] of given block  < block_size [{block_size}]")
@@ -71,14 +72,11 @@ def find_lowest_mae_block(curr_block, curr_block_cords, reference_frames: deque,
     for ref_frame_idx, reference_frame  in enumerate(reference_frames):
         for mv_y in range(-search_range, search_range+1):
             for mv_x in range(-search_range, search_range+1):
-                if is_out_of_range(mv_x, mv_y, origin, block_size, width, height):
+                try:
+                    ref_block = get_ref_block_at_mv(reference_frame, origin, mv_x, mv_y, ec.block_size)
+                except Exception as e:
                     continue
                 counter += 1
-                ref_block = reference_frame[
-                            origin[1]+ mv_y : origin[1] + mv_y + block_size,
-                            origin[0]+ mv_x : origin[0] + mv_x + block_size
-                            ]
-
                 error = mae(curr_block, ref_block)
 
                 # Update best match if a lower MAE is found, breaking ties as described
