@@ -1,42 +1,6 @@
 from collections import deque
 
-import numpy as np
-
-from common import mae, logger
-
-
-def intra_predict_block(curr_block, reconstructed_frame, x, y, block_size):
-    # Horizontal predictor
-    if x > 0:  # Not on the left border
-        left_samples = reconstructed_frame[y:y + block_size, x - 1]  # Left i-samples
-        horizontal_pred = np.tile(left_samples, (block_size, 1))  # Repeat left samples horizontally
-    else:
-        horizontal_pred = np.full((block_size, block_size), 128)  # Use value 128 for border
-
-    # Vertical predictor
-    if y > 0:  # Not on the top border
-        top_samples = reconstructed_frame[y - 1, x:x + block_size]  # Top i-samples
-        vertical_pred = np.tile(top_samples, (block_size, 1)).T  # Repeat top samples vertically
-    else:
-        vertical_pred = np.full((block_size, block_size), 128)  # Use value 128 for border
-
-    # Calculate MAE for both modes
-    mae_horizontal = np.mean(np.abs(curr_block - horizontal_pred))
-    mae_vertical = np.mean(np.abs(curr_block - vertical_pred))
-
-    # Select the mode with the lowest MAE
-    if mae_horizontal < mae_vertical:
-        return horizontal_pred, 0  # Horizontal mode (0)
-    else:
-        return vertical_pred, 1  # Vertical mode (1)
-
-
-def differential_encode_mode(current_mode, previous_mode):
-    return current_mode - previous_mode
-
-
-def differential_decode_mode(diff_mode, previous_mode):
-    return diff_mode + previous_mode
+from common import mae
 
 
 def predict_block(curr_block, curr_block_cords, reference_frames:deque, block_size, search_range):
