@@ -48,7 +48,7 @@ def encode_video(params: InputParameters):
         metrics_csv_writer = csv.writer(metrics_csv_fh)
         # Include QP, I_Period, and total bit size in the CSV header
         metrics_csv_writer.writerow(
-            ['idx', 'I Frame',  'avg_MAE', 'mae_comps' , 'PSNR', 'enc bytes'])
+            ['idx', 'I Frame',  'avg_MAE', 'mae_comps' , 'PSNR', 'frame bytes', 'file_bits'])
         frame_index = 0
         logger.info(
             f"[ i={params.encoder_config.block_size} r={params.encoder_config.search_range:3} q={params.encoder_config.quantization_factor}] , nRefFrames [{params.encoder_config.nRefFrames}]")
@@ -109,7 +109,7 @@ def encode_video(params: InputParameters):
                 round(frame.avg_mae, 2),
                 frame.total_mae_comparisons,
                 round(frame_psnr, 2),
-                encoded_frame_size])
+                encoded_frame_size, encoded_fh.tell()])
 
             frame_info_str = (
                 f"{frame_index:2}: {frame.prediction_mode} "
