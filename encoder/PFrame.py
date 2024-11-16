@@ -111,10 +111,10 @@ class PFrame(Frame):
             prev_partial_frame = ref_frame[prev_partial_frame_y_start_idx:prev_partial_frame_y_end_idx,
             prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
 
-            if False: 
-                prev_partial_frame = create_partial_frame_fractional(prev_partial_frame)
+            if True: 
+                prev_partial_frame = self.create_partial_frame_fractional(prev_partial_frame, block_size)
 
-            prev_partial_frames.append(prev_partial_frame, block_size)
+            prev_partial_frames.append(prev_partial_frame)
 
         best_mv_within_search_window, best_match_mae, best_match_block = predict_block(curr_block, prev_partial_frames,
                                                                                        block_size)
@@ -127,11 +127,11 @@ class PFrame(Frame):
 
         return motion_vector, best_match_mae
     
-    def create_partial_frame_fractional(prev_partial_frame, block_size):
+    def create_partial_frame_fractional(self, prev_partial_frame, block_size):
 
         height, width = prev_partial_frame.shape
-        num_blocks = (height * 2) + 1
-        matrix_size = num_blocks * block_size * 2
+        num_blocks = ((height-block_size) * 2) + 1
+        matrix_size = num_blocks * block_size
 
         fractional_frame = np.zeros((matrix_size, matrix_size))
 

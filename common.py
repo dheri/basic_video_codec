@@ -58,7 +58,7 @@ def find_mv_predicted_block(mv, x, y, reference_frames, block_size):
     pred_y = y + mv[1]
     pred_ref_frame_idx = mv[2]
     # logger.debug(f"pred_ref_frame_idx: {pred_ref_frame_idx}")
-    if False: 
+    if True: 
         predicted_block = find_predicted_fractional(mv, x, y, reference_frames, block_size)
     else:
         predicted_block = reference_frames[pred_ref_frame_idx][pred_y:pred_y + block_size, pred_x:pred_x + block_size]
@@ -76,10 +76,10 @@ def find_predicted_fractional(mv, x, y, reference_frames, block_size):
             # | AV2 | PB  | AV3 |
             # | FB2 | AV4 | FB4 |
             
-            frac_x_1 = x + ((mv[0]+1)/2)
-            frac_x_2 = x + ((mv[0]-1)/2)
-            frac_y_1 = y + ((mv[1]+1)/2)
-            frac_y_2 = y + ((mv[1]-1)/2)
+            frac_x_1 = int(x + ((mv[0]+1)/2))
+            frac_x_2 = int(x + ((mv[0]-1)/2))
+            frac_y_1 = int(y + ((mv[1]+1)/2))
+            frac_y_2 = int(y + ((mv[1]-1)/2))
 
             fractional_block_1 = reference_frames[pred_ref_frame_idx][frac_y_2:frac_y_2 + block_size, frac_x_2:frac_x_2 + block_size]
             fractional_block_2 = reference_frames[pred_ref_frame_idx][frac_y_1:frac_y_1 + block_size, frac_x_2:frac_x_2 + block_size]
@@ -95,9 +95,9 @@ def find_predicted_fractional(mv, x, y, reference_frames, block_size):
             predicted_block = (average_1 + average_2 + average_3 + average_4)/4
             return predicted_block
         
-        frac_x_1 = x + ((mv[0]+1)/2)
-        frac_x_2 = x + ((mv[0]-1)/2)
-        frac_y = y + ((mv[1])/2)
+        frac_x_1 = int(x + ((mv[0]+1)/2))
+        frac_x_2 = int(x + ((mv[0]-1)/2))
+        frac_y = int(y + ((mv[1])/2))
 
         fractional_block_1 = reference_frames[pred_ref_frame_idx][frac_y:frac_y + block_size, frac_x_1:frac_x_1 + block_size]
         fractional_block_2 = reference_frames[pred_ref_frame_idx][frac_y:frac_y + block_size, frac_x_2:frac_x_2 + block_size]
@@ -108,9 +108,9 @@ def find_predicted_fractional(mv, x, y, reference_frames, block_size):
     
     elif mv[1] % 2 != 0:
 
-        frac_y_1 = y + ((mv[1]+1)/2)
-        frac_y_2 = y + ((mv[1]-1)/2)
-        frac_x = x + ((mv[0])/2)
+        frac_y_1 = int(y + ((mv[1]+1)/2))
+        frac_y_2 = int(y + ((mv[1]-1)/2))
+        frac_x = int(x + ((mv[0])/2))
 
         fractional_block_1 = reference_frames[pred_ref_frame_idx][frac_y_1:frac_y_1 + block_size, frac_x:frac_x + block_size]
         fractional_block_2 = reference_frames[pred_ref_frame_idx][frac_y_2:frac_y_2 + block_size, frac_x:frac_x + block_size]
@@ -120,8 +120,8 @@ def find_predicted_fractional(mv, x, y, reference_frames, block_size):
         return predicted_block
     
     else:
-        frac_x = x + ((mv[0])/2)
-        frac_y = y + ((mv[1])/2)
+        frac_x = int(x + ((mv[0])/2))
+        frac_y = int(y + ((mv[1])/2))
 
         predicted_block = reference_frames[pred_ref_frame_idx][frac_y:frac_y + block_size, frac_x:frac_x + block_size]
 

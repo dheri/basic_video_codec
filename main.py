@@ -8,7 +8,7 @@ from input_parameters import InputParameters
 if __name__ == "__main__":
     encoder_parameters = EncoderConfig(
         block_size=8,
-        search_range=3,
+        search_range=1,
         quantization_factor=4,
         I_Period=99,
         nRefFrames= 1,
@@ -16,8 +16,8 @@ if __name__ == "__main__":
 
     input_params = InputParameters(
         y_only_file='data/synthetic.y',
-        width=32,
-        height=32,
+        width=352,
+        height=288,
         encoder_config=encoder_parameters,
         frames_to_process=2
     )
