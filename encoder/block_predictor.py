@@ -1,6 +1,8 @@
+from collections import deque
+
 import numpy as np
 
-from common import mae
+from common import mae, logger
 
 
 def intra_predict_block(curr_block, reconstructed_frame, x, y, block_size):
@@ -37,29 +39,37 @@ def differential_decode_mode(diff_mode, previous_mode):
     return diff_mode + previous_mode
 
 
-def predict_block(curr_block, prev_partial_frames:list, block_size):
-    return find_lowest_mae_block(curr_block, prev_partial_frames, block_size)
+def predict_block(curr_block, curr_block_cords, reference_frames:deque, block_size, search_range):
+    return find_lowest_mae_block(curr_block, curr_block_cords, reference_frames, block_size, search_range)
 
 
-def find_lowest_mae_block(curr_block, prev_partial_frames: list, block_size):
-    """Find the block with the lowest MAE from a smaller previous partial frame."""
-    height, width = prev_partial_frames[0].shape
+def find_lowest_mae_block(curr_block, curr_block_cords, reference_frames: deque, block_size, search_range):
+    orign = curr_block_cords
+    height, width = reference_frames[0].shape
     if width < block_size or height < block_size:
         raise ValueError(f"width [{width}] or height [{height}] of given block  < block_size [{block_size}]")
     min_mae = float('inf')
-    best_mv = [0, 0, 0]  # motion vector wrt origin of prev_partial_frame
-
-    # Loop through all possible positions in the previous partial frame
+    best_mv = [0, 0, 0]
     ref_block = None
-    for ref_frame_idx, prev_partial_frame  in enumerate(prev_partial_frames):
-        for ref_y in range(0, height - block_size + 1):
-            for ref_x in range(0, width - block_size + 1):
-                ref_block = prev_partial_frame[ref_y:ref_y + block_size, ref_x:ref_x + block_size]
+    counter = 0
+    for ref_frame_idx, reference_frame  in enumerate(reference_frames):
+        for mv_y in range(-search_range, search_range+1):
+            for mv_x in range(-search_range, search_range+1):
+                if is_out_of_range(mv_x, mv_y, orign, block_size, width, height):
+                    continue
+                counter += 1
+                ref_block = reference_frame[
+                            orign[1]+ mv_y : orign[1] + mv_y + block_size,
+                            orign[0]+ mv_x : orign[0] + mv_x + block_size
+                            ]
+
                 error = mae(curr_block, ref_block)
 
                 # Update best match if a lower MAE is found, breaking ties as described
-                if error < min_mae or (error == min_mae and abs(ref_x) + abs(ref_y) < abs(best_mv[0]) + abs(best_mv[1])):
+                if error < min_mae or (error == min_mae and abs(mv_x) + abs(mv_y) < abs(best_mv[0]) + abs(best_mv[1])):
                     min_mae = error
-                    best_mv = [ref_x, ref_y, ref_frame_idx]  # (dx, dy)
-
+                    best_mv = [mv_x, mv_y, ref_frame_idx]  # (dx, dy)
     return best_mv, min_mae, ref_block
+
+def is_out_of_range(mv_x, mv_y, orign, block_size, width, height):
+    return orign[0] + mv_x < 0 or orign[1] + mv_y < 0 or orign[0] + mv_x + block_size > width or orign[1] + mv_y + block_size > height

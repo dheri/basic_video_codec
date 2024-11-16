@@ -71,8 +71,7 @@ class PFrame(Frame):
         prev_block = self.reference_frames[0][y:y + block_size, x:x + block_size].astype(np.int16)
 
         # Get motion vector and MAE
-        motion_vector, best_match_mae = self.get_motion_vector(curr_block, x, y, block_size, search_range, width,
-                                                               height)
+        motion_vector, best_match_mae = self.get_motion_vector(curr_block, x, y, block_size, search_range)
         mv_field[(x, y)] = motion_vector
 
         # Generate residual and predicted block
@@ -90,27 +89,9 @@ class PFrame(Frame):
         return EncodedPBlock((x, y), motion_vector, best_match_mae, quantized_dct_coffs, idct_residual_block,
                              residual_block_wo_mc, clipped_reconstructed_block)
 
-    def get_motion_vector(self, curr_block, x, y, block_size, search_range, width, height):
-        prev_partial_frame_x_start_idx = max(x - search_range, 0)
-        prev_partial_frame_x_end_idx = min(x + block_size + search_range, width)
-        prev_partial_frame_y_start_idx = max(y - search_range, 0)
-        prev_partial_frame_y_end_idx = min(y + block_size + search_range, height)
-        prev_partial_frames = list()
-        for ref_frame in self.reference_frames:
-            prev_partial_frame = ref_frame[prev_partial_frame_y_start_idx:prev_partial_frame_y_end_idx,
-            prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
-            prev_partial_frames.append(prev_partial_frame)
-
-        best_mv_within_search_window, best_match_mae, best_match_block = predict_block(curr_block, prev_partial_frames,
-                                                                                       block_size)
-
-        motion_vector = [best_mv_within_search_window[0] + prev_partial_frame_x_start_idx - x,
-                         best_mv_within_search_window[1] + prev_partial_frame_y_start_idx - y,
-                         best_mv_within_search_window[2]
-                         ]
-
-
-        return motion_vector, best_match_mae
+    def get_motion_vector(self, curr_block, x, y, block_size, search_range):
+        mv, best_match_mae, best_match_block = predict_block(curr_block, (x,y), self.reference_frames,block_size, search_range)
+        return mv, best_match_mae
 
     def decode_mc_q_dct(self, frame_shape, encoder_config: EncoderConfig):
         return construct_frame_from_dct_and_mv(self.quantized_dct_residual_frame, self.reference_frames, self.mv_field,
