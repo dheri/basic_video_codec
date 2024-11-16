@@ -73,6 +73,7 @@ class PFrame(Frame):
         self.reconstructed_frame = reconstructed_frame_with_mc
         return self
 
+    """
     def process_block(self, x, y, block_size, search_range, quantization_factor, width, height,
                       mv_field) -> EncodedPBlock:
         curr_block = self.curr_frame[y:y + block_size, x:x + block_size].astype(np.int16)
@@ -98,7 +99,82 @@ class PFrame(Frame):
 
         return EncodedPBlock((x, y), motion_vector, best_match_mae, quantized_dct_coffs, idct_residual_block,
                              residual_block_wo_mc, clipped_reconstructed_block)
+    """
 
+    def process_block(self, x, y, block_size, search_range, quantization_factor, width, height,
+                      mv_field, encoder_config: EncoderConfig) -> EncodedPBlock:
+        curr_block = self.curr_frame[y:y + block_size, x:x + block_size].astype(np.int16)
+        prev_block = self.reference_frames[0][y:y + block_size, x:x + block_size].astype(np.int16)
+
+        # VBS: Check split vs. non-split modes if enabled
+        if encoder_config.VBSEnable:  # Added VBS logic
+            # Full block
+            full_mv, full_mae = self.get_motion_vector(curr_block, x, y, block_size, search_range, width, height)
+            full_predicted_block, full_residual_block = generate_residual_block(
+                curr_block, self.reference_frames, full_mv, x, y, block_size
+            )
+            full_quantized_dct, Q = apply_dct_and_quantization(full_residual_block, block_size, quantization_factor)
+            full_rd_cost = full_mae + encoder_config.lambda_value * np.sum(np.abs(full_quantized_dct))
+
+            # Split block
+            split_rd_cost = 0
+            split_data = []
+            sub_block_size = block_size // 2
+            for sub_y in [y, y + sub_block_size]:
+                for sub_x in [x, x + sub_block_size]:
+                    sub_block = self.curr_frame[sub_y:sub_y + sub_block_size, sub_x:sub_x + sub_block_size]
+                    sub_mv, sub_mae = self.get_motion_vector(
+                        sub_block, sub_x, sub_y, sub_block_size, search_range, width, height
+                    )
+                    sub_predicted_block, sub_residual_block = generate_residual_block(
+                        sub_block, self.reference_frames, sub_mv, sub_x, sub_y, sub_block_size
+                    )
+                    sub_quantized_dct, _ = apply_dct_and_quantization(
+                        sub_residual_block, sub_block_size, quantization_factor
+                    )
+                    split_rd_cost += sub_mae + encoder_config.lambda_value * np.sum(np.abs(sub_quantized_dct))
+                    split_data.append({
+                        "coords": (sub_x, sub_y),
+                        "mv": sub_mv,
+                        "mae": sub_mae,
+                        "quantized_dct_coffs": sub_quantized_dct,
+                        "residual": sub_residual_block,
+                        "predicted_block": sub_predicted_block,
+                    })
+
+            # Choose between split and non-split
+            if split_rd_cost < full_rd_cost:
+                for sub in split_data:
+                    sub_x, sub_y = sub["coords"]
+                    mv_field[(sub_x, sub_y)] = sub["mv"]
+                return EncodedPBlock(
+                    (x, y), None, split_rd_cost, None, None, None, None, split=True, sub_blocks=split_data
+                )
+            else:
+                mv_field[(x, y)] = full_mv
+                return EncodedPBlock(
+                    (x, y), full_mv, full_mae, full_quantized_dct, None, full_residual_block, full_predicted_block,
+                    split=False
+                )
+
+        # Standard processing if VBS is disabled
+        motion_vector, best_match_mae = self.get_motion_vector(
+            curr_block, x, y, block_size, search_range, width, height
+        )
+        mv_field[(x, y)] = motion_vector
+
+        predicted_block_with_mc, residual_block_with_mc = generate_residual_block(
+            curr_block, self.reference_frames, motion_vector, x, y, block_size
+        )
+        residual_block_wo_mc = np.subtract(curr_block, prev_block)
+        quantized_dct_coffs, Q = apply_dct_and_quantization(residual_block_with_mc, block_size, quantization_factor)
+        clipped_reconstructed_block, idct_residual_block = reconstruct_block(
+            quantized_dct_coffs, Q, predicted_block_with_mc
+        )
+
+        return EncodedPBlock((x, y), motion_vector, best_match_mae, quantized_dct_coffs, idct_residual_block,
+                             residual_block_wo_mc, clipped_reconstructed_block)
+    """
     def get_motion_vector(self, curr_block, x, y, block_size, search_range, width, height):
         prev_partial_frame_x_start_idx = max(x - search_range, 0)
         prev_partial_frame_x_end_idx = min(x + block_size + search_range, width)
@@ -118,6 +194,27 @@ class PFrame(Frame):
                          best_mv_within_search_window[2]
                          ]
 
+
+        return motion_vector, best_match_mae
+    """
+
+    def get_motion_vector(self, curr_block, x, y, block_size, search_range, width, height):
+        prev_partial_frame_x_start_idx = max(x - search_range, 0)
+        prev_partial_frame_x_end_idx = min(x + block_size + search_range, width)
+        prev_partial_frame_y_start_idx = max(y - search_range, 0)
+        prev_partial_frame_y_end_idx = min(y + block_size + search_range, height)
+        prev_partial_frames = list()
+        for ref_frame in self.reference_frames:
+            prev_partial_frame = ref_frame[prev_partial_frame_y_start_idx:prev_partial_frame_y_end_idx,
+                                            prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
+            prev_partial_frames.append(prev_partial_frame)
+
+        best_mv_within_search_window, best_match_mae, best_match_block = predict_block(curr_block, prev_partial_frames,
+                                                                                       block_size)
+
+        motion_vector = [best_mv_within_search_window[0] + prev_partial_frame_x_start_idx - x,
+                         best_mv_within_search_window[1] + prev_partial_frame_y_start_idx - y,
+                         best_mv_within_search_window[2]]
 
         return motion_vector, best_match_mae
 

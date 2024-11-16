@@ -12,6 +12,8 @@ if __name__ == "__main__":
         quantization_factor=4,
         I_Period=99,
         nRefFrames= 4,
+        VBSEnable = True  # New flag for variable block size encoding
+
     )
 
     input_params = InputParameters(

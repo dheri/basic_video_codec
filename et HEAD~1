@@ -1,0 +1,289 @@
+[33mcommit e5ddc6a44022f6ba231720bb3ee9716bd083cfc2[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: aditya <adityasrichandan3098@gmail.com>
+Date:   Sat Nov 16 17:04:04 2024 -0500
+
+    enable variable block.. need testing
+
+[33mcommit c1e17a402ed11e6e2e23f5a052516765f635eb87[m[33m ([m[1;31morigin/assign2[m[33m, [m[1;32massign_2-part2[m[33m, [m[1;32massign2-part2[m[33m)[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Mon Nov 11 20:36:17 2024 -0500
+
+    cleanup unneeded code
+
+[33mcommit 19acf181bdeeccb592bce4bce7f61f8885030272[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Mon Nov 11 20:29:14 2024 -0500
+
+    fix minor bug after rebase
+
+[33mcommit 05c1a308474f08c8475afa71dce64b0781b08989[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Mon Nov 11 02:08:57 2024 -0500
+
+    deque maxlen
+
+[33mcommit 9319597810e33d66bd2ea8959c6179b754d326a8[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Mon Nov 11 01:57:14 2024 -0500
+
+    decoder working but inroduces error on new ref frames
+
+[33mcommit 45000b66d4d6316e877907c8bd7f64463b924d1f[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Mon Nov 11 00:20:52 2024 -0500
+
+    reference_frames encoding seems to work
+
+[33mcommit 02a0a903c5ce82d0c3fcd8f1d605cba27950779f[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Mon Nov 11 20:12:01 2024 -0500
+
+    needed to sort mv_field before adding to self
+
+[33mcommit fcccba5af63cb98ba0e5de00b5bff36585eaa14a[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Mon Nov 11 15:03:07 2024 -0500
+
+    log start of block addresses in file
+
+[33mcommit fa314d326152e661fec4c2fa027e1093d821f212[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Mon Nov 11 15:02:34 2024 -0500
+
+    write mv in text file for debuging
+
+[33mcommit 6616145d726cadb6f675ebbfe35607075693d2e5[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sun Nov 10 21:42:49 2024 -0500
+
+    assing 2 - part 1 starter
+
+[33mcommit 6ea68419fd56672ff72b7e4ac96e2deca912c446[m
+Merge: 8806a80 0c27697
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sun Nov 10 21:06:43 2024 -0500
+
+    Merge pull request #7 from ECE1783/a1-cleanup
+    
+    Assign 1 complete
+
+[33mcommit 0c27697cb933892ccc4534a2815f3bb9d649ac64[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sun Nov 10 21:05:10 2024 -0500
+
+    missed import
+
+[33mcommit 63d77b0f801e902bedcb116eced45f298104fc0a[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sun Nov 10 21:03:20 2024 -0500
+
+    assign 1 dir
+
+[33mcommit 9a0c96481923973cf2fe7d557913138d2ca0ea3a[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sun Nov 10 21:00:03 2024 -0500
+
+    code cleanup
+
+[33mcommit 8b25b6d2659bd99fa81658035e66d165080b3fb0[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sun Nov 10 20:55:42 2024 -0500
+
+    organize imports
+
+[33mcommit 284bd7f0b5dcb134452c2e8edfd75c63d29be8b1[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sun Nov 10 20:51:00 2024 -0500
+
+    refactor and cleanup
+
+[33mcommit 100cdc49a30251d724c403adf562bdbd660c12d0[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sun Nov 10 20:43:56 2024 -0500
+
+    pretty confident with this
+
+[33mcommit d1ec5f03bd4aaf544b66dc0cb19e9dc8cc46dd4d[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sun Nov 10 19:59:51 2024 -0500
+
+    i frame fixed
+
+[33mcommit c0d7320b0bbd2ef1d45e960a9d506aefef0df025[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sun Nov 10 19:04:19 2024 -0500
+
+    looging cleanup
+
+[33mcommit bae659143cd0e36c379abcb6054a1057c4171bec[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sun Nov 10 18:46:48 2024 -0500
+
+    p frame decode  properly, Iframe dont
+
+[33mcommit 08026f80beba630e310086b3470cc01b5840a911[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sun Nov 10 17:57:26 2024 -0500
+
+    fixed order of Exp-Golm, rle, zigzag decode
+
+[33mcommit 5114e4d0374119c177665e7255b12b96cba80e94[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sun Nov 10 16:39:01 2024 -0500
+
+    fizing EOB marker for dcts
+
+[33mcommit a176d70bb43ef428adb2d677e535c9af46aab1e7[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sat Nov 9 23:37:44 2024 -0500
+
+    enc works
+
+[33mcommit 9701e97176951b0ac0c1adb19c3962f6f3bc8b30[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sat Nov 9 23:15:49 2024 -0500
+
+    gonna debug Exponential-Golomb
+
+[33mcommit 3b0b7519e2e0e0417d4c61c40e3a1b260f892193[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sat Nov 9 21:10:50 2024 -0500
+
+    entropy encoding
+
+[33mcommit 07dcc6c7b979fa33ef0836f0dc306718d5705eca[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sat Nov 9 16:04:17 2024 -0500
+
+    still cleaning up
+
+[33mcommit 15c14441a3c2a01738721f509779a3ab43356942[m
+Author: aditya <adityasrichandan3098@gmail.com>
+Date:   Sun Oct 27 23:42:30 2024 -0400
+
+    all done
+
+[33mcommit fd6215d60a65305eab0b281e86fa315588ad6c97[m
+Author: aditya <adityasrichandan3098@gmail.com>
+Date:   Sun Oct 27 21:01:48 2024 -0400
+
+    encode entorpy check
+
+[33mcommit 1ad247918ee2010e0a5d9f71d2dc42f9f50c0ec3[m
+Author: aditya <adityasrichandan3098@gmail.com>
+Date:   Sun Oct 27 14:25:02 2024 -0400
+
+    ex4_plots.csv
+
+[33mcommit 7260385771300f79b035c1eb06fdacf42098d6ff[m
+Author: aditya <adityasrichandan3098@gmail.com>
+Date:   Sun Oct 27 14:01:01 2024 -0400
+
+    ex4 plots
+
+[33mcommit 293d582eb336ddaa993484adf07602a89674fb06[m
+Author: aditya <adityasrichandan3098@gmail.com>
+Date:   Sun Oct 27 09:52:22 2024 -0400
+
+    decode/encode entropy check!
+
+[33mcommit e56638d54643547680e3f2324e10172cd2cc14a9[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sat Nov 9 13:56:19 2024 -0500
+
+    git ignore
+
+[33mcommit 0a8a748b944afee4e8c3090900398dacb5fcdd5e[m[33m ([m[1;33mtag: last-commit[m[33m)[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sat Oct 26 17:01:08 2024 -0400
+
+    residula are back
+
+[33mcommit 86632f24881eb7c5744f5ce13e2d2bb57e9867aa[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sat Oct 26 16:49:31 2024 -0400
+
+    i frame work but buggy
+
+[33mcommit 6a5bb513698166b73761c35b36b7273d41446077[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sat Oct 26 16:01:51 2024 -0400
+
+    p fframes work with bit_stream
+
+[33mcommit f91ede3a8bfe499e125ca71811741b2ffd00e1de[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sat Oct 26 00:17:11 2024 -0400
+
+    some tests are workijng
+
+[33mcommit d70d6527de7d2a6d1f9d306f5880cf890fd66f4e[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Fri Oct 25 19:49:59 2024 -0400
+
+    bit stream buffer working
+
+[33mcommit 1b90b987e514ddcaa42fbdc64a43576a798bd4e2[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Fri Oct 25 17:32:09 2024 -0400
+
+    mismathc of w,h
+
+[33mcommit 8ff9b7590fb3ac3b68dc78a12c78232c532d11ca[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Fri Oct 25 15:16:40 2024 -0400
+
+    lets get bit_stream working for  p_frames
+
+[33mcommit 1d59876d79a38130b1a549b189c2ef19939ebb7b[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Fri Oct 25 13:02:27 2024 -0400
+
+    it is messy
+
+[33mcommit 205d960fdfb8b4be6a083cff5f0276c64ea161a7[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Fri Oct 25 00:01:38 2024 -0400
+
+    writing encoded bin
+
+[33mcommit 7195d18bc0378216436202f654225f54dfc4321e[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Mon Oct 21 02:43:23 2024 -0400
+
+    bits
+
+[33mcommit 006ab9b8ca0d9b3984d473bf7bea363073d899e6[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sun Oct 20 23:25:05 2024 -0400
+
+    fix tests
+
+[33mcommit 0ad54abb9497e713b986cceb209b6b8950238a65[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sun Oct 20 22:13:42 2024 -0400
+
+    [fix] added back missing file writer
+
+[33mcommit b5467a6e65ee3038e9b9ead1bb7b5595dfbb4dcb[m
+Author: Parteek Dheri <git@dheri.ca>
+Date:   Sun Oct 20 21:59:52 2024 -0400
+
+    Frame, encode deocde is now OOP
+
+[33mcommit 8806a80b69db98f1a5d8527842e689dbc400642a[m
+Merge: 4b9924d 53d9007
+Author: Aditya Srichandan <47297221+aditya-167@users.noreply.github.com>
+Date:   Sun Oct 20 19:15:36 2024 -0400
+
+    Merge pull request #6 from ECE1783/ex4-wip
+    
+    Ex4 wip
+
+[33mcommit 53d9007f2771fb2e0b50655cb44df4792cb5010e[m
+Author: aditya <adityasrichandan3098@gmail.com>
+Date:   Sun Oct 20 19:11:03 2024 -0400
+
+    ex4 golomb encoding
+
+[33mcommit 53bcefd78dbb00db38c4ce2ec4c646873ebf1bb0[m[33m ([m[1;33mtag: e4a-com

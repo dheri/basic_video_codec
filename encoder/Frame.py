@@ -44,7 +44,7 @@ class Frame:
 
     def entropy_decode_prediction_data(self, enc, params: InputParameters):
         raise NotImplementedError(f"{type(self)} need to be overridden")
-
+    """
     def entropy_encode_dct_coffs(self, block_size):
         self.entropy_encoded_DCT_coffs = bitarray()
 
@@ -57,7 +57,30 @@ class Frame:
                 self.entropy_encoded_DCT_coffs.extend(enc)
             self.entropy_encoded_DCT_coffs.extend(exp_golomb_encode(Frame.EOB_MARKER))
         # logger.info(f" entropy_encoded_DCT_coffs  len : {len(self.entropy_encoded_DCT_coffs)}, {len(self.entropy_encoded_DCT_coffs) // 8}")
+    """
+    def entropy_encode_dct_coffs(self, block_size):
+        self.entropy_encoded_DCT_coffs = bitarray()
 
+        # Process for Variable Block Sizes (VBS)
+        if self.block_sizes:  # NEW: Handle VBS
+            for block_size, blocks in zip(self.block_sizes, split_into_blocks(self.quantized_dct_residual_frame, block_size)):
+                for block in blocks:
+                    zigzag_dct_coffs = zigzag_order(block)
+                    rle = rle_encode(zigzag_dct_coffs)
+                    for symbol in rle:
+                        enc = exp_golomb_encode(symbol)
+                        self.entropy_encoded_DCT_coffs.extend(enc)
+                    self.entropy_encoded_DCT_coffs.extend(exp_golomb_encode(Frame.EOB_MARKER))
+        else:  # Fall back to fixed block size
+            blocks = split_into_blocks(self.quantized_dct_residual_frame, block_size)
+            for block in blocks:
+                zigzag_dct_coffs = zigzag_order(block)
+                rle = rle_encode(zigzag_dct_coffs)
+                for symbol in rle:
+                    enc = exp_golomb_encode(symbol)
+                    self.entropy_encoded_DCT_coffs.extend(enc)
+                self.entropy_encoded_DCT_coffs.extend(exp_golomb_encode(Frame.EOB_MARKER))
+    """
     def entropy_decode_dct_coffs(self, params: InputParameters):
         block_size = params.encoder_config.block_size
         rle_blocks = []
@@ -88,7 +111,37 @@ class Frame:
         self.quantized_dct_residual_frame = merge_blocks(decoded_blocks, block_size, (params.height, params.width))
 
         return self.quantized_dct_residual_frame
+    """
+    def entropy_decode_dct_coffs(self, params: InputParameters):
+        rle_blocks = []
+        decoded_blocks = []
+        bit_array = bitarray()
+        bit_array.frombytes(self.entropy_encoded_DCT_coffs)
 
+        rle_decoded = []
+
+        # Step 1: Decode the Exponential-Golomb encoded symbols to construct RLE blocks
+        while bit_array:
+            symbol, bit_array = exp_golomb_decode(bit_array)
+            if symbol == Frame.EOB_MARKER:
+                rle_blocks.append(rle_decoded)
+                rle_decoded = []  # Reset for the next block
+                continue
+            rle_decoded.append(symbol)
+
+        # Step 2: Apply RLE decoding to reconstruct the zigzag order of coefficients
+        block_sizes = self.block_sizes or [params.encoder_config.block_size]  # NEW: Use block sizes for VBS
+        for block_size, rle_block in zip(block_sizes, rle_blocks):
+            decoded_coffs = rle_decode(rle_block)
+            pad_with_zeros(decoded_coffs, block_size ** 2)
+            block = inverse_zigzag_order(decoded_coffs, block_size)
+            decoded_blocks.append(block)
+
+        # Step 4: Reconstruct the frame from the blocks
+        self.quantized_dct_residual_frame = merge_blocks(decoded_blocks, block_sizes, (params.height, params.width))
+
+        return self.quantized_dct_residual_frame
+    
     def write_metrics_data(self, metrics_csv_writer, frame_index, encoder_config: EncoderConfig):
         psnr = peak_signal_noise_ratio(self.curr_frame, self.reconstructed_frame)
         dct_coffs_extremes = self.get_quat_dct_coffs_extremes()

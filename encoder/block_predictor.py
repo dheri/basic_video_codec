@@ -63,3 +63,66 @@ def find_lowest_mae_block(curr_block, prev_partial_frames: list, block_size):
                     best_mv = [ref_x, ref_y, ref_frame_idx]  # (dx, dy)
 
     return best_mv, min_mae, ref_block
+
+
+def compute_rd_cost(residual_block, quantized_dct_coffs, block_size, lambda_value):
+    """
+    Compute RD cost for a given block.
+    RD cost = Distortion + lambda * Rate
+    """
+    # Distortion using Sum of Absolute Differences (SAD)
+    distortion = np.sum(np.abs(residual_block))
+    # Rate approximation using quantized coefficients
+    rate = np.sum(np.abs(quantized_dct_coffs) > 0)  # Count of non-zero coefficients
+    # RD cost
+    rd_cost = distortion + lambda_value * rate
+    return rd_cost
+
+def process_block_vbs(curr_block, reconstructed_frame, x, y, block_size, quantization_factor, lambda_value, dct_fn):
+    """
+    Process a block and decide whether to split into smaller blocks or encode as a larger block.
+    """
+    # Encode as a single block
+    predicted_block, mode, mae = intra_predict_block(curr_block, reconstructed_frame, x, y, block_size)
+    residual_block = curr_block - predicted_block
+    quantized_dct_coffs = dct_fn(residual_block, block_size, quantization_factor)
+    rd_cost_large = compute_rd_cost(residual_block, quantized_dct_coffs, block_size, lambda_value)
+
+    # Split into 4 sub-blocks and calculate RD cost
+    sub_block_size = block_size // 2
+    sub_blocks = []
+    rd_cost_small = 0
+    for sub_y in range(2):
+        for sub_x in range(2):
+            sub_x_start = x + sub_x * sub_block_size
+            sub_y_start = y + sub_y * sub_block_size
+            curr_sub_block = curr_block[sub_y_start - y:sub_y_start - y + sub_block_size,
+                                        sub_x_start - x:sub_x_start - x + sub_block_size]
+            predicted_sub_block, sub_mode, sub_mae = intra_predict_block(
+                curr_sub_block, reconstructed_frame, sub_x_start, sub_y_start, sub_block_size)
+            residual_sub_block = curr_sub_block - predicted_sub_block
+            quantized_sub_dct_coffs = dct_fn(residual_sub_block, sub_block_size, quantization_factor)
+            rd_cost_small += compute_rd_cost(residual_sub_block, quantized_sub_dct_coffs, sub_block_size, lambda_value)
+            sub_blocks.append({
+                "coords": (sub_x_start, sub_y_start),
+                "mode": sub_mode,
+                "mae": sub_mae,
+                "quantized_dct_coffs": quantized_sub_dct_coffs,
+                "residual": residual_sub_block,
+                "predicted_block": predicted_sub_block
+            })
+
+    # Decide based on RD costs
+    if rd_cost_large <= rd_cost_small:
+        return {
+            "split": False,
+            "mode": mode,
+            "mae": mae,
+            "quantized_dct_coffs": quantized_dct_coffs,
+            "residual": residual_block,
+            "predicted_block": predicted_block
+        }
+    else:
+        return {"split": True, "sub_blocks": sub_blocks}
+
+

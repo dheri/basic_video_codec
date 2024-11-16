@@ -7,6 +7,7 @@ from encoder.PredictionMode import PredictionMode
 from encoder.dct import generate_quantization_matrix, rescale_block, apply_idct_2d
 from encoder.entropy_encoder import exp_golomb_encode, exp_golomb_decode
 from encoder.params import EncoderConfig, EncodedIBlock
+from encoder.block_predictor import *
 
 logger = get_logger()
 
@@ -21,13 +22,14 @@ class IFrame(Frame):
         curr_frame = self.curr_frame
         block_size = encoder_config.block_size
         height, width = curr_frame.shape
+        lambda_value = 0.1 * encoder_config.quantization_factor  # Example lambda-QP relation
 
         mae_of_blocks = 0
         intra_modes = []  # To store the intra prediction modes (0 for horizontal, 1 for vertical)
         reconstructed_frame = np.zeros_like(curr_frame)
         residual_w_mc_frame = np.zeros_like(curr_frame)
         quantized_dct_residual_frame = np.zeros_like(curr_frame, dtype=np.int16)
-
+        """
         # Loop through each block in the frame
         for y in range(0, height, block_size):
             for x in range(0, width, block_size):
@@ -47,6 +49,49 @@ class IFrame(Frame):
                 x:x + block_size] = encoded_block.quantized_dct_coffs  # quantized_dct_residual_block
                 residual_w_mc_frame[y:y + block_size,
                 x:x + block_size] = encoded_block.residual_block_wo_mc  # residual_block
+        """
+ # Loop through each block in the frame
+        for y in range(0, height, block_size):
+            for x in range(0, width, block_size):
+                curr_block = curr_frame[y:y + block_size, x:x + block_size]
+
+                if encoder_config.VBSEnable:
+                    # Use VBS logic if enabled
+                    encoded_data = process_block_vbs(
+                        curr_block, reconstructed_frame, x, y, block_size,
+                        encoder_config.quantization_factor, lambda_value, apply_dct_and_quantization
+                    )
+
+                    if encoded_data["split"]:
+                        # Process sub-blocks
+                        for sub_block in encoded_data["sub_blocks"]:
+                            sub_x, sub_y = sub_block["coords"]
+                            sub_size = block_size // 2
+                            intra_modes.append(sub_block["mode"])
+                            mae_of_blocks += sub_block["mae"]
+                            reconstructed_frame[sub_y:sub_y + sub_size, sub_x:sub_x + sub_size] = sub_block["predicted_block"]
+                            quantized_dct_residual_frame[sub_y:sub_y + sub_size, sub_x:sub_x + sub_size] = sub_block[
+                                "quantized_dct_coffs"]
+                            residual_w_mc_frame[sub_y:sub_y + sub_size, sub_x:sub_x + sub_size] = sub_block["residual"]
+                    else:
+                        # Process as a single block
+                        intra_modes.append(encoded_data["mode"])
+                        mae_of_blocks += encoded_data["mae"]
+                        reconstructed_frame[y:y + block_size, x:x + block_size] = encoded_data["predicted_block"]
+                        quantized_dct_residual_frame[y:y + block_size, x:x + block_size] = encoded_data[
+                            "quantized_dct_coffs"]
+                        residual_w_mc_frame[y:y + block_size, x:x + block_size] = encoded_data["residual"]
+
+                else:
+                    # Standard processing without VBS
+                    encoded_block = process_block(
+                        curr_block, reconstructed_frame, x, y, block_size, encoder_config.quantization_factor
+                    )
+                    intra_modes.append(encoded_block.mode)
+                    mae_of_blocks += encoded_block.mae
+                    reconstructed_frame[y:y + block_size, x:x + block_size] = encoded_block.reconstructed_block
+                    quantized_dct_residual_frame[y:y + block_size, x:x + block_size] = encoded_block.quantized_dct_coffs
+                    residual_w_mc_frame[y:y + block_size, x:x + block_size] = encoded_block.residual_block_wo_mc
 
         avg_mae = mae_of_blocks / ((height // block_size) * (width // block_size))
         self.reconstructed_frame = reconstructed_frame

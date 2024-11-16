@@ -2,7 +2,7 @@ import math
 
 
 class EncoderConfig:
-    def __init__(self, block_size, search_range, I_Period, quantization_factor, nRefFrames=1):
+    def __init__(self, block_size, search_range, I_Period, quantization_factor, nRefFrames=1, VBSEnable= False):
         validate_qp(block_size, quantization_factor)
         self.block_size = block_size
         self.search_range = search_range
@@ -10,6 +10,7 @@ class EncoderConfig:
         self.I_Period = I_Period
         self.residual_approx_factor = 0
         self.nRefFrames = nRefFrames
+        self.VBSEnable = VBSEnable 
 
 
 def validate_qp(i, qp):
