@@ -116,17 +116,20 @@ class PFrame(Frame):
         return construct_frame_from_dct_and_mv(self.quantized_dct_residual_frame, self.reference_frames, self.mv_field,
                                                encoder_config)
 
-    def entropy_encode_prediction_data(self):
+    def entropy_encode_prediction_data(self, encoder_config:EncoderConfig):
         self.entropy_encoded_prediction_data = bitarray()
         for key, mv in self.mv_field.items():
             enc_mv_x = exp_golomb_encode(mv[0])
             self.entropy_encoded_prediction_data.extend(enc_mv_x)
             enc_mv_y = exp_golomb_encode(mv[1])
             self.entropy_encoded_prediction_data.extend(enc_mv_y)
-            enc_mv_ref_frame_idx = exp_golomb_encode(mv[2])
-            self.entropy_encoded_prediction_data.extend(enc_mv_ref_frame_idx)
-            logger.debug(f" {key} : {mv} -> [{enc_mv_x.to01()} {enc_mv_y.to01()} {enc_mv_ref_frame_idx.to01()}]")
-            
+            if encoder_config.nRefFrames>1:
+                enc_mv_ref_frame_idx = exp_golomb_encode(mv[2])
+                self.entropy_encoded_prediction_data.extend(enc_mv_ref_frame_idx)
+                logger.debug(f" {key} : {mv} -> [{enc_mv_x.to01()} {enc_mv_y.to01()} {enc_mv_ref_frame_idx.to01()}]")
+            else:
+                logger.debug(f" {key} : {mv} -> [{enc_mv_x.to01()} {enc_mv_y.to01()}]")
+
         # logger.info(f" entropy_encoded_prediction_data  len : {len(self.entropy_encoded_prediction_data)}, {len(self.entropy_encoded_prediction_data) // 8}")
 
     def entropy_decode_prediction_data(self, enc, params: InputParameters):
@@ -151,7 +154,10 @@ class PFrame(Frame):
                     logger.debug(f"bitstream empty, breaking.")
                     break
                 mv_y, bitstream = exp_golomb_decode(bitstream)
-                mv_ref_frame_idx, bitstream = exp_golomb_decode(bitstream)
+                if params.encoder_config.nRefFrames > 1 :
+                    mv_ref_frame_idx, bitstream = exp_golomb_decode(bitstream)
+                else:
+                    mv_ref_frame_idx = 0
 
                 # Calculate the pixel coordinates (column_index, row_index) for the block's top-left corner
                 row_index = (index // (width_ // block_size_)) * block_size_  # Y-coordinate

@@ -83,7 +83,7 @@ class IFrame(Frame):
         self.curr_frame = reconstructed_frame
         return reconstructed_frame  # This should be the reconstructed frame
 
-    def entropy_encode_prediction_data(self):
+    def entropy_encode_prediction_data(self, encoder_config:EncoderConfig):
         self.entropy_encoded_prediction_data = bitarray()
         # logger.info(self.intra_modes)
         for m in self.intra_modes:

@@ -39,7 +39,7 @@ class Frame:
     def decode_mc_q_dct(self, frame_shape, encoder_config: EncoderConfig):
         raise NotImplementedError(f"{type(self)} need to be overridden")
 
-    def entropy_encode_prediction_data(self):
+    def entropy_encode_prediction_data(self, encoder_config:EncoderConfig):
         raise NotImplementedError(f"{type(self)} need to be overridden")
 
     def entropy_decode_prediction_data(self, enc, params: InputParameters):
