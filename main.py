@@ -11,15 +11,15 @@ if __name__ == "__main__":
         search_range=3,
         quantization_factor=4,
         I_Period=99,
-        nRefFrames= 4,
+        nRefFrames= 1,
     )
 
     input_params = InputParameters(
         y_only_file='data/synthetic.y',
-        width=352,
-        height=288,
+        width=32,
+        height=32,
         encoder_config=encoder_parameters,
-        frames_to_process=30
+        frames_to_process=2
     )
 
     assign1.ex2.save_y_frames_to_file(input_params)

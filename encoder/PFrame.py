@@ -39,6 +39,8 @@ class PFrame(Frame):
         residual_frame_with_mc = np.zeros_like(self.curr_frame, dtype=np.int8)
         residual_frame_wo_mc = np.zeros_like(self.curr_frame, dtype=np.int8)
         quat_dct_coffs_frame_with_mc = np.zeros_like(self.curr_frame, dtype=np.int16)
+        
+        np.savetxt('fullFrame.txt', self.curr_frame, fmt='%d')
 
         # Process blocks in parallel
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
@@ -108,7 +110,11 @@ class PFrame(Frame):
         for ref_frame in self.reference_frames:
             prev_partial_frame = ref_frame[prev_partial_frame_y_start_idx:prev_partial_frame_y_end_idx,
             prev_partial_frame_x_start_idx:prev_partial_frame_x_end_idx]
-            prev_partial_frames.append(prev_partial_frame)
+
+            if False: 
+                prev_partial_frame = create_partial_frame_fractional(prev_partial_frame)
+
+            prev_partial_frames.append(prev_partial_frame, block_size)
 
         best_mv_within_search_window, best_match_mae, best_match_block = predict_block(curr_block, prev_partial_frames,
                                                                                        block_size)
@@ -120,6 +126,66 @@ class PFrame(Frame):
 
 
         return motion_vector, best_match_mae
+    
+    def create_partial_frame_fractional(prev_partial_frame, block_size):
+
+        height, width = prev_partial_frame.shape
+        num_blocks = (height * 2) + 1
+        matrix_size = num_blocks * block_size * 2
+
+        fractional_frame = np.zeros((matrix_size, matrix_size))
+
+        for ref_y in range(0, height - block_size + 1):
+            for ref_x in range(0, width - block_size + 1):
+                ref_block = prev_partial_frame[ref_y:ref_y + block_size, ref_x:ref_x + block_size]
+                fractional_frame[(ref_y*2):(ref_y*2) + block_size, (ref_x*2):(ref_x*2) + block_size] = ref_block
+
+        row_updated_frame = fill_rows_with_averages(fractional_frame, block_size)
+        coloumn_updated_frame = fill_coloumns_with_averages(row_updated_frame, block_size)
+        fractional_frame = fill_middles_with_averages(coloumn_updated_frame, block_size)
+
+        return fractional_frame
+    
+    # Function to fill the blocks of zeros with the average of adjacent blocks
+def fill_rows_with_averages(matrix, block_size):
+    rows, cols = matrix.shape
+    for i in range(0, rows, block_size * 2):
+        for j in range(block_size, cols, block_size*2):
+
+            sub_matrix_1 = matrix[i:i+block_size, j-block_size:j]
+            sub_matrix_2 = matrix[i:i+block_size, j+block_size:j+(block_size*2)]
+
+            average_block = (sub_matrix_1 + sub_matrix_2)/2
+            matrix[i:i+block_size, j:j+block_size] = average_block
+    return matrix
+
+# Function to fill the blocks of zeros with the average of adjacent blocks
+def fill_coloumns_with_averages(matrix, block_size):
+    rows, cols = matrix.shape
+    for j in range(0, cols, block_size * 2):
+        for i in range(block_size, rows, block_size*2):
+
+            sub_matrix_1 = matrix[i-block_size:i, j:j+block_size]
+            sub_matrix_2 = matrix[i+block_size:i+(block_size*2), j:j+block_size]
+
+            average_block = (sub_matrix_1 + sub_matrix_2)/2
+            matrix[i:i+block_size, j:j+block_size] = average_block
+    return matrix
+
+# Function to fill the blocks of zeros with the average of adjacent blocks
+def fill_middles_with_averages(matrix, block_size):
+    rows, cols = matrix.shape
+    for i in range(block_size, rows, block_size * 2):
+        for j in range(block_size, cols, block_size*2):
+
+            sub_matrix_1 = matrix[i-block_size:i, j:j+block_size]
+            sub_matrix_2 = matrix[i:i+block_size, j-block_size:j]
+            sub_matrix_3 = matrix[i:i+block_size, j+block_size:j+(block_size*2)]
+            sub_matrix_4 = matrix[i+block_size:i+(block_size*2), j:j+block_size]
+
+            average_block = (sub_matrix_1 + sub_matrix_2 + sub_matrix_3 + sub_matrix_4)/4
+            matrix[i:i+block_size, j:j+block_size] = average_block
+    return matrix
 
     def decode_mc_q_dct(self, frame_shape, encoder_config: EncoderConfig):
         return construct_frame_from_dct_and_mv(self.quantized_dct_residual_frame, self.reference_frames, self.mv_field,
