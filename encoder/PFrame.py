@@ -6,7 +6,7 @@ from bitarray import bitarray
 from common import get_logger, generate_residual_block, find_mv_predicted_block
 from encoder.Frame import Frame, apply_dct_and_quantization, reconstruct_block
 from encoder.PredictionMode import PredictionMode
-from encoder.block_predictor import predict_block
+from encoder.block_predictor import find_lowest_mae_block, find_fast_me_block
 from encoder.dct import generate_quantization_matrix, rescale_block, apply_idct_2d
 from encoder.entropy_encoder import exp_golomb_encode, exp_golomb_decode
 from encoder.params import EncoderConfig, EncodedPBlock
@@ -24,12 +24,10 @@ class PFrame(Frame):
 
     def encode_mc_q_dct(self, encoder_config: EncoderConfig):
         block_size = encoder_config.block_size
-        search_range = encoder_config.search_range
-        quantization_factor = encoder_config.quantization_factor
 
         height, width = self.curr_frame.shape
         num_of_blocks = (height // block_size) * (width // block_size)
-        mv_field = {}
+        mv_field = {(0,0) : [0,0]}
         mae_of_blocks = 0
 
         # Initialize output frames
@@ -37,10 +35,10 @@ class PFrame(Frame):
         residual_frame_with_mc = np.zeros_like(self.curr_frame, dtype=np.int8)
         residual_frame_wo_mc = np.zeros_like(self.curr_frame, dtype=np.int8)
         quat_dct_coffs_frame_with_mc = np.zeros_like(self.curr_frame, dtype=np.int16)
-
+        prev_processed_block_cords = (0,0)
         for y in range(0, height, block_size):
             for x in range(0, width, block_size):
-                encoded_block =self.process_block( x, y, block_size, search_range, quantization_factor, width, height, mv_field)
+                encoded_block =self.process_block(x, y, width, height, mv_field, prev_processed_block_cords, encoder_config)
                 block_cords = encoded_block.block_coords
                 x, y = block_cords
 
@@ -51,6 +49,8 @@ class PFrame(Frame):
                 quat_dct_coffs_frame_with_mc[y:y + block_size, x:x + block_size] = encoded_block.quantized_dct_coffs
 
                 mae_of_blocks += encoded_block.mae
+                self.total_mae_comparisons += encoded_block.mae_comparisons_to_encode
+                prev_processed_block_cords = block_cords
 
         avg_mae = mae_of_blocks / num_of_blocks
 
@@ -64,14 +64,14 @@ class PFrame(Frame):
         self.reconstructed_frame = reconstructed_frame_with_mc
         return self
 
-    def process_block(self, x, y, block_size, search_range, quantization_factor, width, height,
-                      mv_field) -> EncodedPBlock:
+    def process_block(self, x, y, width, height, mv_field, prev_processed_block_cords, encoder_config) -> EncodedPBlock:
+        block_size, search_range, quantization_factor = encoder_config.block_size, encoder_config.search_range, encoder_config.quantization_factor
         curr_block = self.curr_frame[y:y + block_size, x:x + block_size].astype(np.int16)
         # consider latest ref frame for no mv
         prev_block = self.reference_frames[0][y:y + block_size, x:x + block_size].astype(np.int16)
 
-        # Get motion vector and MAE
-        motion_vector, best_match_mae = self.get_motion_vector(curr_block, x, y, block_size, search_range)
+        mvp = mv_field[prev_processed_block_cords]
+        motion_vector, best_match_mae, _ , comparisons = self.get_motion_vector(curr_block, ( x, y), mvp , encoder_config)
         mv_field[(x, y)] = motion_vector
 
         # Generate residual and predicted block
@@ -87,11 +87,13 @@ class PFrame(Frame):
         check_index_out_of_bounds(x, y, motion_vector,width,height, block_size)
 
         return EncodedPBlock((x, y), motion_vector, best_match_mae, quantized_dct_coffs, idct_residual_block,
-                             residual_block_wo_mc, clipped_reconstructed_block)
+                             residual_block_wo_mc, clipped_reconstructed_block, comparisons)
 
-    def get_motion_vector(self, curr_block, x, y, block_size, search_range):
-        mv, best_match_mae, best_match_block = predict_block(curr_block, (x,y), self.reference_frames,block_size, search_range)
-        return mv, best_match_mae
+    def get_motion_vector(self, curr_block, curr_block_cords, mvp, ec:EncoderConfig):
+        if ec.fastME:
+            return find_fast_me_block(curr_block, curr_block_cords, mvp, self.reference_frames[0], ec, 0)
+        else:
+            return find_lowest_mae_block(curr_block, curr_block_cords, self.reference_frames, ec.block_size, ec.search_range)
 
     def decode_mc_q_dct(self, frame_shape, encoder_config: EncoderConfig):
         return construct_frame_from_dct_and_mv(self.quantized_dct_residual_frame, self.reference_frames, self.mv_field,

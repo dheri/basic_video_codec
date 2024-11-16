@@ -32,6 +32,7 @@ class Frame:
         self.quantized_dct_residual_frame = None
         self.reconstructed_frame = None
         self.avg_mae = None
+        self.total_mae_comparisons = 0
 
     def encode_mc_q_dct(self, encoder_config: EncoderConfig):
         raise NotImplementedError(f"{type(self)} need to be overridden")
@@ -104,7 +105,7 @@ class Frame:
         write_y_only_frame(quant_dct_coff_fh, self.quantized_dct_residual_frame)
         write_y_only_frame(reconstructed_fh, self.reconstructed_frame)
 
-        if(self.prediction_mode == PredictionMode.INTER_FRAME):
+        if self.prediction_mode == PredictionMode.INTER_FRAME:
             write_mv_to_file(mv_fh, self.mv_field)
         else:
             mv_fh.write('\n')
@@ -117,6 +118,18 @@ class Frame:
             return [min_value, max_value]
         else:
             raise TypeError(f"{self.quantized_dct_residual_frame} quantized_dct_residual_frame must be a numpy array")
+
+    def get_mv_extremes(self):
+        # Ensure quat_dct_coffs_with_mc is a numpy array to use numpy's min/max
+        if self.prediction_mode ==  PredictionMode.INTER_FRAME:
+            all_values = [value for values in self.mv_field.values() for value in values]
+
+            min_value = min(all_values)
+            max_value = max(all_values)
+            return [min_value, max_value]
+        else:
+            return [np.min(self.intra_modes), np.max(self.intra_modes)]
+
 
 
 def apply_dct_and_quantization(residual_block, block_size, quantization_factor):

@@ -47,6 +47,8 @@ class IFrame(Frame):
                 x:x + block_size] = encoded_block.quantized_dct_coffs  # quantized_dct_residual_block
                 residual_w_mc_frame[y:y + block_size,
                 x:x + block_size] = encoded_block.residual_block_wo_mc  # residual_block
+                self.total_mae_comparisons += encoded_block.mae_comparisons_to_encode
+
 
         avg_mae = mae_of_blocks / ((height // block_size) * (width // block_size))
         self.reconstructed_frame = reconstructed_frame
