@@ -4,7 +4,7 @@ from common import get_logger
 
 logger= get_logger()
 class EncoderConfig:
-    def __init__(self, block_size, search_range, I_Period, quantization_factor, nRefFrames=1, fastME=False):
+    def __init__(self, block_size, search_range, I_Period, quantization_factor, nRefFrames=1, fastME=False, FMEEnable=False):
         self.block_size = block_size
         self.search_range = search_range
         self.quantization_factor = quantization_factor
@@ -12,6 +12,7 @@ class EncoderConfig:
         self.residual_approx_factor = 0
         self.nRefFrames = nRefFrames
         self.fastME = fastME
+        self.FMEEnable = FMEEnable
         self.validate()
 
 

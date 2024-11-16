@@ -46,7 +46,6 @@ def encode_video(params: InputParameters):
         I_Period = params.encoder_config.I_Period
 
         metrics_csv_writer = csv.writer(metrics_csv_fh)
-        # Include QP, I_Period, and total bit size in the CSV header
         metrics_csv_writer.writerow(
             ['idx', 'I Frame',  'avg_MAE', 'mae_comps' , 'PSNR', 'frame bytes', 'file_bits'])
         frame_index = 0
@@ -58,7 +57,6 @@ def encode_video(params: InputParameters):
             y_frame = f_in.read(y_size)
             if not y_frame or frame_index > frames_to_process:
                 break  # End of file or end of frames
-            # logger.info(f"Encoding frame {frame_index}/{frames_to_process}")
             y_plane = np.frombuffer(y_frame, dtype=np.uint8).reshape((height, width))
             padded_frame = pad_frame(y_plane, block_size)
 
@@ -77,22 +75,16 @@ def encode_video(params: InputParameters):
             encoded_fh.write(frame.prediction_mode.value.to_bytes(1))
 
             # 2 byte for len of entropy_encoded_prediction_data
-            num_of_byte_in_entropy_encoded_prediction_data = (
-                                                                         len(frame.entropy_encoded_prediction_data) + 7) // 8  # plus 7 to get ceiling of bytes
-            # logger.info(
-            #     f"num_of_byte_in_entropy_encoded_prediction_data [{num_of_byte_in_entropy_encoded_prediction_data:4}] [0x{(num_of_byte_in_entropy_encoded_prediction_data.to_bytes(2)).hex()}]")
-            encoded_fh.write(num_of_byte_in_entropy_encoded_prediction_data.to_bytes(2))
+            ee_prediction_data_byte_size = (len(frame.entropy_encoded_prediction_data) + 7) // 8  # +7 for ceiling of bytes
+            encoded_fh.write(ee_prediction_data_byte_size.to_bytes(2))
 
             # n bytes for entropy_encoded_prediction_data
             start_of_prediction_data_idx = encoded_fh.tell()
             encoded_fh.write(frame.entropy_encoded_prediction_data.tobytes())
 
             # 3 byte for len of entropy_encoded_DCT_coffs
-            num_of_byte_in_entropy_encoded_dct_coffs = (
-                                                                   len(frame.entropy_encoded_DCT_coffs) + 7) // 8  # plus 7 to get ceiling of bytes
-            # logger.info(
-            #     f"num_of_byte_in_entropy_encoded_dct_coffs       [{num_of_byte_in_entropy_encoded_dct_coffs:4}]  [0x{(num_of_byte_in_entropy_encoded_dct_coffs.to_bytes(3)).hex()}]")
-            encoded_fh.write(num_of_byte_in_entropy_encoded_dct_coffs.to_bytes(3))
+            ee_dct_coffs_byte_size = (len(frame.entropy_encoded_DCT_coffs) + 7) // 8  # + 7 for ceiling of bytes
+            encoded_fh.write(ee_dct_coffs_byte_size.to_bytes(3))
 
             # n bytes for entropy_encoded_DCT_coffs
             start_of_dct_coffs_idx = encoded_fh.tell()
@@ -129,7 +121,6 @@ def encode_video(params: InputParameters):
                                         reconstructed_fh, params.encoder_config)
 
             reference_frames.append(frame.reconstructed_frame)
-            # logger.debug(f"len(reference_frames): {len(reference_frames)}, {reference_frames.maxlen}")
 
     end_time = time.time()
     elapsed_time = end_time - start_time

@@ -1,7 +1,7 @@
 import assign1
 import assign2
 from assign1 import ex2
-from assign2 import FastME
+from assign2 import FractionaME
 from encoder.params import EncoderConfig
 from input_parameters import InputParameters
 
@@ -12,8 +12,8 @@ if __name__ == "__main__":
         quantization_factor=4,
         I_Period=99,
         nRefFrames= 4,
-        fastME= True
-
+        fastME= False,
+        FMEEnable = True
     )
 
     input_params = InputParameters(
@@ -26,4 +26,4 @@ if __name__ == "__main__":
 
     assign1.ex2.save_y_frames_to_file(input_params)
 
-    assign2.FastME.main(input_params)
+    assign2.FractionaME.main(input_params)
