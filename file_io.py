@@ -12,8 +12,9 @@ class FileIOHelper:
         self.nRefFrames = params.encoder_config.nRefFrames
 
         self.frames_to_process = params.frames_to_process
+        fme_id = ".0" if params.encoder_config.fracMeEnabled else ""
 
-        self.file_identifier = f'{self.block_size}_{self.search_range}_{self.quantization_factor}_{self.nRefFrames}'
+        self.file_identifier = f'{self.block_size}_{self.search_range}{fme_id}_{self.quantization_factor}_{self.nRefFrames}'
         self.file_prefix = os.path.splitext(self.y_only_file)[0]
 
         os.makedirs(os.path.dirname(self.get_file_name(suffix='')), exist_ok=True)
