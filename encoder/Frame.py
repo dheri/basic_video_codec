@@ -121,16 +121,18 @@ class Frame:
             raise TypeError(f"{self.quantized_dct_residual_frame} quantized_dct_residual_frame must be a numpy array")
 
     def get_mv_extremes(self):
-        # Ensure quat_dct_coffs_with_mc is a numpy array to use numpy's min/max
-        if self.prediction_mode ==  PredictionMode.INTER_FRAME:
-            all_values = [value for values in self.mv_field.values() for value in values]
+        if self.prediction_mode == PredictionMode.INTER_FRAME:
+            # Convert mv_field.values() to a NumPy array for easier column-wise min/max computation
+            mv_array = np.array(list(self.mv_field.values()))  # Shape: (num_vectors, 3)
 
-            min_value = min(all_values)
-            max_value = max(all_values)
-            return [min_value, max_value]
+            # Compute min and max for each component
+            min_values = mv_array.min(axis=0)  # Minimum along each column
+            max_values = mv_array.max(axis=0)  # Maximum along each column
+
+            return [min_values.tolist(), max_values.tolist()]  # Convert NumPy arrays to lists for consistency
         else:
+            # Min/max for intra_modes
             return [np.min(self.intra_modes), np.max(self.intra_modes)]
-
 
 
 def apply_dct_and_quantization(residual_block, block_size, quantization_factor):

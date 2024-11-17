@@ -8,12 +8,12 @@ from input_parameters import InputParameters
 if __name__ == "__main__":
     encoder_parameters = EncoderConfig(
         block_size=8,
-        search_range=1,
-        quantization_factor=4,
-        I_Period=99,
-        nRefFrames= 1,
-        fastME= True,
-        FMEEnabled = True
+        search_range=2,
+        quantization_factor=7,
+        I_Period=111,
+        nRefFrames= 4,
+        fracMeEnabled = True,
+        # fastME= True,
     )
 
     input_params = InputParameters(
@@ -21,9 +21,10 @@ if __name__ == "__main__":
         width=352,
         height=288,
         encoder_config=encoder_parameters,
-        frames_to_process=5
+        frames_to_process=30
     )
 
     assign1.ex2.save_y_frames_to_file(input_params)
-
     assign2.FractionaME.main(input_params)
+
+

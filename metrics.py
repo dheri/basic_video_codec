@@ -3,13 +3,14 @@ import csv
 import numpy as np
 from matplotlib import pyplot as plt
 
-from encoder.params import EncoderConfig
+from encoder.params import EncoderConfig, logger
 from file_io import FileIOHelper
 from input_parameters import InputParameters
 
 
 def plot_metrics(params: InputParameters):
     file_io = FileIOHelper(params)
+    logger.info(f" cwd: {file_io.get_file_name('')}")
     csv_file_name = file_io.get_metrics_csv_file_name()
 
     frame_numbers = []
@@ -63,7 +64,6 @@ def plot_metrics(params: InputParameters):
     ax1.set_ylabel("PSNR (dB)", color="r")
     ax1.scatter(frame_bytes_sorted, psnr_values_sorted, marker='x', color='r', label='PSNR')
     best_fit_psnr = np.poly1d(np.polyfit(frame_bytes_sorted, psnr_values_sorted, best_fit_line_order))
-    ax1.set_ylim(30, 40)
 
     ax1.plot(frame_bytes_sorted, best_fit_psnr(frame_bytes_sorted), linestyle='dotted', linewidth=1, color='r', )
 
@@ -75,13 +75,14 @@ def plot_metrics(params: InputParameters):
     ax2.set_ylabel("MAE", color="b")
     ax2.scatter(frame_bytes_sorted, mae_values_sorted, marker='o', linestyle='dashed', color='b', label='MAE')
     best_fit_mae = np.poly1d(np.polyfit(frame_bytes_sorted, mae_values_sorted, best_fit_line_order))
-    ax2.set_ylim(0, 100)
 
     ax2.plot(frame_bytes_sorted, best_fit_mae(frame_bytes_sorted), marker='o', linestyle='dotted', linewidth=1, color='b', label='MAE')
     ax2.tick_params(axis='y', labelcolor="b")
 
     # Title and Legend
-    fig.suptitle("RD Curve with PSNR over Frame size")
+    ec = params.encoder_config
+    fig.suptitle(f"RD Curve with PSNR over Frame size\n"
+                 f"i [{ec.block_size}] r [{ec.search_range}] q [{ec.quantization_factor}] FracME [{ec.fracMeEnabled}] FastME [{ec.fastME}]")
     fig.tight_layout()
     plt.savefig(file_io.get_file_name("rd.png"))
     plt.close()
