@@ -168,12 +168,7 @@ class PFrame(Frame):
         return self.mv_field
 
     def find_mv_predicted_block(self, mv, curr_block_cords, ec:EncoderConfig):
-        x, y = curr_block_cords
         reference_frames = self.reference_frames
-
-        mv_x = x + mv[0]
-        mv_y = y + mv[1]
-
         if len(reference_frames) > 1:
             ref_frame_idx = mv[2]
         else:
@@ -182,7 +177,7 @@ class PFrame(Frame):
         predicted_block = get_ref_block_at_mv(
             self.reference_frames[ref_frame_idx],
             self.interpolated_reference_frames[ref_frame_idx],
-            curr_block_cords, mv_x, mv_y, ec)
+            curr_block_cords, mv[0], mv[1], ec)
 
         assert predicted_block.shape == (ec.block_size, ec.block_size)
 
@@ -220,10 +215,9 @@ def construct_frame_from_dct_and_mv( frame:PFrame,  encoder_config: EncoderConfi
             idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block)
 
             # Get the predicted block using the motion vector
-            predicted_b = frame.find_mv_predicted_block(mv_field.get((x, y)), (x, y), encoder_config)
-
-            # Check if the predicted block is valid
             mv = mv_field.get((x, y))
+            predicted_b = frame.find_mv_predicted_block(mv, (x, y), encoder_config)
+
             if predicted_b is None or predicted_b.size == 0:
                 pred_x = x + mv[0]
                 pred_y = y + mv[1]

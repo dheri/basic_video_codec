@@ -94,7 +94,6 @@ def get_ref_block_at_mv(ref_frame, interpolated_ref_frame, origin, mv_x, mv_y, e
 
     if not ec.fracMeEnabled:
         # Integer Motion Estimation: Direct pixel extraction
-        print('not frac me')
         ref_block = ref_frame[
             origin[1] + mv_y: origin[1] + mv_y + block_size,
             origin[0] + mv_x: origin[0] + mv_x + block_size
@@ -115,9 +114,30 @@ def is_out_of_range(mv_x, mv_y, origin, r_frame, interpolated_ref_frame, ec):
     frame = interpolated_ref_frame if ec.fracMeEnabled else r_frame
     width, height = frame.shape[1], frame.shape[0]
 
-    block_size = ec.block_size
+    # Adjust block size and motion vector scaling for fractional ME
+    if ec.fracMeEnabled:
+        # Scale origin, motion vector, and block size by 2 for the interpolated frame
+        origin_x_scaled = origin[0] * 2
+        origin_y_scaled = origin[1] * 2
+        mv_x_scaled = mv_x * 2
+        mv_y_scaled = mv_y * 2
+        block_size_scaled = ec.block_size * 2
 
-    return origin[0] + mv_x < 0 or origin[1] + mv_y < 0 or origin[0] + mv_x + block_size > width or origin[1] + mv_y + block_size > height
+        # Check bounds for the interpolated frame
+        return (
+            origin_x_scaled + mv_x_scaled < 0 or
+            origin_y_scaled + mv_y_scaled < 0 or
+            origin_x_scaled + mv_x_scaled + block_size_scaled > width or
+            origin_y_scaled + mv_y_scaled + block_size_scaled > height
+        )
+    else:
+        # Integer Motion Estimation: Regular bounds check
+        return (
+            origin[0] + mv_x < 0 or
+            origin[1] + mv_y < 0 or
+            origin[0] + mv_x + ec.block_size > width or
+            origin[1] + mv_y + ec.block_size > height
+        )
 
 def build_pre_interpolated_buffer(reference_frame):
     reference_frame = reference_frame.astype(np.int16)

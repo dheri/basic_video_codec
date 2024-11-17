@@ -7,6 +7,7 @@ from skimage.metrics import peak_signal_noise_ratio
 from encoder.IFrame import IFrame
 from encoder.PFrame import PFrame
 from encoder.PredictionMode import PredictionMode
+from encoder.block_predictor import build_pre_interpolated_buffer
 from encoder.entropy_encoder import *
 from file_io import write_y_only_frame, FileIOHelper
 from input_parameters import InputParameters
@@ -33,6 +34,9 @@ def decode_video(params: InputParameters):
     reference_frames = deque(maxlen=params.encoder_config.nRefFrames)
     reference_frames.append(np.full((height, width), 128, dtype=np.uint8))
 
+    interpolated_reference_frames = deque(maxlen=params.encoder_config.nRefFrames)
+    interpolated_reference_frames.append(build_pre_interpolated_buffer(reference_frames[0]))
+
     with ExitStack() as stack:
         reconstructed_file_fh = stack.enter_context(open(file_io.get_mc_reconstructed_file_name(), 'rb'))
         encoded_fh = stack.enter_context(open(file_io.get_encoded_file_name(), 'rb'))
@@ -49,8 +53,9 @@ def decode_video(params: InputParameters):
             if prediction_mode == PredictionMode.INTRA_FRAME.value:
                 frame = IFrame()
                 reference_frames.clear()
+                interpolated_reference_frames.clear()
             else:
-                frame = PFrame(reference_frames=reference_frames)
+                frame = PFrame(reference_frames=reference_frames, interpolated_reference_frames=interpolated_reference_frames)
 
             prediction_data_len = int.from_bytes(encoded_fh.read(2))
             prediction_data = encoded_fh.read(prediction_data_len)
@@ -76,5 +81,5 @@ def decode_video(params: InputParameters):
             write_y_only_frame(decoded_fh, decoded_frame)
 
             reference_frames.append(decoded_frame)
-            # logger.debug(f"reference_frames: {len(reference_frames)}, {reference_frames.maxlen}")
+            interpolated_reference_frames.append(build_pre_interpolated_buffer(decoded_frame))
     logger.info('End decoding')

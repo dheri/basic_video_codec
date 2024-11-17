@@ -1,4 +1,8 @@
+import numpy as np
 from bitarray import bitarray
+
+from encoder.block_predictor import get_ref_block_at_mv, build_pre_interpolated_buffer
+from encoder.params import EncoderConfig, logger
 
 
 def map_to_non_negative(value):
@@ -58,7 +62,17 @@ def encode_prediction_info(prediction_array):
     return encoded_stream.tobytes()
 
 
-# Example usage:
-prediction_array = [3, -2, 1, 0, -1]  # Sample prediction values (signed integers)
-encoded_bytes = encode_prediction_info(prediction_array)
-print(encoded_bytes)  # This is the encoded byte array
+
+if __name__ == '__main__':
+    rf = np.array([
+        [ 25, 28, 29,],
+        [ 50, 57, 53,],
+        [ 44, 52, 56,],
+    ])
+    origin = (0, 0)
+    # mv_x, mv_y = 1 ,0
+    ec = EncoderConfig(2, 5, I_Period=8, quantization_factor=0, fracMeEnabled=True)
+    irf = build_pre_interpolated_buffer(rf )
+
+    logger.info(f"interpolated Reference f :\n{irf}")
+    logger.info(f"interpolated Reference Block\n{get_ref_block_at_mv(rf, irf, origin, 3, 0, ec)}")
