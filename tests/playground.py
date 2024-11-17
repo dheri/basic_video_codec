@@ -67,8 +67,8 @@ if __name__ == '__main__':
     rf = np.array([
         [ 25, 28, 29, 29,],
         [ 50, 57, 53, 53,],
-        [ 44, 52, 56, 56,],
-        [ 44, 52, 56, 56,],
+        [ 44, 56, 64, 76,],
+        [ 46, 54, 66, 74,],
     ])
     origin = (1, 1)
     # mv_x, mv_y = 1 ,0
@@ -77,4 +77,4 @@ if __name__ == '__main__':
 
     logger.info(f"interpolated Reference f :\n{irf}")
     logger.info(f"interpolated Reference Block\n"
-                f"{get_ref_block_at_mv(rf, irf, origin, 0, 0, ec)}")
+                f"{get_ref_block_at_mv(rf, irf, origin, 1, 2, ec)}")

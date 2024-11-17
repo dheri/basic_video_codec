@@ -76,6 +76,7 @@ class PFrame(Frame):
         # logger.debug(f"b ({x:3} {y:3}) mae [{best_match_mae:>6.2f}] mv:{mv} ")
         mv_field[(x, y)] = mv
 
+
         # Generate residual and predicted block
         predicted_block_with_mc, residual_block_with_mc = self.generate_residual_block(curr_block, ( x, y),
                                                                                   mv, encoder_config)
@@ -86,7 +87,6 @@ class PFrame(Frame):
         # Reconstruct the block using the predicted and inverse DCT
         clipped_reconstructed_block, idct_residual_block = reconstruct_block(quantized_dct_coffs, Q,
                                                                              predicted_block_with_mc)
-        check_index_out_of_bounds(x, y, mv,width,height, block_size)
 
         return EncodedPBlock((x, y), mv, best_match_mae, quantized_dct_coffs, idct_residual_block,
                              residual_block_wo_mc, clipped_reconstructed_block, comparisons)
@@ -205,7 +205,7 @@ def construct_frame_from_dct_and_mv( frame:PFrame,  encoder_config: EncoderConfi
 
     for y in range(0, height, block_size):
         for x in range(0, width, block_size):
-            check_index_out_of_bounds(x, y, mv_field.get((x, y)), width, height, block_size)
+            check_index_out_of_bounds(x, y, mv_field.get((x, y)), width, height, encoder_config)
             # Get the quantized residual block
             dct_coffs_block = quant_dct_coff_frame[y:y + block_size, x:x + block_size]
 
@@ -253,11 +253,17 @@ def construct_frame_from_dct_and_mv( frame:PFrame,  encoder_config: EncoderConfi
     return decoded_frame
 
 
-def check_index_out_of_bounds(x, y, motion_vector, width, height, block_size):
+def check_index_out_of_bounds(x, y, motion_vector, width, height, ec:EncoderConfig):
+    block_size = ec.block_size
+    if ec.fastME:
+        motion_vector = (motion_vector[0]/2, motion_vector[1]/2, motion_vector[2]/2)
 
     if x + motion_vector[0] < 0 or y + motion_vector[1] < 0 :
-        logger.error(f" mv [{motion_vector}] for [{x}, {y}] referencing small value [{x + motion_vector[0]}] or [{y + motion_vector[1] < 0}]")
+        logger.error(f" mv [{motion_vector}] for [{x}, {y}] referencing small value [{x + motion_vector[0]}] or [{y + motion_vector[1] }]")
+        return True
     if x + motion_vector[0] + block_size > width or y + motion_vector[1] + block_size > height:
         logger.error(f" mv [{motion_vector}] for [{x}, {y}] referencing large value [{x + motion_vector[0] + block_size}]  or [{y + motion_vector[1] + block_size}]")
+        return True
+    return False
 
 

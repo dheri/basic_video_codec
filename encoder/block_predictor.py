@@ -1,8 +1,6 @@
 import math
-from collections import deque
 
 import numpy as np
-from scipy.ndimage import map_coordinates
 
 from common import mae, logger
 from encoder.Frame import Frame
@@ -15,22 +13,22 @@ def find_fast_me_block(curr_block, curr_block_cords, mvp, pFrame:Frame, ec:Encod
     interpolated_reference_frames = pFrame.interpolated_reference_frames
     origin = curr_block_cords
     min_mae = math.inf
-    best_mv_key = None
+    best_mv_key = ""
     mv_map = {"origin0" : (0,0,0)}
-    candidates = {}
+    candidates : dict[str, ()] = {}
 
     for rf_idx, rf  in enumerate(reference_frames):
         irf = interpolated_reference_frames[rf_idx]
 
         candidates[f"origin{rf_idx}"] = lambda: mae(curr_block, get_ref_block_at_mv(rf, irf, origin, 0, 0, ec))
-        candidates[f"pmv{rf_idx}"] = lambda: mae(curr_block, get_ref_block_at_mv(rf, irf, origin, mvp[0], mvp[1], ec))
+        candidates[f"pmv_origin{rf_idx}"] = lambda: mae(curr_block, get_ref_block_at_mv(rf, irf, origin, mvp[0], mvp[1], ec))
         candidates[f"pmv_top{rf_idx}"] = lambda: mae(curr_block, get_ref_block_at_mv(rf, irf, origin, mvp[0], mvp[1] - 1,  ec))
         candidates[f"pmv_right{rf_idx}"] = lambda: mae(curr_block, get_ref_block_at_mv(rf, irf, origin,  mvp[0] + 1, mvp[1], ec))
         candidates[f"pmv_bottom{rf_idx}"] = lambda: mae(curr_block, get_ref_block_at_mv(rf, irf, origin, mvp[0], mvp[1] + 1, ec))
         candidates[f"pmv_left{rf_idx}"] = lambda: mae(curr_block, get_ref_block_at_mv(rf, irf, origin, mvp[0] - 1, mvp[1], ec))
 
         mv_map[f"origin{rf_idx}"] = (0, 0, rf_idx)
-        mv_map[f"pmv{rf_idx}"] = (mvp[0], mvp[1], rf_idx)
+        mv_map[f"pmv_origin{rf_idx}"] = (mvp[0], mvp[1], rf_idx)
         mv_map[f"pmv_top{rf_idx}"] = (mvp[0], mvp[1] - 1, rf_idx)
         mv_map[f"pmv_right{rf_idx}"] = (mvp[0] + 1, mvp[1], rf_idx)
         mv_map[f"pmv_bottom{rf_idx}"] = (mvp[0], mvp[1] + 1, rf_idx)
@@ -49,14 +47,13 @@ def find_fast_me_block(curr_block, curr_block_cords, mvp, pFrame:Frame, ec:Encod
                 continue
 
     # If the best match is "origin", return its motion vector
-    if "origin" in best_mv_key or   "pmv" in best_mv_key:
+    if "origin" in best_mv_key :
         return mv_map[best_mv_key], min_mae, candidates[best_mv_key], comparison_count
 
     # Otherwise, update the origin to the best MV and recurse
     best_mv = mv_map[best_mv_key]
     # logger.debug(f" {best_mv_key} ")
-    # new_origin = (origin[0] + best_mv[0], origin[1] + best_mv[1])
-    return find_fast_me_block(curr_block, origin, best_mv, reference_frames, ec, comparison_count)
+    return find_fast_me_block(curr_block, origin, best_mv, pFrame, ec, comparison_count)
 
 
 def find_lowest_mae_block(curr_block, curr_block_cords, pFrame: Frame, ec:EncoderConfig):
