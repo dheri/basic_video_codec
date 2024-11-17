@@ -61,7 +61,11 @@ def find_fast_me_block(curr_block, curr_block_cords, mvp, pFrame:Frame, ec:Encod
 
 def find_lowest_mae_block(curr_block, curr_block_cords, pFrame: Frame, ec:EncoderConfig):
     origin = curr_block_cords
+
     block_size, search_range = ec.block_size, ec.search_range
+    if ec.fracMeEnabled:
+        search_range *= 2
+
     reference_frames = pFrame.reference_frames
     height, width = reference_frames[0].shape
     if width < block_size or height < block_size:
@@ -74,17 +78,17 @@ def find_lowest_mae_block(curr_block, curr_block_cords, pFrame: Frame, ec:Encode
         irf = pFrame.interpolated_reference_frames[ref_frame_idx]
         for mv_y in range(-search_range, search_range+1):
             for mv_x in range(-search_range, search_range+1):
+                curr_mv = [mv_x, mv_y, ref_frame_idx]
                 try:
                     ref_block = get_ref_block_at_mv(reference_frame, irf, origin, mv_x, mv_y, ec)
                 except Exception as e:
                     continue
                 counter += 1
                 error = mae(curr_block, ref_block)
-
                 # Update best match if a lower MAE is found, breaking ties as described
                 if error < min_mae or (error == min_mae and abs(mv_x) + abs(mv_y) < abs(best_mv[0]) + abs(best_mv[1])):
                     min_mae = error
-                    best_mv = [mv_x, mv_y, ref_frame_idx]  # (dx, dy)
+                    best_mv = curr_mv
     return best_mv, min_mae, ref_block, (len(reference_frames) * ((2 * search_range + 1) ** 2 ))
 
 def get_ref_block_at_mv(ref_frame, interpolated_ref_frame, origin, mv_x, mv_y, ec: EncoderConfig):
@@ -99,8 +103,8 @@ def get_ref_block_at_mv(ref_frame, interpolated_ref_frame, origin, mv_x, mv_y, e
             origin[0] + mv_x: origin[0] + mv_x + block_size
                     ]
     else:
-        interp_mv_x = (origin[0] + mv_x)
-        interp_mv_y = (origin[1] + mv_y)
+        interp_mv_x = (origin[0]) * 2 + mv_x
+        interp_mv_y = (origin[1]) * 2 + mv_y
 
         ref_block = interpolated_ref_frame[
             interp_mv_y : interp_mv_y + block_size * 2 : 2,  # Step by 2 to get back to original block size
@@ -119,8 +123,8 @@ def is_out_of_range(mv_x, mv_y, origin, r_frame, interpolated_ref_frame, ec):
         # Scale origin, motion vector, and block size by 2 for the interpolated frame
         origin_x_scaled = origin[0] * 2
         origin_y_scaled = origin[1] * 2
-        mv_x_scaled = mv_x * 2
-        mv_y_scaled = mv_y * 2
+        mv_x_scaled = mv_x
+        mv_y_scaled = mv_y
         block_size_scaled = ec.block_size * 2
 
         # Check bounds for the interpolated frame

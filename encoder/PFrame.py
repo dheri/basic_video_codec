@@ -72,12 +72,13 @@ class PFrame(Frame):
         prev_block = self.reference_frames[0][y:y + block_size, x:x + block_size].astype(np.int16)
 
         mvp = mv_field[prev_processed_block_cords]
-        motion_vector, best_match_mae, _ , comparisons = self.get_motion_vector(curr_block, ( x, y), mvp , encoder_config)
-        mv_field[(x, y)] = motion_vector
+        mv, best_match_mae, _ , comparisons = self.get_motion_vector(curr_block, ( x, y), mvp , encoder_config)
+        # logger.debug(f"b ({x:3} {y:3}) mae [{best_match_mae:>6.2f}] mv:{mv} ")
+        mv_field[(x, y)] = mv
 
         # Generate residual and predicted block
         predicted_block_with_mc, residual_block_with_mc = self.generate_residual_block(curr_block, ( x, y),
-                                                                                  motion_vector, encoder_config)
+                                                                                  mv, encoder_config)
         residual_block_wo_mc = np.subtract(curr_block, prev_block)
         # Apply DCT and quantization
         quantized_dct_coffs, Q = apply_dct_and_quantization(residual_block_with_mc, block_size, quantization_factor)
@@ -85,9 +86,9 @@ class PFrame(Frame):
         # Reconstruct the block using the predicted and inverse DCT
         clipped_reconstructed_block, idct_residual_block = reconstruct_block(quantized_dct_coffs, Q,
                                                                              predicted_block_with_mc)
-        check_index_out_of_bounds(x, y, motion_vector,width,height, block_size)
+        check_index_out_of_bounds(x, y, mv,width,height, block_size)
 
-        return EncodedPBlock((x, y), motion_vector, best_match_mae, quantized_dct_coffs, idct_residual_block,
+        return EncodedPBlock((x, y), mv, best_match_mae, quantized_dct_coffs, idct_residual_block,
                              residual_block_wo_mc, clipped_reconstructed_block, comparisons)
 
     def get_motion_vector(self, curr_block, curr_block_cords, mvp, ec:EncoderConfig):

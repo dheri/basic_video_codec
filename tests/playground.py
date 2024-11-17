@@ -65,14 +65,16 @@ def encode_prediction_info(prediction_array):
 
 if __name__ == '__main__':
     rf = np.array([
-        [ 25, 28, 29,],
-        [ 50, 57, 53,],
-        [ 44, 52, 56,],
+        [ 25, 28, 29, 29,],
+        [ 50, 57, 53, 53,],
+        [ 44, 52, 56, 56,],
+        [ 44, 52, 56, 56,],
     ])
-    origin = (0, 0)
+    origin = (1, 1)
     # mv_x, mv_y = 1 ,0
     ec = EncoderConfig(2, 5, I_Period=8, quantization_factor=0, fracMeEnabled=True)
     irf = build_pre_interpolated_buffer(rf )
 
     logger.info(f"interpolated Reference f :\n{irf}")
-    logger.info(f"interpolated Reference Block\n{get_ref_block_at_mv(rf, irf, origin, 3, 0, ec)}")
+    logger.info(f"interpolated Reference Block\n"
+                f"{get_ref_block_at_mv(rf, irf, origin, 0, 0, ec)}")
