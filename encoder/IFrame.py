@@ -17,6 +17,7 @@ class IFrame(Frame):
         super().__init__(curr_frame)
         self.prediction_mode = PredictionMode.INTRA_FRAME
         self.intra_modes = None
+        self.split_flags = []  # For storing split information for each block
 
     def encode_mc_q_dct(self, encoder_config: EncoderConfig):
         curr_frame = self.curr_frame
@@ -26,31 +27,12 @@ class IFrame(Frame):
 
         mae_of_blocks = 0
         intra_modes = []  # To store the intra prediction modes (0 for horizontal, 1 for vertical)
+        split_flags = []  # To store the split flag for each block
         reconstructed_frame = np.zeros_like(curr_frame)
         residual_w_mc_frame = np.zeros_like(curr_frame)
         quantized_dct_residual_frame = np.zeros_like(curr_frame, dtype=np.int16)
-        """
+
         # Loop through each block in the frame
-        for y in range(0, height, block_size):
-            for x in range(0, width, block_size):
-                curr_block = curr_frame[y:y + block_size, x:x + block_size]
-
-                encoded_block = process_block(
-                    curr_block, reconstructed_frame, x, y, block_size, encoder_config.quantization_factor
-                )
-
-                # Store intra mode and update MAE
-                intra_modes.append(encoded_block.mode)
-                mae_of_blocks += encoded_block.mae
-
-                # Update reconstructed frame and quantized residuals
-                reconstructed_frame[y:y + block_size, x:x + block_size] = encoded_block.reconstructed_block
-                quantized_dct_residual_frame[y:y + block_size,
-                x:x + block_size] = encoded_block.quantized_dct_coffs  # quantized_dct_residual_block
-                residual_w_mc_frame[y:y + block_size,
-                x:x + block_size] = encoded_block.residual_block_wo_mc  # residual_block
-        """
- # Loop through each block in the frame
         for y in range(0, height, block_size):
             for x in range(0, width, block_size):
                 curr_block = curr_frame[y:y + block_size, x:x + block_size]
@@ -61,6 +43,8 @@ class IFrame(Frame):
                         curr_block, reconstructed_frame, x, y, block_size,
                         encoder_config.quantization_factor, lambda_value, apply_dct_and_quantization
                     )
+
+                    split_flags.append(encoded_data["split"])  # Store the split flag
 
                     if encoded_data["split"]:
                         # Process sub-blocks
@@ -97,37 +81,56 @@ class IFrame(Frame):
         self.reconstructed_frame = reconstructed_frame
         self.quantized_dct_residual_frame = quantized_dct_residual_frame
         self.intra_modes = intra_modes
+        self.split_flags = split_flags
         self.avg_mae = avg_mae
         self.residual_frame = residual_w_mc_frame
-        # doesnt make sense for w/o mc in INTRA
         self.residual_wo_mc_frame = residual_w_mc_frame
+        
 
     def decode_mc_q_dct(self, frame_shape, encoder_config: EncoderConfig):
         block_size = encoder_config.block_size
         height, width = frame_shape
         reconstructed_frame = np.zeros((height, width), dtype=np.uint8)
+
+        # Decode split flags and sub-blocks
         Q = generate_quantization_matrix(block_size, encoder_config.quantization_factor)
-        # logger.info(self.intra_modes)
 
         # Iterate over blocks to reconstruct the frame
+        split_index = 0
         for y in range(0, height, block_size):
             for x in range(0, width, block_size):
-                dct_coffs_block = self.quantized_dct_residual_frame[y:y + block_size, x:x + block_size]
-                # logger.info(f" dct_coffs_block extremes : [{np.min(dct_coffs_block)}, {np.max(dct_coffs_block)} ]")
+                if encoder_config.VBSEnable and self.split_flags[split_index]:
+                    # Decode sub-blocks
+                    sub_block_size = block_size // 2
+                    for sub_y in range(0, block_size, sub_block_size):
+                        for sub_x in range(0, block_size, sub_block_size):
+                            dct_coffs_block = self.quantized_dct_residual_frame[
+                                              y + sub_y:y + sub_y + sub_block_size,
+                                              x + sub_x:x + sub_x + sub_block_size
+                                              ]
+                            rescaled_dct_coffs_block = rescale_block(dct_coffs_block, Q)
+                            idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block)
+                            predicted_b = find_intra_predict_block(self.intra_modes.pop(0), reconstructed_frame,
+                                                                   x + sub_x, y + sub_y, sub_block_size)
+                            decoded_block = np.round(idct_residual_block + predicted_b).astype(np.int16)
+                            decoded_block = np.clip(decoded_block, 0, 255).astype(np.uint8)
+                            reconstructed_frame[y + sub_y:y + sub_y + sub_block_size,
+                                                x + sub_x:x + sub_x + sub_block_size] = decoded_block
+                else:
+                    # Decode single block
+                    dct_coffs_block = self.quantized_dct_residual_frame[y:y + block_size, x:x + block_size]
+                    rescaled_dct_coffs_block = rescale_block(dct_coffs_block, Q)
+                    idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block)
+                    predicted_b = find_intra_predict_block(self.intra_modes.pop(0), reconstructed_frame,
+                                                           x, y, block_size)
+                    decoded_block = np.round(idct_residual_block + predicted_b).astype(np.int16)
+                    decoded_block = np.clip(decoded_block, 0, 255).astype(np.uint8)
+                    reconstructed_frame[y:y + block_size, x:x + block_size] = decoded_block
 
-                rescaled_dct_coffs_block = rescale_block(dct_coffs_block, Q)
-                idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block)
-                predicted_b = find_intra_predict_block(self.intra_modes[(y // encoder_config.block_size) * (
-                        width // encoder_config.block_size) + (x // encoder_config.block_size)],
-                                                       reconstructed_frame, x, y, encoder_config.block_size)
-
-                decoded_block = np.round(idct_residual_block + predicted_b).astype(np.int16)
-                decoded_block = np.clip(decoded_block, 0, 255).astype(np.uint8)
-                reconstructed_frame[y:y + encoder_config.block_size, x:x + encoder_config.block_size] = decoded_block
+                split_index += 1
 
         self.curr_frame = reconstructed_frame
-        return reconstructed_frame  # This should be the reconstructed frame
-
+        return reconstructed_frame  # This should be the reconstructed fra
     def entropy_encode_prediction_data(self):
         self.entropy_encoded_prediction_data = bitarray()
         # logger.info(self.intra_modes)

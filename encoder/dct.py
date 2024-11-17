@@ -71,3 +71,39 @@ def transform_quantize_rescale_inverse(block, qp):
     # logger.info(f'reconstructed_block: \n{np.ceil(reconstructed_block)}')
 
     return reconstructed_block
+
+# Update for d) Sub-block Transform and Quantization
+def apply_dct_and_quantization_for_subblocks(block, block_size, quantization_factor):
+
+    sub_block_size = block_size // 2
+    quantized_dct_coffs = np.zeros((block_size, block_size), dtype=np.int16)
+    Q = generate_quantization_matrix(sub_block_size, quantization_factor)
+
+    for sub_y in range(0, block_size, sub_block_size):
+        for sub_x in range(0, block_size, sub_block_size):
+            sub_block = block[sub_y:sub_y + sub_block_size, sub_x:sub_x + sub_block_size]
+            
+            dct_coffs = apply_dct_2d(sub_block)
+            
+            quantized_dct_coffs[sub_y:sub_y + sub_block_size, sub_x:sub_x + sub_block_size] = quantize_block(dct_coffs, Q)
+    
+    return quantized_dct_coffs
+
+def reconstruct_subblocks_from_quantized(quantized_coffs, block_size, quantization_factor):
+
+    sub_block_size = block_size // 2
+    Q = generate_quantization_matrix(sub_block_size, quantization_factor)
+    reconstructed_block = np.zeros((block_size, block_size), dtype=np.uint8)
+
+    for sub_y in range(0, block_size, sub_block_size):
+        for sub_x in range(0, block_size, sub_block_size):
+            sub_quantized = quantized_coffs[sub_y:sub_y + sub_block_size, sub_x:sub_x + sub_block_size]
+            
+            # Step 1: Rescale
+            rescaled_dct = rescale_block(sub_quantized, Q)
+            
+            # Step 2: Apply Inverse DCT
+            sub_reconstructed = apply_idct_2d(rescaled_dct)
+            reconstructed_block[sub_y:sub_y + sub_block_size, sub_x:sub_x + sub_block_size] = np.clip(sub_reconstructed, 0, 255).astype(np.uint8)
+
+    return reconstructed_block

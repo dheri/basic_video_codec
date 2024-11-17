@@ -1,7 +1,7 @@
 import assign1
 import assign2
 from assign1 import ex2
-from assign2 import MultipleReferenceFrames
+from assign2 import MultipleReferenceFrames, VariableBlock
 from encoder.params import EncoderConfig
 from input_parameters import InputParameters
 
@@ -12,12 +12,12 @@ if __name__ == "__main__":
         quantization_factor=4,
         I_Period=99,
         nRefFrames= 4,
-        VBSEnable = True  # New flag for variable block size encoding
+        VBSEnable = True  
 
     )
 
     input_params = InputParameters(
-        y_only_file='data/synthetic.y',
+        y_only_file='data/foreman_cif.yuv',
         width=352,
         height=288,
         encoder_config=encoder_parameters,
@@ -26,4 +26,4 @@ if __name__ == "__main__":
 
     assign1.ex2.save_y_frames_to_file(input_params)
 
-    assign2.MultipleReferenceFrames.main(input_params)
+    assign2.VariableBlock.main(input_params)

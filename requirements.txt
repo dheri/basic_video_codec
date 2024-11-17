@@ -1,7 +1,7 @@
-numpy~=2.1.1
-scipy~=1.14.1
+numpy
+scipy
 Pillow
-matplotlib~=3.9.2
-scikit-image~=0.24.0
+matplotlib
+scikit-image
 
-bitarray~=3.0.0
+bitarray
