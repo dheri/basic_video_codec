@@ -10,6 +10,7 @@ from skimage.metrics import peak_signal_noise_ratio
 from common import pad_frame
 from encoder.IFrame import IFrame
 from encoder.PFrame import PFrame
+from encoder.block_predictor import build_pre_interpolated_buffer
 from encoder.dct import *
 from encoder.entropy_encoder import *
 from file_io import FileIOHelper
@@ -26,6 +27,9 @@ def encode_video(params: InputParameters):
 
     reference_frames = deque(maxlen=params.encoder_config.nRefFrames)
     reference_frames.append(np.full((params.height, params.width), 128, dtype=np.uint8))
+
+    interpolated_reference_frames = deque(maxlen=params.encoder_config.nRefFrames)
+    interpolated_reference_frames.append(build_pre_interpolated_buffer(reference_frames[0]))
 
     with ExitStack() as stack:
         f_in = stack.enter_context(open(params.y_only_file, 'rb'))
@@ -63,8 +67,9 @@ def encode_video(params: InputParameters):
             if (frame_index - 1) % I_Period == 0:
                 frame = IFrame(padded_frame)
                 reference_frames.clear()
+                interpolated_reference_frames.clear()
             else:
-                frame = PFrame(padded_frame, reference_frames)
+                frame = PFrame(padded_frame, reference_frames, interpolated_reference_frames)
 
             frame.encode_mc_q_dct(params.encoder_config)
 
@@ -121,6 +126,8 @@ def encode_video(params: InputParameters):
                                         reconstructed_fh, params.encoder_config)
 
             reference_frames.append(frame.reconstructed_frame)
+            interpolated_reference_frames.append(build_pre_interpolated_buffer(frame.reconstructed_frame))
+
 
     end_time = time.time()
     elapsed_time = end_time - start_time

@@ -20,8 +20,9 @@ logger = get_logger()
 class Frame:
     EOB_MARKER = 8190
 
-    def __init__(self, curr_frame=None, reference_frames=None, ):
+    def __init__(self, curr_frame=None, reference_frames=None, interpolated_reference_frames=None ):
         self.reference_frames : deque = reference_frames
+        self.interpolated_reference_frames : deque = interpolated_reference_frames
         self.curr_frame = curr_frame
         self.prediction_mode: PredictionMode = PredictionMode.INTER_FRAME
         self.entropy_encoded_prediction_data: Optional[bitarray] = None

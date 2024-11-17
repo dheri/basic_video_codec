@@ -3,10 +3,11 @@ from collections import OrderedDict
 import numpy as np
 from bitarray import bitarray
 
-from common import get_logger, generate_residual_block, find_mv_predicted_block
+from common import get_logger
 from encoder.Frame import Frame, apply_dct_and_quantization, reconstruct_block
 from encoder.PredictionMode import PredictionMode
-from encoder.block_predictor import find_lowest_mae_block, find_fast_me_block
+from encoder.block_predictor import find_lowest_mae_block, find_fast_me_block, build_pre_interpolated_buffer, \
+    get_ref_block_at_mv
 from encoder.dct import generate_quantization_matrix, rescale_block, apply_idct_2d
 from encoder.entropy_encoder import exp_golomb_encode, exp_golomb_decode
 from encoder.params import EncoderConfig, EncodedPBlock
@@ -16,8 +17,8 @@ logger = get_logger()
 
 
 class PFrame(Frame):
-    def __init__(self, curr_frame=None, reference_frames=None):
-        super().__init__(curr_frame, reference_frames)
+    def __init__(self, curr_frame=None, reference_frames=None, interpolated_reference_frames=None):
+        super().__init__(curr_frame, reference_frames, interpolated_reference_frames)
         self.prediction_mode = PredictionMode.INTER_FRAME
         self.mv_field = None
         self.avg_mae = None
@@ -75,8 +76,8 @@ class PFrame(Frame):
         mv_field[(x, y)] = motion_vector
 
         # Generate residual and predicted block
-        predicted_block_with_mc, residual_block_with_mc = generate_residual_block(curr_block, self.reference_frames,
-                                                                                  motion_vector, x, y, block_size)
+        predicted_block_with_mc, residual_block_with_mc = self.generate_residual_block(curr_block, ( x, y),
+                                                                                  motion_vector, encoder_config)
         residual_block_wo_mc = np.subtract(curr_block, prev_block)
         # Apply DCT and quantization
         quantized_dct_coffs, Q = apply_dct_and_quantization(residual_block_with_mc, block_size, quantization_factor)
@@ -91,13 +92,12 @@ class PFrame(Frame):
 
     def get_motion_vector(self, curr_block, curr_block_cords, mvp, ec:EncoderConfig):
         if ec.fastME:
-            return find_fast_me_block(curr_block, curr_block_cords, mvp, self.reference_frames, ec, 0)
+            return find_fast_me_block(curr_block, curr_block_cords, mvp, self, ec, 0)
         else:
-            return find_lowest_mae_block(curr_block, curr_block_cords, self.reference_frames, ec)
+            return find_lowest_mae_block(curr_block, curr_block_cords, self, ec)
 
     def decode_mc_q_dct(self, frame_shape, encoder_config: EncoderConfig):
-        return construct_frame_from_dct_and_mv(self.quantized_dct_residual_frame, self.reference_frames, self.mv_field,
-                                               encoder_config)
+        return construct_frame_from_dct_and_mv(self, encoder_config)
 
     def entropy_encode_prediction_data(self, encoder_config:EncoderConfig):
         self.entropy_encoded_prediction_data = bitarray()
@@ -167,8 +167,38 @@ class PFrame(Frame):
 
         return self.mv_field
 
+    def find_mv_predicted_block(self, mv, curr_block_cords, ec:EncoderConfig):
+        x, y = curr_block_cords
+        reference_frames = self.reference_frames
 
-def construct_frame_from_dct_and_mv(quant_dct_coff_frame, reference_frames, mv_field, encoder_config: EncoderConfig):
+        mv_x = x + mv[0]
+        mv_y = y + mv[1]
+
+        if len(reference_frames) > 1:
+            ref_frame_idx = mv[2]
+        else:
+            ref_frame_idx = 0
+
+        predicted_block = get_ref_block_at_mv(
+            self.reference_frames[ref_frame_idx],
+            self.interpolated_reference_frames[ref_frame_idx],
+            curr_block_cords, mv_x, mv_y, ec)
+
+        assert predicted_block.shape == (ec.block_size, ec.block_size)
+
+        return predicted_block
+
+    def generate_residual_block(self, curr_block, curr_block_cords, mv, ec:EncoderConfig):
+        predicted_block_with_mc = self.find_mv_predicted_block(mv, curr_block_cords, ec).astype(np.int16)
+        residual_block_with_mc = np.subtract(curr_block.astype(np.int16), predicted_block_with_mc.astype(np.int16))
+        return predicted_block_with_mc, residual_block_with_mc
+
+
+def construct_frame_from_dct_and_mv( frame:PFrame,  encoder_config: EncoderConfig):
+    reference_frames = frame.reference_frames
+    quant_dct_coff_frame = frame.quantized_dct_residual_frame
+    mv_field = frame.mv_field
+
     block_size = encoder_config.block_size
     quantization_factor = encoder_config.quantization_factor
     height, width = reference_frames[0].shape
@@ -190,7 +220,7 @@ def construct_frame_from_dct_and_mv(quant_dct_coff_frame, reference_frames, mv_f
             idct_residual_block = apply_idct_2d(rescaled_dct_coffs_block)
 
             # Get the predicted block using the motion vector
-            predicted_b = find_mv_predicted_block(mv_field.get((x, y), None), x, y, reference_frames, block_size)
+            predicted_b = frame.find_mv_predicted_block(mv_field.get((x, y)), (x, y), encoder_config)
 
             # Check if the predicted block is valid
             mv = mv_field.get((x, y))
@@ -234,3 +264,5 @@ def check_index_out_of_bounds(x, y, motion_vector, width, height, block_size):
         logger.error(f" mv [{motion_vector}] for [{x}, {y}] referencing small value [{x + motion_vector[0]}] or [{y + motion_vector[1] < 0}]")
     if x + motion_vector[0] + block_size > width or y + motion_vector[1] + block_size > height:
         logger.error(f" mv [{motion_vector}] for [{x}, {y}] referencing large value [{x + motion_vector[0] + block_size}]  or [{y + motion_vector[1] + block_size}]")
+
+

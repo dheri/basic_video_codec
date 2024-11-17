@@ -4,7 +4,6 @@ import os
 import numpy as np
 
 
-
 def get_logger():
     logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-7s [%(filename)s:%(lineno)-3d] %(message)s',
                         datefmt='%H:%M:%S', )
@@ -46,26 +45,6 @@ def mae(block1, block2):
     return np.mean(np.abs(block1 - block2))
 
 
-def generate_residual_block(curr_block, reference_frames, motion_vector, x, y, block_size):
-    predicted_block_with_mc = find_mv_predicted_block(motion_vector, x, y, reference_frames, block_size).astype(np.int16)
-    residual_block_with_mc = np.subtract(curr_block.astype(np.int16), predicted_block_with_mc.astype(np.int16))
-    return predicted_block_with_mc, residual_block_with_mc
-
-
-def find_mv_predicted_block(mv, x, y, reference_frames, block_size):
-    # Calculate the predicted block coordinates
-    pred_x = x + mv[0]
-    pred_y = y + mv[1]
-
-    if len(reference_frames) > 1:
-        pred_ref_frame_idx = mv[2]
-    else:
-        pred_ref_frame_idx = 0
-
-
-    # logger.debug(f"pred_ref_frame_idx: {pred_ref_frame_idx}")
-    predicted_block = reference_frames[pred_ref_frame_idx][pred_y:pred_y + block_size, pred_x:pred_x + block_size]
-    return predicted_block
 
 
 def split_into_blocks(nd_array, block_size):
