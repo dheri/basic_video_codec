@@ -4,7 +4,7 @@ from encoder.encoder import encode_video
 from encoder.params import EncoderConfig
 from file_io import FileIOHelper
 from input_parameters import InputParameters
-from metrics import plot_overlay_metrics
+from metrics import plot_overlay_metrics, plot_metrics
 
 """
 Create RD plots for a fixed set of parameters (block size = 16, search range = 4, I_Period = 8).
@@ -39,6 +39,7 @@ def main():
     ]
 
     num_of_base_files = 0
+    skip_period = 0
 
     for idx, ec in enumerate(encoder_configs):
         for qp in [1, 4, 7, 10]:
@@ -50,10 +51,11 @@ def main():
 
         if idx == 0:
             num_of_base_files = len(metric_files)
+            skip_period =  len(metric_files)
             continue # skip base
 
         base_metric_files = metric_files[:num_of_base_files]  # Assume the first file is the base
-        current_metric_files = metric_files[idx * 4: (idx + 1) * 4]
+        current_metric_files = metric_files[idx * skip_period: (idx + 1) * skip_period]
         plot_overlay_metrics(base_metric_files, current_metric_files, seq_names[idx])
 
 
