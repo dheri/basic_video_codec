@@ -33,7 +33,7 @@ def plot_metrics(params: InputParameters):
             frame_numbers.append(int(metrics.idx))           # Frame index
             avg_mae_values.append(float(metrics.avg_mae))   # Average MAE
             psnr_values.append(float(metrics.psnr))         # PSNR
-            frame_bytes.append(float(metrics.file_bits)) # Total file bits
+            frame_bytes.append(float(metrics.frame_bytes)) # Total file bits
 
     # Plot 1: MAE and PSNR vs Frame Numbers
     plt.figure(figsize=(10, 6))
