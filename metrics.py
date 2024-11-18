@@ -27,11 +27,13 @@ def plot_metrics(params: InputParameters):
 
         # Parse the rows into respective lists
         for row in csv_reader:
-            idx, _, avg_mae, _, psnr,frame_size, _  = row
-            frame_numbers.append(int(idx))           # Frame index
-            avg_mae_values.append(float(avg_mae))   # Average MAE
-            psnr_values.append(float(psnr))         # PSNR
-            frame_bytes.append(float(frame_size)) # Total file bits
+            metrics = FrameMetrics.from_csv_row(row)
+
+            # idx, _, avg_mae, _, psnr,frame_size, _  = row
+            frame_numbers.append(int(metrics.idx))           # Frame index
+            avg_mae_values.append(float(metrics.avg_mae))   # Average MAE
+            psnr_values.append(float(metrics.psnr))         # PSNR
+            frame_bytes.append(float(metrics.file_bits)) # Total file bits
 
     # Plot 1: MAE and PSNR vs Frame Numbers
     plt.figure(figsize=(10, 6))
