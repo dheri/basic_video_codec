@@ -8,6 +8,7 @@ import numpy as np
 from skimage.metrics import peak_signal_noise_ratio
 
 from common import pad_frame
+from encoder.FrameMetrics import FrameMetrics
 from encoder.IFrame import IFrame
 from encoder.PFrame import PFrame
 from encoder.block_predictor import build_pre_interpolated_buffer
@@ -22,7 +23,6 @@ logger = get_logger()
 def encode_video(params: InputParameters):
     file_io = FileIOHelper(params)
 
-    start_time = time.time()
     y_size = params.width * params.height
 
     reference_frames = deque(maxlen=params.encoder_config.nRefFrames)
@@ -50,12 +50,16 @@ def encode_video(params: InputParameters):
         I_Period = params.encoder_config.I_Period
 
         metrics_csv_writer = csv.writer(metrics_csv_fh)
-        metrics_csv_writer.writerow(
-            ['idx', 'I Frame',  'avg_MAE', 'mae_comps' , 'PSNR', 'frame bytes', 'file_bits'])
+        metrics_csv_writer.writerow(FrameMetrics.get_header())
         frame_index = 0
         logger.info(
-            f"[ i={params.encoder_config.block_size} r={params.encoder_config.search_range:3} q={params.encoder_config.quantization_factor}] , nRefFrames [{params.encoder_config.nRefFrames}]")
+            f"[i={params.encoder_config.block_size}"
+            f" r={params.encoder_config.search_range}"
+            f" q={params.encoder_config.quantization_factor}]"
+            f" nRefFrames=[{params.encoder_config.nRefFrames}]")
+        video_enc_start_time = time.time()
         while True:
+            frame_enc_start_time = time.time()
             start_of_bock_idx = encoded_fh.tell()
             frame_index += 1
             y_frame = f_in.read(y_size)
@@ -75,6 +79,9 @@ def encode_video(params: InputParameters):
 
             frame.entropy_encode_prediction_data(params.encoder_config)
             frame.entropy_encode_dct_coffs(block_size)
+
+            # frame in encoded, rest is writing data to file frame_enc_time
+            frame_enc_time = time.time() - frame_enc_start_time
 
             # 1 byte for prediction_mode
             encoded_fh.write(frame.prediction_mode.value.to_bytes(1))
@@ -100,13 +107,21 @@ def encode_video(params: InputParameters):
             mv_extremes = frame.get_mv_extremes()
 
             encoded_frame_size = encoded_fh.tell() - start_of_bock_idx
-            metrics_csv_writer.writerow([
-                frame_index,
-                frame.prediction_mode.value,
-                round(frame.avg_mae, 2),
-                frame.total_mae_comparisons,
-                round(frame_psnr, 2),
-                encoded_frame_size, encoded_fh.tell()])
+            frame_metrics = FrameMetrics(
+                frame_index, frame.prediction_mode.value,
+                frame.avg_mae, frame.total_mae_comparisons,
+                frame_psnr, encoded_frame_size, encoded_fh.tell(),
+                frame_enc_time, (time.time() - video_enc_start_time))
+
+            metrics_csv_writer.writerow(frame_metrics.to_csv_row())
+
+            # metrics_csv_writer.writerow([
+            #     frame_index,
+            #     frame.prediction_mode.value,
+            #     round(frame.avg_mae, 2),
+            #     frame.total_mae_comparisons,
+            #     round(frame_psnr, 2),
+            #     encoded_frame_size, encoded_fh.tell()])
 
             frame_info_str = (
                 f"{frame_index:2}: {frame.prediction_mode} "
@@ -130,7 +145,7 @@ def encode_video(params: InputParameters):
 
 
     end_time = time.time()
-    elapsed_time = end_time - start_time
+    elapsed_time = end_time - video_enc_start_time
 
     num_of_blocks = (height // block_size) * (width // block_size)
     num_of_comparisons = num_of_blocks * (2 * search_range + 1) ** 2

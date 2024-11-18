@@ -23,6 +23,7 @@ class EncoderConfig:
             raise ValueError(f" qp [{self.quantization_factor}] > {(math.log2(self.block_size) + 7)}")
         if self.fastME:
             self.search_range = -1
+        return  self
 
 
 class EncodedBlock:
