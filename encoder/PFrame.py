@@ -70,6 +70,9 @@ class PFrame(Frame):
                 else:
                     # Handle single block
                     reconstructed_frame_with_mc[y:y + block_size, x:x + block_size] = encoded_block.reconstructed_block
+                    if encoded_block.reconstructed_residual_block is None:
+                        encoded_block.reconstructed_residual_block = np.zeros((block_size, block_size), dtype=np.int8)
+
                     residual_frame_with_mc[y:y + block_size, x:x + block_size] = encoded_block.reconstructed_residual_block
                     quat_dct_coffs_frame_with_mc[y:y + block_size, x:x + block_size] = encoded_block.quantized_dct_coffs
 

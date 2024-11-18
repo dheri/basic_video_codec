@@ -74,14 +74,14 @@ def encode_video(params: InputParameters):
             frame.entropy_encode_dct_coffs(block_size)
 
             # 1 byte for prediction_mode
-            encoded_fh.write(frame.prediction_mode.value.to_bytes(1))
+            encoded_fh.write(frame.prediction_mode.value.to_bytes(1, byteorder='big'))
 
             # 2 byte for len of entropy_encoded_prediction_data
             num_of_byte_in_entropy_encoded_prediction_data = (
                                                                          len(frame.entropy_encoded_prediction_data) + 7) // 8  # plus 7 to get ceiling of bytes
             # logger.info(
             #     f"num_of_byte_in_entropy_encoded_prediction_data [{num_of_byte_in_entropy_encoded_prediction_data:4}] [0x{(num_of_byte_in_entropy_encoded_prediction_data.to_bytes(2)).hex()}]")
-            encoded_fh.write(num_of_byte_in_entropy_encoded_prediction_data.to_bytes(2))
+            encoded_fh.write(num_of_byte_in_entropy_encoded_prediction_data.to_bytes(2,byteorder='big'))
 
             # n bytes for entropy_encoded_prediction_data
             start_of_prediction_data_idx = encoded_fh.tell()
@@ -92,7 +92,7 @@ def encode_video(params: InputParameters):
                                                                    len(frame.entropy_encoded_DCT_coffs) + 7) // 8  # plus 7 to get ceiling of bytes
             # logger.info(
             #     f"num_of_byte_in_entropy_encoded_dct_coffs       [{num_of_byte_in_entropy_encoded_dct_coffs:4}]  [0x{(num_of_byte_in_entropy_encoded_dct_coffs.to_bytes(3)).hex()}]")
-            encoded_fh.write(num_of_byte_in_entropy_encoded_dct_coffs.to_bytes(3))
+            encoded_fh.write(num_of_byte_in_entropy_encoded_dct_coffs.to_bytes(3,byteorder='big'))
 
             # n bytes for entropy_encoded_DCT_coffs
             start_of_dct_coffs_idx = encoded_fh.tell()

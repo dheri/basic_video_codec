@@ -24,9 +24,10 @@ def intra_predict_block(curr_block, reconstructed_frame, x, y, block_size):
 
     # Select the mode with the lowest MAE
     if mae_horizontal < mae_vertical:
-        return horizontal_pred, 0  # Horizontal mode (0)
+        return horizontal_pred, 0, mae_horizontal  # Return MAE for horizontal mode
     else:
-        return vertical_pred, 1  # Vertical mode (1)
+        return vertical_pred, 1, mae_vertical  # Return MAE for vertical mode
+
 
 
 def differential_encode_mode(current_mode, previous_mode):

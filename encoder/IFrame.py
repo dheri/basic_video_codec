@@ -55,15 +55,16 @@ class IFrame(Frame):
                             mae_of_blocks += sub_block["mae"]
                             reconstructed_frame[sub_y:sub_y + sub_size, sub_x:sub_x + sub_size] = sub_block["predicted_block"]
                             quantized_dct_residual_frame[sub_y:sub_y + sub_size, sub_x:sub_x + sub_size] = sub_block[
-                                "quantized_dct_coffs"]
+                                "quantized_dct_coffs"][0]
                             residual_w_mc_frame[sub_y:sub_y + sub_size, sub_x:sub_x + sub_size] = sub_block["residual"]
                     else:
                         # Process as a single block
                         intra_modes.append(encoded_data["mode"])
                         mae_of_blocks += encoded_data["mae"]
                         reconstructed_frame[y:y + block_size, x:x + block_size] = encoded_data["predicted_block"]
+
                         quantized_dct_residual_frame[y:y + block_size, x:x + block_size] = encoded_data[
-                            "quantized_dct_coffs"]
+                            "quantized_dct_coffs"][0]
                         residual_w_mc_frame[y:y + block_size, x:x + block_size] = encoded_data["residual"]
 
                 else:
@@ -133,12 +134,13 @@ class IFrame(Frame):
         return reconstructed_frame  # This should be the reconstructed fra
     def entropy_encode_prediction_data(self):
         self.entropy_encoded_prediction_data = bitarray()
-        # logger.info(self.intra_modes)
         for m in self.intra_modes:
+            if m is None or m < 0:  # Safeguard for invalid values
+                raise ValueError(f"Invalid mode value: {m}")
             enc = exp_golomb_encode(m)
             self.entropy_encoded_prediction_data.extend(enc)
-        # logger.info(f" entropy_encoded_prediction_data  len : {len(self.entropy_encoded_prediction_data)}, {len(self.entropy_encoded_prediction_data) // 8}")
-        # logger.info(self.entropy_encoded_prediction_data)
+
+
 
     def entropy_decode_prediction_data(self, enc, params=None):
         decoded_modes = []

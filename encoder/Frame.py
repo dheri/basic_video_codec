@@ -32,6 +32,8 @@ class Frame:
         self.quantized_dct_residual_frame = None
         self.reconstructed_frame = None
         self.avg_mae = None
+        self.block_sizes = None
+
 
     def encode_mc_q_dct(self, encoder_config: EncoderConfig):
         raise NotImplementedError(f"{type(self)} need to be overridden")

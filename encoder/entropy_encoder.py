@@ -82,6 +82,7 @@ def encode_sub_blocks(bitstream, sub_blocks):
 import numpy as np
 from bitarray import bitarray
 
+"""
 def exp_golomb_encode(value):
     if value == 0:
         return bitarray('0')
@@ -93,6 +94,27 @@ def exp_golomb_encode(value):
     prefix = bitarray('0' * m + '1')
     suffix = bitarray(format(mapped_value - (1 << m), f'0{m}b'))
     return prefix + suffix
+"""
+
+def exp_golomb_encode(value):
+    print(f"Encoding value: {value}")  # Debug
+    if value == 0:
+        return '0'
+    if value > 0:
+        mapped_value = 2 * value - 1
+    else:
+        mapped_value = -2 * value
+    print(f"Mapped value: {mapped_value}")  # Debug
+    m = int(np.log2(mapped_value + 1))
+    print(f"Calculated m: {m}")  # Debug
+    prefix = '0' * m + '1'
+    suffix_value = mapped_value - (1 << m)
+    if suffix_value < 0:
+        suffix_value = 0  # Ensure non-negative suffix
+    print(f"Suffix value: {suffix_value}")  # Debug
+    suffix = format(suffix_value, f'0{m}b')
+    return prefix + suffix
+
 
 def exp_golomb_decode(bitstream):
     m = 0
