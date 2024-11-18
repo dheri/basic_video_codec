@@ -1,5 +1,6 @@
 import csv
 from contextlib import ExitStack
+from copy import copy
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -91,53 +92,6 @@ def plot_metrics(params: InputParameters):
     plt.savefig(file_io.get_file_name("rd.png"))
     plt.close()
 
-def plot_combined_metrics(metric_files, seq_name):
-    with ExitStack() as stack:
-        file_handles = [stack.enter_context(open(f_name)) for f_name in metric_files]
-        plt.figure(figsize=(12, 8))
-
-        # Iterate through each file and plot its data
-        for idx, f in enumerate(file_handles):
-            csv_reader = csv.reader(f)
-            headers = next(csv_reader)  # Skip the header row
-
-            frame_bytes = []
-            psnr_values = []
-
-            # Parse the rows into respective lists
-            for row in csv_reader:
-                metrics = FrameMetrics.from_csv_row(row)
-
-                frame_bytes.append(float(metrics.file_bits))
-                psnr_values.append(float(metrics.psnr))
-
-            # Sort data by frame_bytes to ensure proper line fitting
-            frame_bytes = np.array(frame_bytes)
-            psnr_values = np.array(psnr_values)
-            sorted_indices = np.argsort(frame_bytes)
-            frame_bytes_sorted = frame_bytes[sorted_indices]
-            psnr_values_sorted = psnr_values[sorted_indices]
-
-            # Plot data for this file as a separate series
-            plt.scatter(frame_bytes_sorted, psnr_values_sorted, marker='x', label=f" {seq_name} {create_label(metric_files[idx])[0]}", alpha=0.4)
-            # Add a best-fit line (e.g., polynomial order 2)
-            best_fit_line = np.poly1d(np.polyfit(frame_bytes_sorted, psnr_values_sorted, 2))
-            plt.plot(frame_bytes_sorted, best_fit_line(frame_bytes_sorted), linestyle='dotted', linewidth=0.5)
-
-        # Add labels, title, legend, and grid
-        plt.xlabel("bits in file")
-        plt.ylabel("PSNR (dB)")
-        plt.title("Combined Frame Bytes vs PSNR for Multiple Files")
-        plt.legend(loc='lower right')
-        plt.grid(True)
-        plt.tight_layout()
-
-        # Save the plot as a PNG file
-        plt.savefig(f"../data/assign2_dels/{seq_name}.png")
-        # plt.show()
-        plt.close()
-
-
 
 def create_label(file_path):
     parts = file_path.split('/')
@@ -146,7 +100,7 @@ def create_label(file_path):
         raise ValueError("File path does not match the expected format.")
 
     # Extract sequence name and encoder configuration
-    seq_name = parts[2]  # Second directory is the sequence name
+    file_name = parts[2]  # Second directory is the sequence name
     encoder_config = parts[3]  # Third directory is the encoder config
 
     # Parse encoder configuration
@@ -169,7 +123,7 @@ def create_label(file_path):
 
     # Preserve parsed details in a dictionary
     details = {
-        "seq_name": seq_name,
+        "file_name": file_name,
         "block_size": block_size,
         "search_range": search_range,
         "qp": qp,
@@ -180,4 +134,84 @@ def create_label(file_path):
 
     return label, details
 
+def plot_overlay_metrics(base_metric_files, metric_files, seq_name):
+    """
+    Creates a graph with scatter and best-fit lines for both base_metric_files and metric_files.
 
+    Parameters:
+        base_metric_files (list): List of base metric CSV file paths.
+        metric_files (list): List of additional metric CSV file paths.
+        seq_name (str): Name of the sequence for labeling the graph.
+
+    Saves:
+        PNG file with the graph plotted.
+    """
+    plt.close('all')  # Close all existing figures to start fresh
+    fig, ax = plt.subplots(figsize=(12, 8))  # Create a new figure and axes
+
+    # Define a color map to maintain consistent colors for sequences
+    color_map = {}
+    color_palette = plt.cm.tab10.colors  # Use a tab10 color palette
+    color_index = 0
+
+    def get_color(label):
+        nonlocal color_index
+        if label not in color_map:
+            color_map[label] = color_palette[color_index % len(color_palette)]
+            color_index += 1
+        return color_map[label]
+
+    def process_files(file_list, label_prefix, is_base=False):
+        with ExitStack() as stack:
+            file_handles = [stack.enter_context(open(f_name)) for f_name in file_list]
+
+            # Iterate through each file and plot its data
+            for idx, f in enumerate(file_handles):
+                csv_reader = csv.reader(f)
+                headers = next(csv_reader)  # Skip the header row
+
+                file_bits = []
+                psnr_values = []
+                encoding_time = 0
+
+                # Parse the rows into respective lists
+                for row in csv_reader:
+                    metrics = FrameMetrics.from_csv_row(row)
+                    file_bits.append(float(metrics.file_bits))
+                    psnr_values.append(float(metrics.psnr))
+                    encoding_time = metrics.elapsed_time
+
+                # Sort data by file_bits to ensure proper line fitting
+                file_bits = np.array(file_bits)
+                psnr_values = np.array(psnr_values)
+                sorted_indices = np.argsort(file_bits)
+                frame_bytes_sorted = file_bits[sorted_indices]
+                psnr_values_sorted = psnr_values[sorted_indices]
+
+                # Generate a label for the sequence
+                seq_label = f"{label_prefix} \t {create_label(file_list[idx])[0]} \t t={encoding_time:.2f}s"
+                color = get_color(label_prefix)  # Get consistent color for this label
+
+                # Plot scatter and best-fit line
+                marker = '.' if is_base else 'x'
+                ax.scatter(frame_bytes_sorted, psnr_values_sorted, marker=marker,  label=seq_label, color=color, alpha=0.8)
+                best_fit_line = np.poly1d(np.polyfit(frame_bytes_sorted, psnr_values_sorted, 2))
+                l_width = 0.5 if is_base else 0.7
+                ax.plot(frame_bytes_sorted, best_fit_line(frame_bytes_sorted), linestyle='dotted', linewidth=l_width, color=color, alpha=0.6)
+
+    # Process base_metric_files and metric_files
+    process_files(base_metric_files, "assign1", is_base=True)
+    process_files(metric_files, seq_name)
+
+    # Add labels, title, legend, and grid
+    ax.set_xlabel("Bits in File")
+    ax.set_ylabel("PSNR (dB)")
+    ax.set_title(f"PSRN vs File_Bits |  assign_1 vs  [{seq_name}]")
+
+    ax.legend(loc='lower right')
+    ax.grid(True)
+
+    # Save the plot as a PNG file
+    plt.tight_layout()
+    plt.savefig(f"../data/assign2_dels/{seq_name}.png")
+    plt.close(fig)
