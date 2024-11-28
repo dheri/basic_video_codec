@@ -213,7 +213,7 @@ def plot_overlay_metrics(base_metric_files, metric_files, seq_name):
     ax.grid(True)
 
     processed_file_name = create_label(base_metric_files[0])[1]['file_name']
-    graph_dir = f"../data/assign2_dels/{processed_file_name}"
+    graph_dir = f"../data/assign3_dels/{processed_file_name}"
     if not os.path.exists(graph_dir):
         os.makedirs(graph_dir)
     # Save the plot as a PNG file

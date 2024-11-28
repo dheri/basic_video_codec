@@ -1,10 +1,9 @@
 import copy
 
-from encoder.encoder import encode_video
 from encoder.params import EncoderConfig
 from file_io import FileIOHelper
 from input_parameters import InputParameters
-from metrics import plot_overlay_metrics, plot_metrics
+from metrics.metrics import plot_overlay_metrics
 
 """
 Create RD plots for a fixed set of parameters (block size = 16, search range = 4, I_Period = 8).
