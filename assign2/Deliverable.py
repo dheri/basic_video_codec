@@ -3,7 +3,7 @@ import copy
 from encoder.params import EncoderConfig
 from file_io import FileIOHelper
 from input_parameters import InputParameters
-from metrics.metrics import plot_overlay_metrics
+from metrics.plot_rd_curves import plot_RD_curves_metrics
 
 """
 Create RD plots for a fixed set of parameters (block size = 16, search range = 4, I_Period = 8).
@@ -55,7 +55,7 @@ def main():
 
         base_metric_files = metric_files[:num_of_base_files]  # Assume the first file is the base
         current_metric_files = metric_files[idx * skip_period: (idx + 1) * skip_period]
-        plot_overlay_metrics(base_metric_files, current_metric_files, seq_names[idx])
+        plot_RD_curves_metrics(base_metric_files, current_metric_files, seq_names[idx])
 
 
 
