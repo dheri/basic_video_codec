@@ -1,5 +1,7 @@
 import copy
 
+from encoder.RateControl.RateControl import calculate_row_bit_budget
+from encoder.RateControl.lookup import generate_rc_lookup
 from encoder.encoder import encode_video
 from encoder.params import EncoderConfig
 from file_io import FileIOHelper
@@ -10,14 +12,17 @@ from metrics.bit_count_per_block import print_average_bit_count_per_block_row
 
 
 def main():
-    encoder_configs = [copy.deepcopy(EncoderConfig(4, 4, 3, quantization_factor=i)) for i in range(10)]
+    resolution = (352, 288)
+    encoder_configs = [copy.deepcopy(EncoderConfig(
+        4, 2, 4, quantization_factor=i, fastME=True,
+        resolution=resolution,  RCflag=True, targetBR=5_140_480)) for i in range(10)]
 
     params = InputParameters(
-        y_only_file='../data/synthetic.y',
-        width=352,
-        height=288,
+        y_only_file='../data/foreman_cif.y',
+        width=resolution[0],
+        height=resolution[1],
         encoder_config=encoder_configs[0],
-        frames_to_process=5
+        frames_to_process=15
     )
     metric_files = []
     num_of_base_files = 0
@@ -38,7 +43,12 @@ def main():
         # base_metric_files = metric_files[:num_of_base_files]  # Assume the first file is the base
         # current_metric_files = metric_files[idx * skip_period: (idx + 1) * skip_period]
         # plot_RD_curves_metrics(base_metric_files, current_metric_files, f'q = {idx}')
-    print_average_bit_count_per_block_row(metric_files, params)
+        print(calculate_row_bit_budget(ec))
+
+    # print_average_bit_count_per_block_row(metric_files, params)
+    generate_rc_lookup(metric_files, params)
+
+
 
 if __name__ == '__main__':
     main()

@@ -4,10 +4,11 @@ from typing import LiteralString
 
 import pandas as pd
 
+from common import get_logger
 from encoder.FrameMetrics import FrameMetrics
 from input_parameters import InputParameters
 from metrics.plot_rd_curves import create_label
-
+logger = get_logger()
 
 def print_average_bit_count_per_block_row(metric_files, params:InputParameters):
 
@@ -29,7 +30,7 @@ def print_average_bit_count_per_block_row(metric_files, params:InputParameters):
         output_file_name = os.path.join(os.path.dirname(file_path), f"{bn}")
         # Read CSV data
         with open(file_path, 'rt') as input_file, open(output_file_name, 'wt', newline='') as output_file:
-            print(f" {output_file_name}, {file_path}")
+            logger.debug(f" {output_file_name}, {file_path}")
             csv_reader = csv.reader(input_file)
             csv_writer = csv.writer(output_file)
             headers = next(csv_reader)  # Skip header row
@@ -70,12 +71,12 @@ def print_average_bit_count_per_block_row(metric_files, params:InputParameters):
                 "Avg P-Frame Bits/Row": f"{avg_p_bits_per_row:.2f}",
                 "Avg   Frame Bits/Row": f"{avg_bits_per_row:.2f}"
             }
-            print(f" avg_i_bits_per_row = {i_frame_bits} / {i_frame_rows} ")
-            print(f" avg_p_bits_per_row = {p_frame_bits} / {p_frame_rows} ")
-            print(results[file_path])
+            # print(f" avg_i_bits_per_row = {i_frame_bits} / {i_frame_rows} ")
+            # print(f" avg_p_bits_per_row = {p_frame_bits} / {p_frame_rows} ")
+            logger.info(results[file_path])
 
     # Display results as a table
     results_df = pd.DataFrame.from_dict(results, orient='index')
     results_df.reset_index(inplace=True)
     results_df.rename(columns={'index': 'File'}, inplace=True)
-    print(results_df)
+    # logger.info(results_df)

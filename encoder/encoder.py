@@ -56,7 +56,10 @@ def encode_video(params: InputParameters):
             f"[i={params.encoder_config.block_size}"
             f" r={params.encoder_config.search_range}"
             f" q={params.encoder_config.quantization_factor}]"
-            f" nRefFrames=[{params.encoder_config.nRefFrames}]")
+            f" nRefFrames=[{params.encoder_config.nRefFrames}]"
+            f" fracMeEnabled=[{params.encoder_config.fracMeEnabled}]"
+            f" RateControl=[{params.encoder_config.RCflag}] @ [{params.encoder_config.targetBR} _bps]"
+        )
         video_enc_start_time = time.time()
         while True:
             frame_enc_start_time = time.time()
