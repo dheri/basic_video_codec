@@ -110,18 +110,11 @@ def encode_video(params: InputParameters):
             frame_metrics = FrameMetrics(
                 frame_index, frame.prediction_mode.value,
                 frame.avg_mae, frame.total_mae_comparisons,
-                frame_psnr, encoded_frame_size, encoded_fh.tell(),
+                frame_psnr, encoded_frame_size, encoded_fh.tell() * 8,
                 frame_enc_time, (time.time() - video_enc_start_time))
 
             metrics_csv_writer.writerow(frame_metrics.to_csv_row())
 
-            # metrics_csv_writer.writerow([
-            #     frame_index,
-            #     frame.prediction_mode.value,
-            #     round(frame.avg_mae, 2),
-            #     frame.total_mae_comparisons,
-            #     round(frame_psnr, 2),
-            #     encoded_frame_size, encoded_fh.tell()])
 
             frame_info_str = (
                 f"{frame_index:2}: {frame.prediction_mode} "
