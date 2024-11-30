@@ -10,7 +10,7 @@ from metrics.metrics import plot_metrics
 
 def create_lookups():
     sequences = ['foreman_cif.y']
-    block_sizes =[ 4]
+    block_sizes =[4, 16]
     for sequence in sequences:
         for block_size in block_sizes:
             create_lookup_for_seq(f"../data/{sequence}", block_size)

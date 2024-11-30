@@ -30,7 +30,7 @@ def generate_rc_lookup(metric_files, params: InputParameters):
             for row in csv_reader:
                 metrics = FrameMetrics.from_csv_row(row)
                 qp = details['qp']  # Assuming QP is part of FrameMetrics
-                frame_bits = metrics.frame_bytes
+                frame_bits = metrics.frame_bytes * 8
                 blocks_per_col = params.height // block_size
 
                 if qp not in aggregated_results:
