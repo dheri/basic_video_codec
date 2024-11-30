@@ -4,6 +4,7 @@ from bitarray import bitarray
 from common import get_logger
 from encoder.Frame import Frame, apply_dct_and_quantization, reconstruct_block
 from encoder.PredictionMode import PredictionMode
+from encoder.RateControl.RateControl import find_rc_qp_for_row, calculate_row_bit_budget
 from encoder.dct import generate_quantization_matrix, rescale_block, apply_idct_2d
 from encoder.entropy_encoder import exp_golomb_encode, exp_golomb_decode
 from encoder.params import EncoderConfig, EncodedIBlock
@@ -30,6 +31,11 @@ class IFrame(Frame):
 
         # Loop through each block in the frame
         for y in range(0, height, block_size):
+            row_idx = y//block_size
+            row_bit_budget = calculate_row_bit_budget(self.bit_budget, row_idx, encoder_config)
+            qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'I')
+            logger.info(f"[{row_idx:2d}] row_bit_budget [{row_bit_budget:8.2f}] , qp=[{qp}]")
+            encoder_config.quantization_factor = qp
             for x in range(0, width, block_size):
                 curr_block = curr_frame[y:y + block_size, x:x + block_size]
 
@@ -48,7 +54,7 @@ class IFrame(Frame):
                 residual_w_mc_frame[y:y + block_size,
                 x:x + block_size] = encoded_block.residual_block_wo_mc  # residual_block
                 self.total_mae_comparisons += encoded_block.mae_comparisons_to_encode
-
+            logger.debug('Try to entropy encode row')
 
         avg_mae = mae_of_blocks / ((height // block_size) * (width // block_size))
         self.reconstructed_frame = reconstructed_frame

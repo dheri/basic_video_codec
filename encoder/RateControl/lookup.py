@@ -4,15 +4,17 @@ import os
 import pandas as pd
 
 from encoder.FrameMetrics import FrameMetrics
+from encoder.params import EncoderConfig
 from input_parameters import InputParameters
 from metrics.plot_rd_curves import create_label
 
+def rc_lookup_file_path(ec: EncoderConfig):
+    curr_dir = os.path.dirname(__file__)
+    output_file_name = os.path.join(curr_dir, f'lookups/{ec.block_size}.csv')
+    return output_file_name
 
 def generate_rc_lookup(metric_files, params: InputParameters):
-    curr_dir = os.path.dirname(__file__)
-    output_file_name = os.path.join(curr_dir, f'lookups/{params.encoder_config.block_size}.csv')
-    print(output_file_name)
-
+    output_file_name = rc_lookup_file_path(params.encoder_config)
     aggregated_results = {}
 
     for file_path in metric_files:
@@ -72,8 +74,9 @@ def generate_rc_lookup(metric_files, params: InputParameters):
     print(f"Transposed lookup table saved: {output_file_name}")
 
 def get_lookup_table_from_file(file_path: str):
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"rc lookup file not found @ {file_path}")
     df = pd.read_csv(file_path)
-
     # Initialize the lookup table
     lookup_table = {}
 

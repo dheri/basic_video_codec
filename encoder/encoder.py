@@ -2,7 +2,6 @@ import csv
 import time
 from collections import deque
 from contextlib import ExitStack
-from inspect import stack
 
 import numpy as np
 from skimage.metrics import peak_signal_noise_ratio
@@ -11,6 +10,8 @@ from common import pad_frame
 from encoder.FrameMetrics import FrameMetrics
 from encoder.IFrame import IFrame
 from encoder.PFrame import PFrame
+from encoder.RateControl.RateControl import bit_budget_per_frame
+from encoder.RateControl.lookup import get_lookup_table_from_file, rc_lookup_file_path
 from encoder.block_predictor import build_pre_interpolated_buffer
 from encoder.dct import *
 from encoder.entropy_encoder import *
@@ -31,6 +32,10 @@ def encode_video(params: InputParameters):
     interpolated_reference_frames = deque(maxlen=params.encoder_config.nRefFrames)
     interpolated_reference_frames.append(build_pre_interpolated_buffer(reference_frames[0]))
 
+    if params.encoder_config.RCflag:
+        params.encoder_config.rc_lookup_table = get_lookup_table_from_file(rc_lookup_file_path(params.encoder_config))
+
+
     with ExitStack() as stack:
         f_in = stack.enter_context(open(params.y_only_file, 'rb'))
         mv_fh = stack.enter_context(open(file_io.get_mv_file_name(), 'wt'))
@@ -46,7 +51,6 @@ def encode_video(params: InputParameters):
         width = params.width
         block_size = params.encoder_config.block_size
         search_range = params.encoder_config.search_range
-        quantization_factor = params.encoder_config.quantization_factor
         I_Period = params.encoder_config.I_Period
 
         metrics_csv_writer = csv.writer(metrics_csv_fh)
@@ -77,6 +81,8 @@ def encode_video(params: InputParameters):
                 interpolated_reference_frames.clear()
             else:
                 frame = PFrame(padded_frame, reference_frames, interpolated_reference_frames)
+
+            frame.bit_budget = bit_budget_per_frame(params.encoder_config)
 
             frame.encode_mc_q_dct(params.encoder_config)
 

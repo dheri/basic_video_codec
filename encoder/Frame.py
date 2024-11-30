@@ -34,6 +34,7 @@ class Frame:
         self.reconstructed_frame = None
         self.avg_mae = None
         self.total_mae_comparisons = 0
+        self.bit_budget = 0
 
     def encode_mc_q_dct(self, encoder_config: EncoderConfig):
         raise NotImplementedError(f"{type(self)} need to be overridden")

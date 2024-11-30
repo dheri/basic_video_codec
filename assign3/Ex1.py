@@ -10,7 +10,7 @@ from metrics.metrics import plot_metrics
 
 def create_lookups():
     sequences = ['foreman_cif.y']
-    block_sizes =[ 16]
+    block_sizes =[ 4]
     for sequence in sequences:
         for block_size in block_sizes:
             create_lookup_for_seq(f"../data/{sequence}", block_size)
@@ -34,8 +34,8 @@ def create_lookup_for_seq(y_only_file, block_size):
 
     for idx, ec in enumerate(encoder_configs):
         params.encoder_config = ec.validate()
-        encode_video(params)
-        plot_metrics(params)
+        # encode_video(params)
+        # plot_metrics(params)
         # decode_video(params)
         metric_files.append(FileIOHelper(params).get_metrics_csv_file_name())
 

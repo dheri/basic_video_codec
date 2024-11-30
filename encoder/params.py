@@ -16,6 +16,7 @@ class EncoderConfig:
         self.fastME = fastME
         self.fracMeEnabled = fracMeEnabled
         self.RCflag = RCflag
+        self.rc_lookup_table : dict | None = None
         self.targetBR = targetBR
         self.resolution= resolution
         self.frame_rate = 30
@@ -27,6 +28,9 @@ class EncoderConfig:
     def validate(self):
         if self.quantization_factor > (math.log2(self.block_size) + 7):
             raise ValueError(f" qp [{self.quantization_factor}] > {(math.log2(self.block_size) + 7)}")
+        if self.RCflag:
+            if self.targetBR ==0:
+                raise ValueError("Target Bit Rate is 0 when Rate Control is On")
         if self.fastME:
             self.search_range = -1
         return  self
