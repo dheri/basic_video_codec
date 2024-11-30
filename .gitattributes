@@ -1,3 +1,6 @@
 data/benchmark.y filter=lfs diff=lfs merge=lfs -text
 data/foreman_cif.yuv filter=lfs diff=lfs merge=lfs -text
 data/synthetic.yuv filter=lfs diff=lfs merge=lfs -text
+data/e3_CIF.y filter=lfs diff=lfs merge=lfs -text
+data/e3_QCIF.y filter=lfs diff=lfs merge=lfs -text
+data/synthetic.y filter=lfs diff=lfs merge=lfs -text
