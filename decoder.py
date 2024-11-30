@@ -45,9 +45,11 @@ def decode_video(params: InputParameters):
         frame_index = 0
         while True:
             frame_index += 1
-            if frame_index > frames_to_process or not encoded_fh:
-                break  # End of file or end of frames
-            prediction_mode = int.from_bytes(encoded_fh.read(1))
+            frame_type_byte = encoded_fh.read(1)
+            if frame_index > frames_to_process or not frame_type_byte:
+                logger.debug(f"end of decoder loop {frame_index} > {frames_to_process} OR {frame_type_byte}")
+                break
+            prediction_mode = int.from_bytes(frame_type_byte)
             logger.debug(f"Decoding {PredictionMode(prediction_mode)} {frame_index}/{frames_to_process}")
 
             if prediction_mode == PredictionMode.INTRA_FRAME.value:
