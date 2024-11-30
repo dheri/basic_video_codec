@@ -1,11 +1,9 @@
 import copy
 
 from encoder.RateControl.lookup import generate_rc_lookup
-from encoder.encoder import encode_video
 from encoder.params import EncoderConfig
 from file_io import FileIOHelper
 from input_parameters import InputParameters
-from metrics.metrics import plot_metrics
 
 
 def create_lookups():

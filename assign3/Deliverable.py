@@ -11,6 +11,7 @@ from metrics.metrics import plot_metrics
 
 
 def main():
+    resolution = (352, 288)
 
     encoder_config = EncoderConfig(
         block_size=16,
@@ -19,14 +20,14 @@ def main():
         I_Period=4,
         fastME=True,
         RCflag=True,
-        targetBR=540_000
-
+        targetBR=3_140_480,
+        resolution=resolution
     )
 
     input_params = InputParameters(
         y_only_file='../data/foreman_cif.y',
-        width=352,
-        height=288,
+        width=resolution[0],
+        height=resolution[1],
         encoder_config=encoder_config,
         frames_to_process=3
     )

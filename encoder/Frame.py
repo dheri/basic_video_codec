@@ -35,6 +35,9 @@ class Frame:
         self.avg_mae = None
         self.total_mae_comparisons = 0
         self.bit_budget = 0
+        self.entropy_encoded_dct_length=0
+        self.entropy_encoded_prediction_data_length=0
+        self.rc_qp_per_row = []
 
     def encode_mc_q_dct(self, encoder_config: EncoderConfig):
         raise NotImplementedError(f"{type(self)} need to be overridden")
@@ -64,21 +67,9 @@ class Frame:
                 self.entropy_encoded_DCT_coffs.extend(enc)
             self.entropy_encoded_DCT_coffs.extend(exp_golomb_encode(Frame.EOB_MARKER))
 
-        logger.info(f"len: {len(self.entropy_encoded_DCT_coffs)}")
+        # logger.info(f"prediction : {len(self.entropy_encoded_prediction_data):6d} |  DCT: {len(self.entropy_encoded_DCT_coffs):6d}")
 
 
-    def entropy_encode_dct_coffs(self, block_size):
-        self.entropy_encoded_DCT_coffs = bitarray()
-
-        blocks = split_into_blocks(self.quantized_dct_residual_frame, block_size)
-        for block in blocks:
-            zigzag_dct_coffs = zigzag_order(block)
-            rle = rle_encode(zigzag_dct_coffs)
-            for symbol in rle:
-                enc = exp_golomb_encode(symbol)
-                self.entropy_encoded_DCT_coffs.extend(enc)
-            self.entropy_encoded_DCT_coffs.extend(exp_golomb_encode(Frame.EOB_MARKER))
-        # logger.info(f" entropy_encoded_DCT_coffs  len : {len(self.entropy_encoded_DCT_coffs)}, {len(self.entropy_encoded_DCT_coffs) // 8}")
 
     def entropy_decode_dct_coffs(self, params: InputParameters):
         block_size = params.encoder_config.block_size
