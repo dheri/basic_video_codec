@@ -174,8 +174,9 @@ class PFrame(Frame):
         # Decode each pair of motion vector components (mv_x and mv_y) from the bitstream
         while bitstream:
             try:
-                if blocks_processed % blocks_in_row == 0:
-                    if len(self.rc_qp_per_row) >= num_of_rows:
+                if blocks_processed % blocks_in_row == 0: # start of each row
+                    if len(self.rc_qp_per_row) >= num_of_rows:  # start of last row
+                        logger.debug(f"found last row {len(self.rc_qp_per_row)} >= {num_of_rows}")
                         break
                     rc_qp_diff, bitstream = exp_golomb_decode(bitstream)
                     rc_qp = prev_rq_qp + rc_qp_diff
