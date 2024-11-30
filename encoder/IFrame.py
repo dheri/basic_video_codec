@@ -25,9 +25,9 @@ class IFrame(Frame):
 
         mae_of_blocks = 0
         intra_modes = []  # To store the intra prediction modes (0 for horizontal, 1 for vertical)
-        reconstructed_frame = np.zeros_like(curr_frame)
+        self.reconstructed_frame = np.zeros_like(curr_frame)
         residual_w_mc_frame = np.zeros_like(curr_frame)
-        quantized_dct_residual_frame = np.zeros_like(curr_frame, dtype=np.int16)
+        self.quantized_dct_residual_frame = np.zeros_like(curr_frame, dtype=np.int16)
 
         # Loop through each block in the frame
         for y in range(0, height, block_size):
@@ -40,7 +40,7 @@ class IFrame(Frame):
                 curr_block = curr_frame[y:y + block_size, x:x + block_size]
 
                 encoded_block = process_block(
-                    curr_block, reconstructed_frame, x, y, block_size, encoder_config.quantization_factor
+                    curr_block, self.reconstructed_frame, x, y, block_size, encoder_config.quantization_factor
                 )
 
                 # Store intra mode and update MAE
@@ -48,17 +48,17 @@ class IFrame(Frame):
                 mae_of_blocks += encoded_block.mae
 
                 # Update reconstructed frame and quantized residuals
-                reconstructed_frame[y:y + block_size, x:x + block_size] = encoded_block.reconstructed_block
-                quantized_dct_residual_frame[y:y + block_size,
+                self.reconstructed_frame[y:y + block_size, x:x + block_size] = encoded_block.reconstructed_block
+                self.quantized_dct_residual_frame[y:y + block_size,
                 x:x + block_size] = encoded_block.quantized_dct_coffs  # quantized_dct_residual_block
                 residual_w_mc_frame[y:y + block_size,
                 x:x + block_size] = encoded_block.residual_block_wo_mc  # residual_block
                 self.total_mae_comparisons += encoded_block.mae_comparisons_to_encode
-            logger.debug('Try to entropy encode row')
+            self.entropy_encode_dct_coffs_row(row_idx, encoder_config)
 
         avg_mae = mae_of_blocks / ((height // block_size) * (width // block_size))
-        self.reconstructed_frame = reconstructed_frame
-        self.quantized_dct_residual_frame = quantized_dct_residual_frame
+        # self.reconstructed_frame = reconstructed_frame
+        # self.quantized_dct_residual_frame = quantized_dct_residual_frame
         self.intra_modes = intra_modes
         self.avg_mae = avg_mae
         self.residual_frame = residual_w_mc_frame
@@ -70,7 +70,6 @@ class IFrame(Frame):
         height, width = frame_shape
         reconstructed_frame = np.zeros((height, width), dtype=np.uint8)
         Q = generate_quantization_matrix(block_size, encoder_config.quantization_factor)
-        # logger.info(self.intra_modes)
 
         # Iterate over blocks to reconstruct the frame
         for y in range(0, height, block_size):

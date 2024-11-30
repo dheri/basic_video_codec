@@ -48,6 +48,25 @@ class Frame:
     def entropy_decode_prediction_data(self, enc, params: InputParameters):
         raise NotImplementedError(f"{type(self)} need to be overridden")
 
+    def entropy_encode_dct_coffs_row(self, row_idx, ec:EncoderConfig):
+        if not self.entropy_encoded_DCT_coffs:
+            self.entropy_encoded_DCT_coffs = bitarray()
+        start_row = row_idx * ec.block_size
+        end_row = start_row + ec.block_size
+
+        dct_blocks_row = self.quantized_dct_residual_frame[start_row: end_row, :]
+        blocks = split_into_blocks(dct_blocks_row, ec.block_size)
+        for block in blocks:
+            zigzag_dct_coffs = zigzag_order(block)
+            rle = rle_encode(zigzag_dct_coffs)
+            for symbol in rle:
+                enc = exp_golomb_encode(symbol)
+                self.entropy_encoded_DCT_coffs.extend(enc)
+            self.entropy_encoded_DCT_coffs.extend(exp_golomb_encode(Frame.EOB_MARKER))
+
+        logger.info(f"len: {len(self.entropy_encoded_DCT_coffs)}")
+
+
     def entropy_encode_dct_coffs(self, block_size):
         self.entropy_encoded_DCT_coffs = bitarray()
 

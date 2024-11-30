@@ -88,7 +88,7 @@ def encode_video(params: InputParameters):
             frame.encode_mc_q_dct(params.encoder_config)
 
             frame.entropy_encode_prediction_data(params.encoder_config)
-            frame.entropy_encode_dct_coffs(block_size)
+            # frame.entropy_encode_dct_coffs(block_size)
 
             # frame in encoded, rest is writing data to file frame_enc_time
             frame_enc_time = time.time() - frame_enc_start_time

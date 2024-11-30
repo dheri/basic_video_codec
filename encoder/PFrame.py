@@ -6,6 +6,7 @@ from bitarray import bitarray
 from common import get_logger
 from encoder.Frame import Frame, apply_dct_and_quantization, reconstruct_block
 from encoder.PredictionMode import PredictionMode
+from encoder.RateControl.RateControl import calculate_row_bit_budget, find_rc_qp_for_row
 from encoder.block_predictor import find_lowest_mae_block, find_fast_me_block, build_pre_interpolated_buffer, \
     get_ref_block_at_mv
 from encoder.dct import generate_quantization_matrix, rescale_block, apply_idct_2d
@@ -32,26 +33,32 @@ class PFrame(Frame):
         mae_of_blocks = 0
 
         # Initialize output frames
-        reconstructed_frame_with_mc = np.zeros_like(self.curr_frame, dtype=np.uint8)
+        self.reconstructed_frame = np.zeros_like(self.curr_frame, dtype=np.uint8)
         residual_frame_with_mc = np.zeros_like(self.curr_frame, dtype=np.int8)
         residual_frame_wo_mc = np.zeros_like(self.curr_frame, dtype=np.int8)
-        quat_dct_coffs_frame_with_mc = np.zeros_like(self.curr_frame, dtype=np.int16)
+        self.quantized_dct_residual_frame = np.zeros_like(self.curr_frame, dtype=np.int16)
         prev_processed_block_cords = (0,0)
         for y in range(0, height, block_size):
+            row_idx = y//block_size
+            row_bit_budget = calculate_row_bit_budget(self.bit_budget, row_idx, encoder_config)
+            qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'I')
+            logger.info(f"[{row_idx:2d}] row_bit_budget [{row_bit_budget:8.2f}] , qp=[{qp}]")
+            encoder_config.quantization_factor = qp
             for x in range(0, width, block_size):
                 encoded_block =self.process_block(x, y, width, height, mv_field, prev_processed_block_cords, encoder_config)
                 block_cords = encoded_block.block_coords
                 x, y = block_cords
 
                 # Update frames with the encoded block data
-                reconstructed_frame_with_mc[y:y + block_size, x:x + block_size] = encoded_block.reconstructed_block
+                self.reconstructed_frame[y:y + block_size, x:x + block_size] = encoded_block.reconstructed_block
                 residual_frame_with_mc[y:y + block_size, x:x + block_size] = encoded_block.reconstructed_residual_block
                 residual_frame_wo_mc[y:y + block_size, x:x + block_size] = encoded_block.residual_block_wo_mc
-                quat_dct_coffs_frame_with_mc[y:y + block_size, x:x + block_size] = encoded_block.quantized_dct_coffs
+                self.quantized_dct_residual_frame[y:y + block_size, x:x + block_size] = encoded_block.quantized_dct_coffs
 
                 mae_of_blocks += encoded_block.mae
                 self.total_mae_comparisons += encoded_block.mae_comparisons_to_encode
                 prev_processed_block_cords = block_cords
+            self.entropy_encode_dct_coffs_row(row_idx, encoder_config)
 
         avg_mae = mae_of_blocks / num_of_blocks
 
@@ -61,8 +68,8 @@ class PFrame(Frame):
         self.avg_mae = avg_mae
         self.residual_frame = residual_frame_with_mc
         self.residual_wo_mc_frame = residual_frame_wo_mc
-        self.quantized_dct_residual_frame = quat_dct_coffs_frame_with_mc
-        self.reconstructed_frame = reconstructed_frame_with_mc
+        # self.quantized_dct_residual_frame = quat_dct_coffs_frame_with_mc
+        # self.reconstructed_frame = reconstructed_frame_with_mc
         return self
 
     def process_block(self, x, y, width, height, mv_field, prev_processed_block_cords, encoder_config) -> EncodedPBlock:
