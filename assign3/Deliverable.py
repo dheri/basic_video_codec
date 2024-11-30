@@ -19,8 +19,8 @@ def main():
         quantization_factor=4,
         I_Period=21,
         fastME=True,
-        RCflag=False,
-        targetBR=3_140_480,
+        RCflag=True,
+        targetBR=1_140_480,
         resolution=resolution
     )
 
@@ -29,7 +29,7 @@ def main():
         width=resolution[0],
         height=resolution[1],
         encoder_config=encoder_config,
-        frames_to_process=3
+        frames_to_process=6
     )
 
     encode_video(input_params)
@@ -38,5 +38,5 @@ def main():
 
 
 if __name__ == '__main__':
-    # create_lookups()
-    main()
+    create_lookups()
+    # main()

@@ -3,6 +3,7 @@ import os
 import time
 from collections import deque
 from contextlib import ExitStack
+from copy import copy
 
 import numpy as np
 from skimage.metrics import peak_signal_noise_ratio
@@ -12,7 +13,7 @@ from encoder.FrameMetrics import FrameMetrics
 from encoder.IFrame import IFrame
 from encoder.PFrame import PFrame
 from encoder.RateControl.RateControl import bit_budget_per_frame
-from encoder.RateControl.lookup import get_lookup_table_from_file, rc_lookup_file_path
+from encoder.RateControl.lookup import rc_lookup_file_path, get_combined_lookup_table
 from encoder.block_predictor import build_pre_interpolated_buffer
 from encoder.dct import *
 from encoder.entropy_encoder import *
@@ -34,7 +35,9 @@ def encode_video(params: InputParameters):
     interpolated_reference_frames.append(build_pre_interpolated_buffer(reference_frames[0]))
 
     if params.encoder_config.RCflag:
-        params.encoder_config.rc_lookup_table = get_lookup_table_from_file(rc_lookup_file_path(params.encoder_config))
+        rc_lookup_file_path_i = rc_lookup_file_path(params.encoder_config, 'I' )
+        rc_lookup_file_path_p = rc_lookup_file_path(params.encoder_config, 'P' )
+        params.encoder_config.rc_lookup_table = get_combined_lookup_table(rc_lookup_file_path_i, rc_lookup_file_path_p)
 
 
     with ExitStack() as stack:
