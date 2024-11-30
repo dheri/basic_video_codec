@@ -52,6 +52,8 @@ def find_fast_me_block(curr_block, curr_block_cords, mvp, pFrame:Frame, ec:Encod
 
     # Otherwise, update the origin to the best MV and recurse
     best_mv = mv_map[best_mv_key]
+    if abs(best_mv[0]) >= 16 or abs(best_mv[1]) >= 16: # upper bound for fast ME
+        return mv_map[best_mv_key], min_mae, candidates[best_mv_key], comparison_count
     # logger.debug(f" {best_mv_key} ")
     return find_fast_me_block(curr_block, origin, best_mv, pFrame, ec, comparison_count)
 
