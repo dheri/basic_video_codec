@@ -17,15 +17,15 @@ def main():
         block_size=16,
         search_range=1,
         quantization_factor=4,
-        I_Period=4,
+        I_Period=21,
         fastME=True,
-        RCflag=True,
+        RCflag=False,
         targetBR=3_140_480,
         resolution=resolution
     )
 
     input_params = InputParameters(
-        y_only_file='../data/foreman_cif.y',
+        y_only_file='../data/e3_CIF.y',
         width=resolution[0],
         height=resolution[1],
         encoder_config=encoder_config,

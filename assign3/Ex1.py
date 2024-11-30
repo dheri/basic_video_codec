@@ -1,5 +1,6 @@
 import copy
 
+from assign1.ex2 import save_y_frames_to_file
 from encoder.RateControl.lookup import generate_rc_lookup
 from encoder.params import EncoderConfig
 from file_io import FileIOHelper
@@ -7,8 +8,8 @@ from input_parameters import InputParameters
 
 
 def create_lookups():
-    sequences = ['foreman_cif.y']
-    block_sizes =[4, 16]
+    sequences = ['e3_CIF.y']
+    block_sizes =[4,  8, 16]
     for sequence in sequences:
         for block_size in block_sizes:
             create_lookup_for_seq(f"../data/{sequence}", block_size)
@@ -50,3 +51,5 @@ def create_lookup_for_seq(y_only_file, block_size):
     # print_average_bit_count_per_block_row(metric_files, params)
     generate_rc_lookup(metric_files, params)
 
+if __name__ == '__main__':
+    pass

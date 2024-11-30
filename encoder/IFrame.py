@@ -30,12 +30,14 @@ class IFrame(Frame):
         self.quantized_dct_residual_frame = np.zeros_like(curr_frame, dtype=np.int16)
 
         prev_rc_qp = encoder_config.quantization_factor
+        rc_qp = encoder_config.quantization_factor
         # Loop through each block in the frame
         for y in range(0, height, block_size):
             row_idx = y//block_size
-            row_bit_budget = calculate_row_bit_budget(self.bit_budget, row_idx, encoder_config)
-            rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'I')
-            logger.debug(f"[{row_idx:2d}] f_bb [{self.bit_budget:9.2f}] row_bb [{row_bit_budget:8.2f}] , qp=[{rc_qp}]")
+            if encoder_config.RCflag:
+                row_bit_budget = calculate_row_bit_budget(self.bit_budget, row_idx, encoder_config)
+                rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'I')
+                logger.info(f"[{row_idx:2d}] f_bb [{self.bit_budget:9.2f}] row_bb [{row_bit_budget:8.2f}] , qp=[{rc_qp}]")
             for x in range(0, width, block_size):
                 curr_block = curr_frame[y:y + block_size, x:x + block_size]
 

@@ -2,8 +2,6 @@ from encoder.params import EncoderConfig
 
 
 def bit_budget_per_frame(ec):
-    if not ec.RCflag:
-        raise ValueError("Rate Control is OFF. Bit budget calculation is only relevant when RC is ON.")
     return ec.targetBR / ec.frame_rate
 
 

@@ -38,13 +38,15 @@ class PFrame(Frame):
         residual_frame_wo_mc = np.zeros_like(self.curr_frame, dtype=np.int8)
         self.quantized_dct_residual_frame = np.zeros_like(self.curr_frame, dtype=np.int16)
         prev_rc_qp = encoder_config.quantization_factor
+        rc_qp = encoder_config.quantization_factor
 
         prev_processed_block_cords = (0,0)
         for y in range(0, height, block_size):
             row_idx = y//block_size
-            row_bit_budget = calculate_row_bit_budget(self.bit_budget, row_idx, encoder_config)
-            rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'I')
-            logger.debug(f"[{row_idx:2d}] f_bb [{self.bit_budget:9.2f}] row_bb [{row_bit_budget:8.2f}] , qp=[{rc_qp}]")
+            if encoder_config.RCflag:
+                row_bit_budget = calculate_row_bit_budget(self.bit_budget, row_idx, encoder_config)
+                rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'P')
+                logger.debug(f"[{row_idx:2d}] f_bb [{self.bit_budget:9.2f}] row_bb [{row_bit_budget:8.2f}] , qp=[{rc_qp}]")
             for x in range(0, width, block_size):
                 encoded_block =self.process_block(x, y, width, height, mv_field, prev_processed_block_cords, encoder_config, rc_qp)
                 block_cords = encoded_block.block_coords
