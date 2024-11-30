@@ -1,4 +1,5 @@
 import csv
+import os
 import time
 from collections import deque
 from contextlib import ExitStack
@@ -154,8 +155,8 @@ def encode_video(params: InputParameters):
     result = str(
         f"{num_of_comparisons / elapsed_time:9.3f} | {num_of_comparisons:7d} | {num_of_blocks / elapsed_time:7.3f} |  {num_of_blocks:5d} | {frames_to_process / elapsed_time:6.2f} | {frames_to_process:3d} | {elapsed_time:6.3f} | {block_size:2d} | {search_range:2d} |\n")
     logger.info(result)
-
-    with open('results.csv', 'at') as f_in:
+    results_file_name = os.path.join(os.path.dirname(__file__), f'../results.csv')
+    with open(results_file_name, 'at') as f_in:
         f_in.write(result)
     logger.debug('end encoding')
     return
