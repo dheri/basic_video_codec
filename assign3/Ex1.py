@@ -27,7 +27,7 @@ def create_lookup_for_seq(sequence, block_size, i_period):
     resolution = sequence[1]
     encoder_configs = [copy.deepcopy(EncoderConfig(
         block_size, 2, i_period, quantization_factor=i, fastME=True,
-        resolution=resolution,  RCflag=False, targetBR=10)) for i in range(int(math.log2(block_size) + 7))]
+        resolution=resolution,  RCflag=False, targetBR=10)) for i in range(int(math.log2(block_size) + 7) + 1)]
 
     params = InputParameters(
         y_only_file= y_only_file,
