@@ -8,13 +8,14 @@ class FileIOHelper:
         self.y_only_file = params.y_only_file
         self.block_size = params.encoder_config.block_size
         self.search_range = params.encoder_config.search_range
-        self.quantization_factor = params.encoder_config.quantization_factor
+        self.qp = params.encoder_config.quantization_factor
         self.nRefFrames = params.encoder_config.nRefFrames
+        self.I_Period = params.encoder_config.I_Period
 
         self.frames_to_process = params.frames_to_process
         fme_id = ".0" if params.encoder_config.fracMeEnabled else ""
 
-        self.file_identifier = f'{self.block_size}_{self.search_range}{fme_id}_{self.quantization_factor}_{self.nRefFrames}'
+        self.file_identifier = f'{self.block_size}_{self.search_range}{fme_id}_{self.qp}_{self.I_Period}_{self.nRefFrames}'
         self.file_prefix = os.path.splitext(self.y_only_file)[0]
 
         os.makedirs(os.path.dirname(self.get_file_name(suffix='')), exist_ok=True)

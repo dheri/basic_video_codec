@@ -10,7 +10,10 @@ from metrics.plot_rd_curves import create_label
 
 def rc_lookup_file_path(ec: EncoderConfig):
     curr_dir = os.path.dirname(__file__)
-    output_file_name = os.path.join(curr_dir, f'lookups/{ec.block_size}.csv')
+    res_str = f"{ec.resolution[0]}_{ec.resolution[1]}"
+    i_period_str = "I" if ec.I_Period == 1 else "P"
+
+    output_file_name = os.path.join(curr_dir, f'lookups/{res_str}_{ec.block_size}_{i_period_str}.csv')
     return output_file_name
 
 def generate_rc_lookup(metric_files, params: InputParameters):

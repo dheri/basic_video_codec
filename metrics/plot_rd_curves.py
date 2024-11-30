@@ -20,11 +20,12 @@ def create_label(file_path):
 
     # Parse encoder configuration
     try:
-        block_size, search_range, qp, nRefFrames = encoder_config.split('_')
+        block_size, search_range, qp, I_Period,nRefFrames = encoder_config.split('_')
         block_size = int(block_size)
         search_range = float(search_range)
         qp = int(qp)
         nRefFrames = int(nRefFrames)
+        I_Period = int(I_Period)
 
         # Determine fracMe and fastME based on search_range
         fracMeEnabled = '.' in str(search_range)
@@ -43,6 +44,7 @@ def create_label(file_path):
         "search_range": search_range,
         "qp": qp,
         "nRefFrames": nRefFrames,
+        "I_Period": I_Period,
         "fracMeEnabled": fracMeEnabled,
         "fastMeEnabled": fastMeEnabled,
     }
