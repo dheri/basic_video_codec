@@ -1,5 +1,6 @@
 import copy
 
+from assign1.ex2 import save_y_frames_to_file
 from assign3.Ex1 import create_lookups
 from decoder import decode_video
 from encoder.RateControl.lookup import generate_rc_lookup
@@ -11,7 +12,7 @@ from metrics.metrics import plot_metrics
 
 
 def main():
-    resolution = (352, 288)
+    resolution = (352//2, 288//2)
 
     encoder_config = EncoderConfig(
         block_size=16,
@@ -25,16 +26,17 @@ def main():
     )
 
     input_params = InputParameters(
-        y_only_file='../data/e3_CIF.y',
+        y_only_file='../data/e3_QCIF.y',
         width=resolution[0],
         height=resolution[1],
         encoder_config=encoder_config,
         frames_to_process=6
     )
 
-    encode_video(input_params)
+    save_y_frames_to_file(input_params)
+    # encode_video(input_params)
     # plot_metrics(input_params)
-    decode_video(input_params)
+    # decode_video(input_params)
 
 
 if __name__ == '__main__':

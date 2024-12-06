@@ -1,7 +1,9 @@
 import csv
 
+import matplotlib
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.ticker import MaxNLocator
 
 from encoder.FrameMetrics import FrameMetrics
 from encoder.params import logger
@@ -15,9 +17,10 @@ def plot_metrics(params: InputParameters):
 
     frame_numbers, avg_mae_values, psnr_values, frame_bytes = read_metrics_from_csv(csv_file_name)
 
-    plot_mae_psnr_vs_frame(file_io, frame_numbers, avg_mae_values, psnr_values)
-
-    plot_rate_distortion(file_io, params, frame_bytes, psnr_values, avg_mae_values)
+    # plot_mae_psnr_vs_frame(file_io, frame_numbers, avg_mae_values, psnr_values)
+    # plot_rate_distortion(file_io, params, frame_bytes, psnr_values, avg_mae_values)
+    plot_psnr_vs_frame_bits_a(file_io, params, frame_numbers, frame_bytes, psnr_values)
+    plot_psnr_vs_frame_bits_b(file_io, frame_bytes, psnr_values)
 
 
 def read_metrics_from_csv(csv_file_name: str):
@@ -92,3 +95,74 @@ def plot_rate_distortion(file_io, params, frame_bytes, psnr_values, avg_mae_valu
     fig.tight_layout()
     plt.savefig(file_io.get_file_name("rd.png"))
     plt.close()
+def plot_psnr_vs_frame_bits_a(file_io, params, frame_numbers, frame_bytes, psnr_values):
+
+    frame_bits = np.array(frame_bytes) * 8
+    psnr_values = np.array(psnr_values)
+    frame_numbers = np.array(frame_numbers)
+    sorted_indices = np.argsort(frame_numbers)
+
+    frame_bits_sorted = frame_bits[sorted_indices]
+    psnr_values_sorted = psnr_values[sorted_indices]
+    best_fit_line_order = 3
+
+    # Create plot
+    fig, ax1 = plt.subplots(figsize=(8, 5))
+
+    # Plot PSNR
+    ax1.set_xlabel("Frame Index", fontsize=12)
+    ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
+
+    ax1.set_ylabel("PSNR (dB)", color="r", fontsize=12)
+    ax1.scatter(frame_numbers, psnr_values_sorted, marker='x', color='r', label="PSNR")
+    best_fit_psnr = np.poly1d(np.polyfit(frame_numbers, psnr_values_sorted, best_fit_line_order))
+    ax1.plot(frame_numbers, best_fit_psnr(frame_numbers), linestyle='dotted', linewidth=1, color='r')
+    ax1.tick_params(axis='y', labelcolor="r")
+    ax1.grid(True, linestyle='--', alpha=0.6)
+
+    # Add secondary axis for MAE
+    ax2 = ax1.twinx()
+    ax2.set_ylabel("bits", color="b", fontsize=12)
+    ax2.scatter(frame_numbers, frame_bits_sorted, marker='o', color='b', label="bits")
+
+    best_fit_mae = np.poly1d(np.polyfit(frame_numbers, frame_bits_sorted, best_fit_line_order))
+    ax2.plot(frame_numbers, best_fit_mae(frame_numbers), linestyle='dotted', linewidth=1, color='b')
+    ax2.tick_params(axis='y', labelcolor="b")
+
+    formatter_func = lambda x, pos: '%1dMb' % (x * 1e-6) if x >= 1e6 else '%1dKb' % (x * 1e-3) if x >= 1e3 else '%1d' % x
+    axis_formatter = matplotlib.ticker.FuncFormatter(formatter_func)
+    ax2.yaxis.set_major_formatter(axis_formatter)
+
+    # Title and Layout
+    plt.title(f"RD Curve: PSNR & Frame Size vs frame-index\nI-Period={params.encoder_config.I_Period}", fontsize=12)
+    fig.tight_layout()
+    plt.savefig(file_io.get_file_name("psnr_a.png"))
+
+def plot_psnr_vs_frame_bits_b(file_io, frame_bytes, psnr_values):
+
+    frame_bits = np.array(frame_bytes) * 8
+    psnr_values = np.array(psnr_values)
+    sorted_indices = np.argsort(frame_bits)
+
+    frame_bits_sorted = frame_bits[sorted_indices]
+    psnr_values_sorted = psnr_values[sorted_indices]
+    best_fit_line_order = 3
+
+    # Create plot
+    fig, ax1 = plt.subplots(figsize=(8, 5))
+
+    # Plot PSNR
+    ax1.set_xlabel("Encoded Frame Size (bits)", fontsize=12)
+    ax1.set_ylabel("PSNR (dB)", color="r", fontsize=12)
+    ax1.scatter(frame_bits_sorted, psnr_values_sorted, marker='x', color='r', label="PSNR")
+    best_fit_psnr = np.poly1d(np.polyfit(frame_bits_sorted, psnr_values_sorted, best_fit_line_order))
+    ax1.plot(frame_bits_sorted, best_fit_psnr(frame_bits_sorted), linestyle='dotted', linewidth=1, color='r',
+             label="PSNR Fit")
+    ax1.tick_params(axis='y', labelcolor="r")
+    ax1.grid(True, linestyle='--', alpha=0.6)
+
+
+    # Title and Layout
+    plt.title("RD Curve: PSNR  vs Frame Size", fontsize=14)
+    fig.tight_layout()
+    plt.savefig(file_io.get_file_name("psnr_b.png"))
