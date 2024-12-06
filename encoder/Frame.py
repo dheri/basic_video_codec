@@ -38,6 +38,7 @@ class Frame:
         self.entropy_encoded_dct_length=0
         self.entropy_encoded_prediction_data_length=0
         self.rc_qp_per_row = []
+        self.is_first_pass = True
 
     def encode_mc_q_dct(self, encoder_config: EncoderConfig):
         raise NotImplementedError(f"{type(self)} need to be overridden")
@@ -152,7 +153,10 @@ class Frame:
         expected_p_frame_size = encoder_config.rc_lookup_table[encoder_config.quantization_factor]['P'] * num_rows
         logger.info(f"frame_bits_consumed[{num_rows}] : {frame_bits_consumed} -> {round(frame_bits_consumed/expected_i_frame_size,2)} | {round(frame_bits_consumed/expected_p_frame_size,2)}")
         return frame_bits_consumed/expected_p_frame_size
-
+    def is_iframe(self):
+        return self.prediction_mode == PredictionMode.INTRA_FRAME
+    def is_pframe(self):
+        return self.prediction_mode == PredictionMode.INTER_FRAME
 
 def apply_dct_and_quantization(residual_block, block_size, quantization_factor):
     dct_coffs = apply_dct_2d(residual_block)

@@ -12,6 +12,7 @@ from common import pad_frame
 from encoder.FrameMetrics import FrameMetrics
 from encoder.IFrame import IFrame
 from encoder.PFrame import PFrame
+from encoder.PredictionMode import PredictionMode
 from encoder.RateControl.RateControl import bit_budget_per_frame
 from encoder.RateControl.lookup import rc_lookup_file_path, get_combined_lookup_table
 from encoder.block_predictor import build_pre_interpolated_buffer
@@ -25,7 +26,7 @@ logger = get_logger()
 
 def encode_video(params: InputParameters):
     file_io = FileIOHelper(params)
-
+    scene_change_threshold = 1.15
     y_size = params.width * params.height
 
     reference_frames = deque(maxlen=params.encoder_config.nRefFrames)
@@ -79,19 +80,21 @@ def encode_video(params: InputParameters):
             y_plane = np.frombuffer(y_frame, dtype=np.uint8).reshape((height, width))
             padded_frame = pad_frame(y_plane, block_size)
 
-            if (frame_index - 1) % I_Period == 0:
-                first_pass_frame = IFrame(padded_frame)
-                reference_frames.clear()
-                interpolated_reference_frames.clear()
-            else:
-                first_pass_frame = PFrame(padded_frame, reference_frames, interpolated_reference_frames)
+            first_pass_frame = get_first_pass_frame(I_Period, frame_index, interpolated_reference_frames, padded_frame,
+                                           reference_frames)
 
             first_pass_frame.bit_budget = bit_budget_per_frame(params.encoder_config)
 
             first_pass_frame.encode_mc_q_dct(params.encoder_config)
+            frame = first_pass_frame
 
             # TODO: check second pass
-            frame = first_pass_frame
+            pframe_overage = first_pass_frame.get_overage_ratio(params.encoder_config)
+            if params.encoder_config.RCflag == 2:
+                if first_pass_frame.is_pframe() and pframe_overage > scene_change_threshold:
+                    logger.info(f"scene change detected in pframe with {pframe_overage:4.2f}")
+                    frame = get_second_pass_frame(padded_frame, reference_frames, interpolated_reference_frames)
+                    frame.encode_mc_q_dct(params.encoder_config)
 
             # frame.entropy_encode_prediction_data(params.encoder_config)
             # frame.entropy_encode_dct_coffs(block_size)
@@ -168,6 +171,22 @@ def encode_video(params: InputParameters):
     return
 
 
+def get_first_pass_frame(I_Period, frame_index, interpolated_reference_frames, padded_frame, reference_frames):
+    if (frame_index - 1) % I_Period == 0:
+        first_pass_frame = IFrame(padded_frame)
+        reference_frames.clear()
+        interpolated_reference_frames.clear()
+    else:
+        first_pass_frame = PFrame(padded_frame, reference_frames, interpolated_reference_frames)
+    first_pass_frame.is_first_pass = True
+    return first_pass_frame
+
+def get_second_pass_frame(padded_frame, reference_frames, interpolated_reference_frames):
+    reference_frames.clear()
+    interpolated_reference_frames.clear()
+    return IFrame(padded_frame)
+
 def round_to_nearest_multiple(arr, n):
     multiple = 2 ** n
     return np.round(arr / multiple) * multiple
+

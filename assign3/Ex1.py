@@ -28,7 +28,7 @@ def create_lookup_for_seq(sequence, block_size, i_period):
     resolution = sequence[1]
     encoder_configs = [copy.deepcopy(EncoderConfig(
         block_size, 2, i_period, quantization_factor=qp, fastME=True, fracMeEnabled=True,
-        resolution=resolution,  RCflag=0, targetBR=sequence[2]))
+        resolution=resolution,  RCflag=2, targetBR=sequence[2]))
         for qp in range(int(math.log2(block_size) + 7) + 1)[4:5]
     ]
 
@@ -45,7 +45,7 @@ def create_lookup_for_seq(sequence, block_size, i_period):
         params.encoder_config = ec.validate()
         encode_video(params)
         plot_metrics(params)
-        # decode_video(params)
+        decode_video(params)
         metric_files.append(FileIOHelper(params).get_metrics_csv_file_name())
 
     # generate_rc_lookup(metric_files, params)

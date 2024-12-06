@@ -36,7 +36,11 @@ class IFrame(Frame):
             row_idx = y//block_size
             if encoder_config.RCflag:
                 row_bit_budget = calculate_row_bit_budget(self.bit_budget, row_idx, encoder_config)
-                rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'I')
+                if encoder_config.RCflag == 1:
+                    rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'I')
+                if encoder_config.RCflag == 2 and not self.is_first_pass:
+                    rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'I')
+
                 logger.debug(f"[{row_idx:2d}] f_bb [{self.bit_budget:9.2f}] row_bb [{row_bit_budget:8.2f}] , qp=[{rc_qp}]")
             for x in range(0, width, block_size):
                 curr_block = curr_frame[y:y + block_size, x:x + block_size]
@@ -68,7 +72,6 @@ class IFrame(Frame):
             # prev_rc_qp = rc_qp
 
         avg_mae = mae_of_blocks / ((height // block_size) * (width // block_size))
-        self.get_overage_ratio(encoder_config)
         # self.reconstructed_frame = reconstructed_frame
         # self.quantized_dct_residual_frame = quantized_dct_residual_frame
         # self.intra_modes = intra_modes

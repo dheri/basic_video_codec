@@ -45,7 +45,11 @@ class PFrame(Frame):
             row_idx = y//block_size
             if encoder_config.RCflag:
                 row_bit_budget = calculate_row_bit_budget(self.bit_budget, row_idx, encoder_config)
-                rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'P')
+                if encoder_config.RCflag == 1:
+                    rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'P')
+                if encoder_config.RCflag == 2 and not self.is_first_pass:
+                    rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'P')
+
                 logger.debug(f"[{row_idx:2d}] f_bb [{self.bit_budget:9.2f}] row_bb [{row_bit_budget:8.2f}] , qp=[{rc_qp}]")
             for x in range(0, width, block_size):
                 encoded_block =self.process_block(x, y, width, height, mv_field, prev_processed_block_cords, encoder_config, rc_qp)
@@ -75,7 +79,6 @@ class PFrame(Frame):
             self.entropy_encoded_prediction_data_length = len(self.entropy_encoded_prediction_data)
 
         avg_mae = mae_of_blocks / num_of_blocks
-        self.get_overage_ratio(encoder_config)
         # sorted_mv_field = OrderedDict(sorted(mv_field.items(), key=lambda item: (item[0][1], item[0][0])))
         # self.mv_field = sorted_mv_field  # Populate the motion vector field
 
