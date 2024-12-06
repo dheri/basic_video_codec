@@ -6,7 +6,7 @@ logger= get_logger()
 class EncoderConfig:
     def __init__(self, block_size, search_range, I_Period, quantization_factor,
                  nRefFrames=1, fastME=False, fracMeEnabled=False,
-                 RCflag=False, targetBR = 0, resolution=(352, 288)):
+                 RCflag=0, targetBR = 0, resolution=(352, 288)):
         self.block_size = block_size
         self.search_range = search_range
         self.quantization_factor = quantization_factor

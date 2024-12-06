@@ -75,7 +75,7 @@ class PFrame(Frame):
             self.entropy_encoded_prediction_data_length = len(self.entropy_encoded_prediction_data)
 
         avg_mae = mae_of_blocks / num_of_blocks
-
+        self.get_overage_ratio(encoder_config)
         # sorted_mv_field = OrderedDict(sorted(mv_field.items(), key=lambda item: (item[0][1], item[0][0])))
         # self.mv_field = sorted_mv_field  # Populate the motion vector field
 

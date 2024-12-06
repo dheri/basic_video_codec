@@ -20,7 +20,7 @@ def main():
         quantization_factor=4,
         I_Period=21,
         fastME=True,
-        RCflag=True,
+        RCflag=1,
         targetBR=1_140_480,
         resolution=resolution
     )

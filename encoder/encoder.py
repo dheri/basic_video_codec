@@ -34,7 +34,7 @@ def encode_video(params: InputParameters):
     interpolated_reference_frames = deque(maxlen=params.encoder_config.nRefFrames)
     interpolated_reference_frames.append(build_pre_interpolated_buffer(reference_frames[0]))
 
-    if params.encoder_config.RCflag:
+    if params.encoder_config.RCflag or 1:
         rc_lookup_file_path_i = rc_lookup_file_path(params.encoder_config, 'I' )
         rc_lookup_file_path_p = rc_lookup_file_path(params.encoder_config, 'P' )
         params.encoder_config.rc_lookup_table = get_combined_lookup_table(rc_lookup_file_path_i, rc_lookup_file_path_p)
@@ -80,15 +80,18 @@ def encode_video(params: InputParameters):
             padded_frame = pad_frame(y_plane, block_size)
 
             if (frame_index - 1) % I_Period == 0:
-                frame = IFrame(padded_frame)
+                first_pass_frame = IFrame(padded_frame)
                 reference_frames.clear()
                 interpolated_reference_frames.clear()
             else:
-                frame = PFrame(padded_frame, reference_frames, interpolated_reference_frames)
+                first_pass_frame = PFrame(padded_frame, reference_frames, interpolated_reference_frames)
 
-            frame.bit_budget = bit_budget_per_frame(params.encoder_config)
+            first_pass_frame.bit_budget = bit_budget_per_frame(params.encoder_config)
 
-            frame.encode_mc_q_dct(params.encoder_config)
+            first_pass_frame.encode_mc_q_dct(params.encoder_config)
+
+            # TODO: check second pass
+            frame = first_pass_frame
 
             # frame.entropy_encode_prediction_data(params.encoder_config)
             # frame.entropy_encode_dct_coffs(block_size)

@@ -68,6 +68,7 @@ class IFrame(Frame):
             # prev_rc_qp = rc_qp
 
         avg_mae = mae_of_blocks / ((height // block_size) * (width // block_size))
+        self.get_overage_ratio(encoder_config)
         # self.reconstructed_frame = reconstructed_frame
         # self.quantized_dct_residual_frame = quantized_dct_residual_frame
         # self.intra_modes = intra_modes
