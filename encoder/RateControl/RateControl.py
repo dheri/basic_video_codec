@@ -27,8 +27,8 @@ def calculate_proportional_row_bit_budget(frame: Frame, row_idx, ec: EncoderConf
         raise ValueError("cant find proportional bit budget as prev_pass_frame not defined")
     bit_usage_proportion = prev_pass_frame.bits_per_row[row_idx] /  sum(prev_pass_frame.bits_per_row)
     row_bit_budget = bit_budget_per_frame(ec) * bit_usage_proportion
-    logger.debug(f"proportional_row_bit_budget[{row_idx:2d}] {100*bit_usage_proportion:3.2f}% is {row_bit_budget:6.0f}")
-    return row_bit_budget
+    # logger.info(f"proportional_row_bit_budget[{row_idx:2d}] {100*bit_usage_proportion:3.2f}% is {row_bit_budget:6.0f}")
+    return row_bit_budget , bit_usage_proportion
 
 
 

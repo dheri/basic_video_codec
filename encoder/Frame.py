@@ -41,7 +41,7 @@ class Frame:
         self.bits_per_row = []
         self.is_first_pass = True
         self.prev_pass_frame : Frame | None = None
-
+        self.index = 0
     def encode_mc_q_dct(self, encoder_config: EncoderConfig):
         raise NotImplementedError(f"{type(self)} need to be overridden")
 
@@ -149,11 +149,13 @@ class Frame:
             return [np.min(self.intra_modes), np.max(self.intra_modes)]
 
     def get_overage_ratios(self, encoder_config:EncoderConfig):
+        if not self.is_first_pass:
+            raise ValueError("why is overage being called in first pass?")
         frame_bits_consumed = (len(self.entropy_encoded_DCT_coffs) + len(self.entropy_encoded_prediction_data)+ 8 * 6)
         num_rows = encoder_config.resolution[1] // encoder_config.block_size
         expected_i_frame_size = encoder_config.rc_lookup_table[encoder_config.quantization_factor]['I'] * num_rows
         expected_p_frame_size = encoder_config.rc_lookup_table[encoder_config.quantization_factor]['P'] * num_rows
-        logger.info(f"frame_bits_consumed[{num_rows}] : {frame_bits_consumed} | {frame_bits_consumed//num_rows} @ {encoder_config.quantization_factor} -> {round(frame_bits_consumed / expected_i_frame_size, 2)} | {round(frame_bits_consumed / expected_p_frame_size, 2)}")
+        logger.info(f"overage [{num_rows}] : {frame_bits_consumed} | {frame_bits_consumed//num_rows} @ {encoder_config.quantization_factor} -> {round(frame_bits_consumed / expected_i_frame_size, 2)} | {round(frame_bits_consumed / expected_p_frame_size, 2)}")
         return frame_bits_consumed/expected_i_frame_size, frame_bits_consumed/expected_p_frame_size
     def is_iframe(self):
         return self.prediction_mode == PredictionMode.INTRA_FRAME

@@ -27,7 +27,7 @@ logger = get_logger()
 
 def encode_video(params: InputParameters):
     file_io = FileIOHelper(params)
-    scene_change_threshold = 1.15
+    scene_change_threshold = 1.3
     y_size = params.width * params.height
 
     reference_frames = deque(maxlen=params.encoder_config.nRefFrames)
@@ -81,17 +81,15 @@ def encode_video(params: InputParameters):
             y_plane = np.frombuffer(y_frame, dtype=np.uint8).reshape((height, width))
             padded_frame = pad_frame(y_plane, block_size)
 
-            first_pass_frame = get_first_pass_frame(frame_index, interpolated_reference_frames, padded_frame,
-                                           reference_frames, params)
-
+            first_pass_frame = get_first_pass_frame(frame_index, interpolated_reference_frames, padded_frame, reference_frames, params)
 
             first_pass_frame.encode_mc_q_dct(params.encoder_config)
             frame = first_pass_frame
 
+            pframe_overage = first_pass_frame.get_overage_ratios(params.encoder_config)
             # Second pass
             if params.encoder_config.RCflag == 2:
                 is_scene_change = False
-                pframe_overage = first_pass_frame.get_overage_ratios(params.encoder_config)
                 if first_pass_frame.is_pframe() and pframe_overage[1] > scene_change_threshold:
                     logger.info(f"scene change detected in pframe:  {sum(first_pass_frame.bits_per_row)} {pframe_overage[0]:4.2f} | {pframe_overage[1]:4.2f}")
                     is_scene_change = True
@@ -179,6 +177,7 @@ def get_first_pass_frame(frame_index, interpolated_reference_frames, padded_fram
     else:
         first_pass_frame = PFrame(padded_frame, reference_frames, interpolated_reference_frames)
     first_pass_frame.is_first_pass = True
+    first_pass_frame.index = frame_index
     first_pass_frame.bit_budget = bit_budget_per_frame(params.encoder_config)
     return first_pass_frame
 
@@ -190,6 +189,7 @@ def get_second_pass_frame(padded_frame, reference_frames, interpolated_reference
     else:
         frame = PFrame(padded_frame, reference_frames, interpolated_reference_frames)
     frame.is_first_pass = False
+    frame.index = first_pass_frame.index
     frame.bit_budget = bit_budget_per_frame(params.encoder_config)
     frame.prev_pass_frame = first_pass_frame
     return frame

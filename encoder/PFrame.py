@@ -45,14 +45,15 @@ class PFrame(Frame):
         for y in range(0, height, block_size):
             row_idx = y//block_size
             if encoder_config.RCflag:
+                row_bit_budget = 0
                 if encoder_config.RCflag == 1:
                     row_bit_budget = calculate_constant_row_bit_budget(self.bit_budget, row_idx, encoder_config)
                     rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'P')
                 if encoder_config.RCflag == 2 and not self.is_first_pass:
-                    row_bit_budget = calculate_proportional_row_bit_budget(self, row_idx, encoder_config)
+                    row_bit_budget, bit_usage_proportion = calculate_proportional_row_bit_budget(self, row_idx, encoder_config)
                     rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'P')
 
-                # logger.debug(f"[{row_idx:2d}] f_bb [{self.bit_budget:9.2f}] row_bb [{row_bit_budget:8.2f}] , qp=[{rc_qp}]")
+                # logger.info(f" [{self.index}{'f' if self.is_first_pass else 's'} {row_idx:2d}] f_bb [{self.bit_budget:7.0f}] row_bb [{row_bit_budget:6.0f}] , qp=[{rc_qp}]")
             for x in range(0, width, block_size):
                 encoded_block =self.process_block(x, y, width, height, mv_field, prev_processed_block_cords, encoder_config, rc_qp)
                 block_cords = encoded_block.block_coords

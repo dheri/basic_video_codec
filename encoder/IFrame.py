@@ -37,19 +37,20 @@ class IFrame(Frame):
             row_idx = y//block_size
             if encoder_config.RCflag:
                 row_bit_budget = 0
-
                 if encoder_config.RCflag == 1:
                     row_bit_budget = calculate_constant_row_bit_budget(self.bit_budget, row_idx, encoder_config)
                     rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'I')
-                if encoder_config.RCflag == 2 and not self.is_first_pass:
-                    # TODO: This is second pass
-                    # row_bit_budget = calculate_proportional_row_bit_budget(self, row_idx, encoder_config)
-                    row_bit_budget = calculate_constant_row_bit_budget(self.bit_budget, row_idx, encoder_config)
+                if encoder_config.RCflag == 2:
+                    if self.is_first_pass:
+                        rc_qp = encoder_config.quantization_factor
+                    else:
+                        # TODO: This is second pass
+                        row_bit_budget, bit_usage_proportion = calculate_proportional_row_bit_budget(self, row_idx, encoder_config)
+                        rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'I')
 
-                    # rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'I')
                     # logger.info(f"rc_qp == {rc_qp} for {row_bit_budget:7.2f} / [{self.bit_budget:9.2f}]")
 
-                # logger.info(f"[{row_idx:2d}] f_bb [{self.bit_budget:9.2f}] row_bb [{row_bit_budget:8.2f}] , qp=[{rc_qp}]")
+                # logger.info(f" [{self.index}{'f' if self.is_first_pass else 's'} {row_idx:2d}] f_bb [{self.bit_budget:7.0f}] row_bb [{row_bit_budget:6.0f}] , qp=[{rc_qp}]")
             #  Loop through each block  in the row
             for x in range(0, width, block_size):
                 curr_block = curr_frame[y:y + block_size, x:x + block_size]
