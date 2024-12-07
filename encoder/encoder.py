@@ -91,6 +91,7 @@ def encode_video(params: InputParameters):
             if params.encoder_config.RCflag == 2:
                 is_scene_change = False
                 if first_pass_frame.is_pframe() and pframe_overage[1] > scene_change_threshold:
+                    frame.scaling_factor = (1 - pframe_overage[1])  * 0.95
                     logger.info(f"scene change detected in pframe:  {sum(first_pass_frame.bits_per_row)} {pframe_overage[0]:4.2f} | {pframe_overage[1]:4.2f}")
                     is_scene_change = True
                 frame = get_second_pass_frame(padded_frame, reference_frames, interpolated_reference_frames, params, first_pass_frame, is_scene_change)
@@ -152,6 +153,7 @@ def encode_video(params: InputParameters):
 
             reference_frames.append(frame.reconstructed_frame)
             interpolated_reference_frames.append(build_pre_interpolated_buffer(frame.reconstructed_frame))
+            prev_frame = frame
 
 
     end_time = time.time()

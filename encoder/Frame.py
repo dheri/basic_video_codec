@@ -42,6 +42,7 @@ class Frame:
         self.is_first_pass = True
         self.prev_pass_frame : Frame | None = None
         self.index = 0
+        self.scaling_factor = 1
     def encode_mc_q_dct(self, encoder_config: EncoderConfig):
         raise NotImplementedError(f"{type(self)} need to be overridden")
 

@@ -32,12 +32,13 @@ def calculate_proportional_row_bit_budget(frame: Frame, row_idx, ec: EncoderConf
 
 
 
-def find_rc_qp_for_row(bit_budget, qp_table, frame_type="C"):
+def find_rc_qp_for_row(bit_budget, qp_table, frame_type="C", scaling_factor = 1):
+
     if frame_type not in ['I', 'P', 'C']:
         raise ValueError("Invalid frame type. Must be one of 'I', 'P', or 'C'.")
 
     for qp, bits in sorted(qp_table.items()):
-        if bits[frame_type] <= bit_budget:
+        if bits[frame_type] * scaling_factor <= bit_budget:
             # logger.debug(f"qp = {qp}")
             return qp
     return max(qp_table.keys())
