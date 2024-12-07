@@ -4,7 +4,8 @@ from bitarray import bitarray
 from common import get_logger
 from encoder.Frame import Frame, apply_dct_and_quantization, reconstruct_block
 from encoder.PredictionMode import PredictionMode
-from encoder.RateControl.RateControl import find_rc_qp_for_row, calculate_row_bit_budget
+from encoder.RateControl.RateControl import find_rc_qp_for_row, calculate_constant_row_bit_budget, \
+    calculate_proportional_row_bit_budget
 from encoder.dct import generate_quantization_matrix, rescale_block, apply_idct_2d
 from encoder.entropy_encoder import exp_golomb_encode, exp_golomb_decode
 from encoder.params import EncoderConfig, EncodedIBlock
@@ -31,17 +32,25 @@ class IFrame(Frame):
 
         prev_rc_qp = encoder_config.quantization_factor
         rc_qp = encoder_config.quantization_factor
-        # Loop through each block in the frame
+        # Loop through each row in the frame
         for y in range(0, height, block_size):
             row_idx = y//block_size
             if encoder_config.RCflag:
-                row_bit_budget = calculate_row_bit_budget(self.bit_budget, row_idx, encoder_config)
+                row_bit_budget = 0
+
                 if encoder_config.RCflag == 1:
+                    row_bit_budget = calculate_constant_row_bit_budget(self.bit_budget, row_idx, encoder_config)
                     rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'I')
                 if encoder_config.RCflag == 2 and not self.is_first_pass:
-                    rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'I')
+                    # TODO: This is second pass
+                    # row_bit_budget = calculate_proportional_row_bit_budget(self, row_idx, encoder_config)
+                    row_bit_budget = calculate_constant_row_bit_budget(self.bit_budget, row_idx, encoder_config)
 
-                logger.debug(f"[{row_idx:2d}] f_bb [{self.bit_budget:9.2f}] row_bb [{row_bit_budget:8.2f}] , qp=[{rc_qp}]")
+                    # rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'I')
+                    # logger.info(f"rc_qp == {rc_qp} for {row_bit_budget:7.2f} / [{self.bit_budget:9.2f}]")
+
+                # logger.info(f"[{row_idx:2d}] f_bb [{self.bit_budget:9.2f}] row_bb [{row_bit_budget:8.2f}] , qp=[{rc_qp}]")
+            #  Loop through each block  in the row
             for x in range(0, width, block_size):
                 curr_block = curr_frame[y:y + block_size, x:x + block_size]
 
@@ -63,12 +72,15 @@ class IFrame(Frame):
             rc_qp_diff = rc_qp - prev_rc_qp
             self.entropy_encode_prediction_data_row(row_idx, encoder_config, rc_qp_diff)
             self.entropy_encode_dct_coffs_row(row_idx, encoder_config)
-            bits_consumed = (len(self.entropy_encoded_DCT_coffs) - self.entropy_encoded_dct_length
+            row_bits_consumed = (len(self.entropy_encoded_DCT_coffs) - self.entropy_encoded_dct_length
                              + len(self.entropy_encoded_prediction_data) - self.entropy_encoded_prediction_data_length
-                             + 8 * 6)
-            self.bit_budget -= bits_consumed
+                             # + 8 * 6
+                                 )
+            self.bit_budget -= row_bits_consumed
+            self.bits_per_row.append(row_bits_consumed)
             self.entropy_encoded_dct_length = len(self.entropy_encoded_DCT_coffs)
             self.entropy_encoded_prediction_data_length = len(self.entropy_encoded_prediction_data)
+            # TODO: Verify if prev_rc_qp needs to be uncommented
             # prev_rc_qp = rc_qp
 
         avg_mae = mae_of_blocks / ((height // block_size) * (width // block_size))

@@ -9,6 +9,7 @@ import numpy as np
 from skimage.metrics import peak_signal_noise_ratio
 
 from common import pad_frame
+from encoder.Frame import Frame
 from encoder.FrameMetrics import FrameMetrics
 from encoder.IFrame import IFrame
 from encoder.PFrame import PFrame
@@ -80,24 +81,23 @@ def encode_video(params: InputParameters):
             y_plane = np.frombuffer(y_frame, dtype=np.uint8).reshape((height, width))
             padded_frame = pad_frame(y_plane, block_size)
 
-            first_pass_frame = get_first_pass_frame(I_Period, frame_index, interpolated_reference_frames, padded_frame,
-                                           reference_frames)
+            first_pass_frame = get_first_pass_frame(frame_index, interpolated_reference_frames, padded_frame,
+                                           reference_frames, params)
 
-            first_pass_frame.bit_budget = bit_budget_per_frame(params.encoder_config)
 
             first_pass_frame.encode_mc_q_dct(params.encoder_config)
             frame = first_pass_frame
 
-            # TODO: check second pass
-            pframe_overage = first_pass_frame.get_overage_ratio(params.encoder_config)
+            # Second pass
             if params.encoder_config.RCflag == 2:
-                if first_pass_frame.is_pframe() and pframe_overage > scene_change_threshold:
-                    logger.info(f"scene change detected in pframe with {pframe_overage:4.2f}")
-                    frame = get_second_pass_frame(padded_frame, reference_frames, interpolated_reference_frames)
-                    frame.encode_mc_q_dct(params.encoder_config)
+                is_scene_change = False
+                pframe_overage = first_pass_frame.get_overage_ratios(params.encoder_config)
+                if first_pass_frame.is_pframe() and pframe_overage[1] > scene_change_threshold:
+                    logger.info(f"scene change detected in pframe:  {sum(first_pass_frame.bits_per_row)} {pframe_overage[0]:4.2f} | {pframe_overage[1]:4.2f}")
+                    is_scene_change = True
+                frame = get_second_pass_frame(padded_frame, reference_frames, interpolated_reference_frames, params, first_pass_frame, is_scene_change)
+                frame.encode_mc_q_dct(params.encoder_config)
 
-            # frame.entropy_encode_prediction_data(params.encoder_config)
-            # frame.entropy_encode_dct_coffs(block_size)
 
             # frame in encoded, rest is writing data to file frame_enc_time
             frame_enc_time = time.time() - frame_enc_start_time
@@ -138,14 +138,14 @@ def encode_video(params: InputParameters):
             frame_info_str = (
                 f"{frame_index:2}: {frame.prediction_mode} "
                 f" mae [{round(frame.avg_mae, 2):6.2f}] "
-                f"mv_extremes: [{mv_extremes[0]}, {mv_extremes[1]}] "
-                f" mae_comps [{round(frame.total_mae_comparisons, 2):7d}] "
+                # f"mv_extremes: [{mv_extremes[0]}, {mv_extremes[1]}] "
+                # f" mae_comps [{round(frame.total_mae_comparisons, 2):7d}] "
                 f"psnr [{round(frame_psnr, 2):6.2f}], "
                 f"q_dct_range: [{dct_coffs_extremes[0]:4}, {dct_coffs_extremes[1]:3}] "
-                f"size: [{encoded_frame_size:6}] "
-                f"SoB [{hex(start_of_bock_idx):7}] "
-                f"SoPD [{hex(start_of_prediction_data_idx):7}] "
-                f"SoDCTCoffs [{hex(start_of_dct_coffs_idx):7}] "
+                f"size: [{encoded_frame_size:6}] | [{(sum(frame.bits_per_row) + 7) // 8 :6}] diff: {(sum(frame.bits_per_row)+7)//8-encoded_frame_size + 6:4.2f} "
+                # f"SoB [{hex(start_of_bock_idx):7}] "
+                # f"SoPD [{hex(start_of_prediction_data_idx):7}] "
+                # f"SoDCTCoffs [{hex(start_of_dct_coffs_idx):7}] "
             )
             logger.info(frame_info_str)
 
@@ -171,20 +171,29 @@ def encode_video(params: InputParameters):
     return
 
 
-def get_first_pass_frame(I_Period, frame_index, interpolated_reference_frames, padded_frame, reference_frames):
-    if (frame_index - 1) % I_Period == 0:
+def get_first_pass_frame(frame_index, interpolated_reference_frames, padded_frame, reference_frames, params: InputParameters):
+    if (frame_index - 1) % params.encoder_config.I_Period == 0:
         first_pass_frame = IFrame(padded_frame)
         reference_frames.clear()
         interpolated_reference_frames.clear()
     else:
         first_pass_frame = PFrame(padded_frame, reference_frames, interpolated_reference_frames)
     first_pass_frame.is_first_pass = True
+    first_pass_frame.bit_budget = bit_budget_per_frame(params.encoder_config)
     return first_pass_frame
 
-def get_second_pass_frame(padded_frame, reference_frames, interpolated_reference_frames):
-    reference_frames.clear()
-    interpolated_reference_frames.clear()
-    return IFrame(padded_frame)
+def get_second_pass_frame(padded_frame, reference_frames, interpolated_reference_frames, params:InputParameters, first_pass_frame: Frame, is_scene_change=False):
+    if is_scene_change or first_pass_frame.is_iframe():
+        reference_frames.clear()
+        interpolated_reference_frames.clear()
+        frame = IFrame(padded_frame)
+    else:
+        frame = PFrame(padded_frame, reference_frames, interpolated_reference_frames)
+    frame.is_first_pass = False
+    frame.bit_budget = bit_budget_per_frame(params.encoder_config)
+    frame.prev_pass_frame = first_pass_frame
+    return frame
+
 
 def round_to_nearest_multiple(arr, n):
     multiple = 2 ** n

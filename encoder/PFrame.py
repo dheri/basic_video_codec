@@ -6,7 +6,8 @@ from bitarray import bitarray
 from common import get_logger
 from encoder.Frame import Frame, apply_dct_and_quantization, reconstruct_block
 from encoder.PredictionMode import PredictionMode
-from encoder.RateControl.RateControl import calculate_row_bit_budget, find_rc_qp_for_row
+from encoder.RateControl.RateControl import calculate_constant_row_bit_budget, find_rc_qp_for_row, \
+    calculate_proportional_row_bit_budget
 from encoder.block_predictor import find_lowest_mae_block, find_fast_me_block, build_pre_interpolated_buffer, \
     get_ref_block_at_mv
 from encoder.dct import generate_quantization_matrix, rescale_block, apply_idct_2d
@@ -44,13 +45,14 @@ class PFrame(Frame):
         for y in range(0, height, block_size):
             row_idx = y//block_size
             if encoder_config.RCflag:
-                row_bit_budget = calculate_row_bit_budget(self.bit_budget, row_idx, encoder_config)
                 if encoder_config.RCflag == 1:
+                    row_bit_budget = calculate_constant_row_bit_budget(self.bit_budget, row_idx, encoder_config)
                     rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'P')
                 if encoder_config.RCflag == 2 and not self.is_first_pass:
+                    row_bit_budget = calculate_proportional_row_bit_budget(self, row_idx, encoder_config)
                     rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'P')
 
-                logger.debug(f"[{row_idx:2d}] f_bb [{self.bit_budget:9.2f}] row_bb [{row_bit_budget:8.2f}] , qp=[{rc_qp}]")
+                # logger.debug(f"[{row_idx:2d}] f_bb [{self.bit_budget:9.2f}] row_bb [{row_bit_budget:8.2f}] , qp=[{rc_qp}]")
             for x in range(0, width, block_size):
                 encoded_block =self.process_block(x, y, width, height, mv_field, prev_processed_block_cords, encoder_config, rc_qp)
                 block_cords = encoded_block.block_coords
@@ -71,10 +73,12 @@ class PFrame(Frame):
 
             self.entropy_encode_prediction_data_row(row_idx, encoder_config, rc_qp_diff)
             self.entropy_encode_dct_coffs_row(row_idx, encoder_config)
-            bits_consumed = (len(self.entropy_encoded_DCT_coffs) - self.entropy_encoded_dct_length
+            row_bits_consumed = (len(self.entropy_encoded_DCT_coffs) - self.entropy_encoded_dct_length
                              + len(self.entropy_encoded_prediction_data) - self.entropy_encoded_prediction_data_length
-                             + 8 * 6)
-            self.bit_budget -= bits_consumed
+                             # + (8 * 6)
+                                 )
+            self.bit_budget -= row_bits_consumed
+            self.bits_per_row.append(row_bits_consumed)
             self.entropy_encoded_dct_length = len(self.entropy_encoded_DCT_coffs)
             self.entropy_encoded_prediction_data_length = len(self.entropy_encoded_prediction_data)
 

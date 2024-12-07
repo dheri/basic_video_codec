@@ -15,9 +15,9 @@ def plot_metrics(params: InputParameters):
     logger.info(f" cwd: {file_io.get_file_name('')}")
     csv_file_name = file_io.get_metrics_csv_file_name()
 
-    frame_numbers, avg_mae_values, psnr_values, frame_bytes = read_metrics_from_csv(csv_file_name)
+    frame_numbers, is_i_frame_values, avg_mae_values, psnr_values, frame_bytes = read_metrics_from_csv(csv_file_name)
 
-    # plot_mae_psnr_vs_frame(file_io, frame_numbers, avg_mae_values, psnr_values)
+    plot_mae_psnr_vs_frame(file_io, frame_numbers, is_i_frame_values, avg_mae_values, psnr_values)
     # plot_rate_distortion(file_io, params, frame_bytes, psnr_values, avg_mae_values)
     plot_psnr_vs_frame_bits_a(file_io, params, frame_numbers, frame_bytes, psnr_values)
     plot_psnr_vs_frame_bits_b(file_io, frame_bytes, psnr_values)
@@ -25,6 +25,7 @@ def plot_metrics(params: InputParameters):
 
 def read_metrics_from_csv(csv_file_name: str):
     frame_numbers = []
+    is_i_frame_values = []
     avg_mae_values = []
     psnr_values = []
     frame_bytes = []
@@ -36,17 +37,20 @@ def read_metrics_from_csv(csv_file_name: str):
         for row in csv_reader:
             metrics = FrameMetrics.from_csv_row(row)
             frame_numbers.append(int(metrics.idx))
+            is_i_frame_values.append(int(metrics.is_i_frame))
             avg_mae_values.append(float(metrics.avg_mae))
             psnr_values.append(float(metrics.psnr))
             frame_bytes.append(float(metrics.frame_bytes))
 
-    return frame_numbers, avg_mae_values, psnr_values, frame_bytes
+    return frame_numbers, is_i_frame_values, avg_mae_values, psnr_values, frame_bytes
 
 
-def plot_mae_psnr_vs_frame(file_io, frame_numbers, avg_mae_values, psnr_values):
+def plot_mae_psnr_vs_frame(file_io, frame_numbers, is_i_frame_values, avg_mae_values, psnr_values):
     plt.figure(figsize=(10, 6))
+
     plt.plot(frame_numbers, avg_mae_values, marker='o', linestyle='-', color='b', label='Avg MAE')
     plt.plot(frame_numbers, psnr_values, marker='x', linestyle='--', color='r', label='PSNR')
+    plt.scatter(frame_numbers, np.array(is_i_frame_values)*30 + 20, marker='.',  color='black', label='is_i_frame')
     plt.title("MAE and PSNR per Frame")
     plt.xlabel("Frame Number")
     plt.ylabel("Metric Value")

@@ -14,7 +14,7 @@ from metrics.metrics import plot_metrics
 
 def create_lookups():
     sequences = [
-        ('e3_CIF.y', (352, 288), 1_400_000),
+        ('e3_CIF.y', (352, 288), 2_400_000),
         # ('e3_QCIF.y', (176,144),   960_000)
     ]
     block_sizes =[8, 16]
@@ -45,7 +45,7 @@ def create_lookup_for_seq(sequence, block_size, i_period):
         params.encoder_config = ec.validate()
         encode_video(params)
         plot_metrics(params)
-        decode_video(params)
+        # decode_video(params)
         metric_files.append(FileIOHelper(params).get_metrics_csv_file_name())
 
     # generate_rc_lookup(metric_files, params)
