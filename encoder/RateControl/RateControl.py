@@ -1,5 +1,4 @@
 from common import get_logger
-from encoder.Frame import Frame
 from encoder.params import EncoderConfig
 
 logger = get_logger()
@@ -21,8 +20,8 @@ def calculate_constant_row_bit_budget(remaining_bits, row_idx, ec: EncoderConfig
     return row_bit_budget
 
 
-def calculate_proportional_row_bit_budget(frame: Frame, row_idx, ec: EncoderConfig):
-    prev_pass_frame: Frame = frame.prev_pass_frame
+def calculate_proportional_row_bit_budget(frame, row_idx, ec: EncoderConfig):
+    prev_pass_frame = frame.prev_pass_frame
     if prev_pass_frame is None:
         raise ValueError("cant find proportional bit budget as prev_pass_frame not defined")
     bit_usage_proportion = prev_pass_frame.bits_per_row[row_idx] /  sum(prev_pass_frame.bits_per_row)

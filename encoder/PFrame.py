@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from statistics import mean
 
 import numpy as np
 from bitarray import bitarray
@@ -40,20 +41,13 @@ class PFrame(Frame):
         self.quantized_dct_residual_frame = np.zeros_like(self.curr_frame, dtype=np.int16)
         prev_rc_qp = encoder_config.quantization_factor
         rc_qp = encoder_config.quantization_factor
-
         prev_processed_block_cords = (0,0)
+        prev_frame_avg_qp = int(mean(self.prev_frame.rc_qp_per_row) - 0.1) + 1 # a ceil fn with offset of 0.1
+        # logger.info(f"{self.index:2d}: prev_f_avg_qp {'f' if self.is_first_pass else 's'} = {mean(self.prev_frame.rc_qp_per_row):4.2f} | {prev_frame_avg_qp} : {self.prev_frame.rc_qp_per_row}")
+
         for y in range(0, height, block_size):
             row_idx = y//block_size
-            if encoder_config.RCflag:
-                row_bit_budget = 0
-                if encoder_config.RCflag == 1:
-                    row_bit_budget = calculate_constant_row_bit_budget(self.bit_budget, row_idx, encoder_config)
-                    rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'P')
-                if encoder_config.RCflag == 2 and not self.is_first_pass:
-                    row_bit_budget, bit_usage_proportion = calculate_proportional_row_bit_budget(self, row_idx, encoder_config)
-                    rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'P')
-
-                # logger.info(f" [{self.index}{'f' if self.is_first_pass else 's'} {row_idx:2d}] f_bb [{self.bit_budget:7.0f}] row_bb [{row_bit_budget:6.0f}] , qp=[{rc_qp}]")
+            rc_qp = self.get_rc_qp(encoder_config, prev_frame_avg_qp, rc_qp, row_idx)
             for x in range(0, width, block_size):
                 encoded_block =self.process_block(x, y, width, height, mv_field, prev_processed_block_cords, encoder_config, rc_qp)
                 block_cords = encoded_block.block_coords
@@ -82,6 +76,8 @@ class PFrame(Frame):
             self.bits_per_row.append(row_bits_consumed)
             self.entropy_encoded_dct_length = len(self.entropy_encoded_DCT_coffs)
             self.entropy_encoded_prediction_data_length = len(self.entropy_encoded_prediction_data)
+
+        logger.info(f"{self.index:2d}: prev_f_avg_qp {'f' if self.is_first_pass else 's'} = {mean(self.prev_frame.rc_qp_per_row):4.2f} | {prev_frame_avg_qp} : {self.rc_qp_per_row}")
 
         avg_mae = mae_of_blocks / num_of_blocks
         # sorted_mv_field = OrderedDict(sorted(mv_field.items(), key=lambda item: (item[0][1], item[0][0])))
