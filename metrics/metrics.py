@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MaxNLocator
-from scipy.stats import alpha
+from prettytable import PrettyTable
 
 from encoder.FrameMetrics import FrameMetrics
 from encoder.params import logger
@@ -238,19 +238,23 @@ def load_frame_metrics(file_path):
     df = pd.read_csv(file_path)
     return df
 
-def calculate_series_metrics(files, series_name):
-    """Calculate RD points for a series of CSV files."""
-    series = RDPointSeries(series_name)
+def calculate_rd_points_and_times(files, series_name):
+    """Calculate RD points and encoding times for a series of files."""
+    rd_points = RDPointSeries(series_name)
+    encoding_times = []
     for file in files:
         df = load_frame_metrics(file)
         total_bits = df['file_bits'].sum()
         avg_psnr = df['PSNR'].mean()
-        series.add_point(total_bits, avg_psnr)
-    return series
+        encoding_time = df.iloc[-1]['elapsed_time']
+        rd_points.add_point(total_bits, avg_psnr)
+        encoding_times.append(encoding_time)
+    return rd_points, encoding_times
+
 
 def plot_rd_curves( series_collection):
     """Plot multiple RD curves from a collection of RD point series."""
-    plt.figure(figsize=(12, 8))
+    plt.figure(figsize=(8, 5))
     for series in series_collection:
         rd_points = series.get_points()
         total_bits, avg_psnr = zip(*rd_points)
@@ -265,3 +269,51 @@ def plot_rd_curves( series_collection):
 
     plt.savefig(f"../data/assign3_dels/ex2_rd.png")
     plt.close('all')
+
+def tabulate_and_export_encoding_times(series_collection, encoding_times_collection):
+    """Tabulate encoding times for the experiments and export to CSV."""
+    # Prepare data for the table and CSV
+    table = PrettyTable()
+    table.field_names = ["Series", "Bits (bits)", "PSNR (dB)", "Encoding Time (s)"]
+
+    csv_data = [["Series", "Bits (bits)", "PSNR (dB)", "Encoding Time (s)"]]
+
+    for series, times in zip(series_collection, encoding_times_collection):
+        for rd_point, time in zip(series.get_points(), times):
+            bits, psnr = rd_point
+            row = [series.series_name, bits, f"{psnr:.2f}", f"{time:.2f}"]
+            table.add_row(row)
+            csv_data.append(row)
+
+    # Print the table
+    print(table)
+
+    # Write to CSV
+    output_csv_path = f"../data/assign3_dels/timings.csv"
+    with open(output_csv_path, mode='w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerows(csv_data)
+
+    print(f"Encoding time table saved to {output_csv_path}")
+
+
+def plot_per_frame_psnr(metric_files):
+
+    fig, ax1 = plt.subplots(figsize=(8,5))
+
+    for idx, file in enumerate(metric_files):
+        df = pd.read_csv(file)
+        frames = df['idx']
+        psnr_values = df['PSNR']
+        plt.plot(frames, psnr_values, marker='o', label=f"RCflag {idx+1}")
+    ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
+
+    # Configure plot
+    plt.title(f"Per-Frame PSNR for Bitrate = 2.4 Mbps")
+    plt.xlabel("Frame Index")
+    plt.ylabel("PSNR (dB)")
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(f"../data/assign3_dels/per-frame-psnr.png")
+    plt.close('all')
+
