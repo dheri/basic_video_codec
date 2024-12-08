@@ -172,7 +172,7 @@ class Frame:
             if encoder_config.RCflag == 1:
                 row_bit_budget = calculate_constant_row_bit_budget(self.bit_budget, row_idx, encoder_config)
                 rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, frame_type)
-            if encoder_config.RCflag == 2:
+            if encoder_config.RCflag > 1:
                 if self.is_first_pass:
                     rc_qp = prev_frame_avg_qp
                 else:

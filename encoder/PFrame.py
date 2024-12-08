@@ -44,12 +44,15 @@ class PFrame(Frame):
         prev_processed_block_cords = (0,0)
         prev_frame_avg_qp = int(mean(self.prev_frame.rc_qp_per_row) - 0.1) + 1 # a ceil fn with offset of 0.1
         # logger.info(f"{self.index:2d}: prev_f_avg_qp {'f' if self.is_first_pass else 's'} = {mean(self.prev_frame.rc_qp_per_row):4.2f} | {prev_frame_avg_qp} : {self.prev_frame.rc_qp_per_row}")
+        prev_pass_mv_field = []
+        if encoder_config.RCflag == 3 and not self.is_first_pass:
+            prev_pass_mv_field = self.prev_pass_frame.mv_field
 
         for y in range(0, height, block_size):
             row_idx = y//block_size
             rc_qp = self.get_rc_qp(encoder_config, prev_frame_avg_qp, rc_qp, row_idx)
             for x in range(0, width, block_size):
-                encoded_block =self.process_block(x, y, width, height, mv_field, prev_processed_block_cords, encoder_config, rc_qp)
+                encoded_block =self.process_block(x, y, width, height, mv_field, prev_pass_mv_field, prev_processed_block_cords, encoder_config, rc_qp)
                 block_cords = encoded_block.block_coords
                 x, y = block_cords
 
@@ -90,13 +93,15 @@ class PFrame(Frame):
         # self.reconstructed_frame = reconstructed_frame_with_mc
         return self
 
-    def process_block(self, x, y, width, height, mv_field, prev_processed_block_cords, encoder_config, rc_qp) -> EncodedPBlock:
+    def process_block(self, x, y, width, height, mv_field, prev_pass_mv_field, prev_processed_block_cords, encoder_config, rc_qp) -> EncodedPBlock:
         block_size, search_range, quantization_factor = encoder_config.block_size, encoder_config.search_range, rc_qp
         curr_block = self.curr_frame[y:y + block_size, x:x + block_size].astype(np.int16)
         # consider latest ref frame for no mv
         prev_block = self.reference_frames[0][y:y + block_size, x:x + block_size].astype(np.int16)
 
         mvp = mv_field[prev_processed_block_cords]
+        # if encoder_config.RCflag == 3: # get mvp of block from last pass
+        #     mvp = prev_pass_mv_field[prev_processed_block_cords]
         mv, best_match_mae, _ , comparisons = self.get_motion_vector(curr_block, ( x, y), mvp , encoder_config)
         # logger.debug(f"b ({x:3} {y:3}) mae [{best_match_mae:>6.2f}] mv:{mv} ")
         mv_field[(x, y)] = mv

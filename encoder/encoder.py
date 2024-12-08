@@ -88,7 +88,7 @@ def encode_video(params: InputParameters):
 
             pframe_overage = first_pass_frame.get_overage_ratios(params.encoder_config)
             # Second pass
-            if params.encoder_config.RCflag == 2:
+            if params.encoder_config.RCflag > 1:
                 is_scene_change = False
                 if first_pass_frame.is_pframe() and pframe_overage[1] > scene_change_threshold:
                     frame.scaling_factor = (1 - pframe_overage[1])  * 0.95
