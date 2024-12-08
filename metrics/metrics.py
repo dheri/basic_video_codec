@@ -2,8 +2,10 @@ import csv
 
 import matplotlib
 import numpy as np
+import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MaxNLocator
+from scipy.stats import alpha
 
 from encoder.FrameMetrics import FrameMetrics
 from encoder.params import logger
@@ -15,12 +17,15 @@ def plot_metrics(params: InputParameters):
     logger.info(f" cwd: {file_io.get_file_name('')}")
     csv_file_name = file_io.get_metrics_csv_file_name()
 
-    frame_numbers, is_i_frame_values, avg_mae_values, psnr_values, frame_bytes = read_metrics_from_csv(csv_file_name)
+    frame_numbers, is_i_frame_values, avg_mae_values, psnr_values, frame_bytes, file_bits = read_metrics_from_csv(csv_file_name)
 
-    plot_mae_psnr_vs_frame(file_io, frame_numbers, is_i_frame_values, avg_mae_values, psnr_values)
-    # plot_rate_distortion(file_io, params, frame_bytes, psnr_values, avg_mae_values)
-    plot_psnr_vs_frame_bits_a(file_io, params, frame_numbers, frame_bytes, psnr_values)
-    plot_psnr_vs_frame_bits_b(file_io, frame_bytes, psnr_values)
+    plot_series_vs_frame_numbers(file_io, frame_numbers, is_i_frame_values, avg_mae_values, 'Avg MAE', 'MAE per Frame')
+    plot_series_vs_frame_numbers(file_io, frame_numbers, is_i_frame_values, psnr_values, 'PSNR', 'PSNR Frame')
+    plot_series_vs_frame_numbers(file_io, frame_numbers, is_i_frame_values, np.array(frame_bytes) * 8, 'frame bits', 'Frame size')
+    plot_series_vs_frame_numbers(file_io, file_bits, is_i_frame_values, psnr_values, 'rd curve', 'RD')
+    plot_rd_v2(file_io, params, file_bits, frame_numbers, is_i_frame_values, psnr_values)
+    # plot_psnr_vs_frame_bits_a(file_io, params, frame_numbers, frame_bytes, psnr_values)
+    # plot_psnr_vs_frame_bits_b(file_io, frame_bytes, psnr_values)
 
 
 def read_metrics_from_csv(csv_file_name: str):
@@ -29,7 +34,7 @@ def read_metrics_from_csv(csv_file_name: str):
     avg_mae_values = []
     psnr_values = []
     frame_bytes = []
-
+    file_bits = []
     with open(csv_file_name, 'r') as f:
         csv_reader = csv.reader(f)
         headers = next(csv_reader)  # Skip the header row
@@ -41,25 +46,69 @@ def read_metrics_from_csv(csv_file_name: str):
             avg_mae_values.append(float(metrics.avg_mae))
             psnr_values.append(float(metrics.psnr))
             frame_bytes.append(float(metrics.frame_bytes))
+            file_bits.append(float(metrics.file_bits))
 
-    return frame_numbers, is_i_frame_values, avg_mae_values, psnr_values, frame_bytes
+    return frame_numbers, is_i_frame_values, avg_mae_values, psnr_values, frame_bytes, file_bits
 
 
-def plot_mae_psnr_vs_frame(file_io, frame_numbers, is_i_frame_values, avg_mae_values, psnr_values):
-    plt.figure(figsize=(10, 6))
+def plot_series_vs_frame_numbers(file_io, frame_numbers, is_i_frame_values, series, series_name, plot_title):
+    fig, ax1 = plt.subplots(figsize=(6, 4))
 
-    plt.plot(frame_numbers, avg_mae_values, marker='o', linestyle='-', color='b', label='Avg MAE')
-    plt.plot(frame_numbers, psnr_values, marker='x', linestyle='--', color='r', label='PSNR')
-    plt.scatter(frame_numbers, np.array(is_i_frame_values)*30 + 20, marker='.',  color='black', label='is_i_frame')
-    plt.title("MAE and PSNR per Frame")
-    plt.xlabel("Frame Number")
-    plt.ylabel("Metric Value")
+
+    plt.plot(frame_numbers, series, marker='o', linestyle='dotted', markersize=5, color='red', label=series_name, zorder=1, alpha=0.7)
+    is_i_frame_values = np.array(is_i_frame_values) * np.array(series)
+    is_i_frame_values = list(map(lambda  x: None if not x else x , is_i_frame_values))
+
+    plt.scatter(frame_numbers, is_i_frame_values , marker='x', s=64,  color='black', label='I-Frame', zorder=2)
+
+    plt.title(plot_title)
+    plt.xlabel("Frame Number", )
+    ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
+
+
+    plt.ylabel(series_name)
     plt.legend(loc='upper right')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig(file_io.get_file_name("mae_psnr_vs_frame.png"))
-    plt.close()
+    plt.savefig(file_io.get_file_name(f"{series_name.lower().replace(' ',  '_')}.png"))
+    plt.close('all')
 
+
+def plot_rd_v2(file_io, params, file_bits, frame_numbers, is_i_frame_values, psnr_values):
+    fig, ax1 = plt.subplots(figsize=(10, 6))
+
+    file_bits = np.array(file_bits)
+    psnr_values = np.array(psnr_values)
+
+    # Sort data by frame_bytes
+    # sorted_indices = np.argsort(file_bits)
+    frame_bytes_sorted = file_bits
+    psnr_values_sorted = psnr_values
+    best_fit_line_order =4
+
+
+    is_i_frame_values = np.array(is_i_frame_values) * np.array(psnr_values)
+    is_i_frame_values = list(map(lambda  x: None if not x else x , is_i_frame_values))
+    plt.scatter(frame_bytes_sorted, is_i_frame_values , marker='x', s=64,  color='black', label='I-Frame', zorder=2)
+
+    # Primary Y-axis: PSNR
+    ax1.set_xlabel("Encoded frame size in Bytes")
+    ax1.set_ylabel("PSNR (dB)", color="r")
+    ax1.scatter(frame_bytes_sorted, psnr_values_sorted, marker='o', color='r', label='PSNR')
+    best_fit_psnr = np.poly1d(np.polyfit(frame_bytes_sorted, psnr_values_sorted, best_fit_line_order))
+    ax1.plot(frame_bytes_sorted, best_fit_psnr(frame_bytes_sorted), linestyle='dotted', linewidth=1, color='r')
+    ax1.tick_params(axis='y', labelcolor="r")
+    ax1.grid(True)
+
+    # Title and Legend
+    ec = params.encoder_config
+    fig.suptitle(f"RD Curve with PSNR over File Bits\n"
+                 f"i [{ec.block_size}] r [{ec.search_range if ec.search_range > 0 else '-'}] q [{ec.quantization_factor}] "
+                 f"FracME [{ec.fracMeEnabled}] FastME [{ec.fastME}]"
+                 f"")
+    fig.tight_layout()
+    plt.savefig(file_io.get_file_name("rdv2.png"))
+    plt.close()
 
 def plot_rate_distortion(file_io, params, frame_bytes, psnr_values, avg_mae_values):
     fig, ax1 = plt.subplots(figsize=(10, 6))
@@ -133,8 +182,7 @@ def plot_psnr_vs_frame_bits_a(file_io, params, frame_numbers, frame_bytes, psnr_
     ax2.plot(frame_numbers, best_fit_mae(frame_numbers), linestyle='dotted', linewidth=1, color='b')
     ax2.tick_params(axis='y', labelcolor="b")
 
-    formatter_func = lambda x, pos: '%1dMb' % (x * 1e-6) if x >= 1e6 else '%1dKb' % (x * 1e-3) if x >= 1e3 else '%1d' % x
-    axis_formatter = matplotlib.ticker.FuncFormatter(formatter_func)
+    axis_formatter = matplotlib.ticker.FuncFormatter(data_formatter_func)
     ax2.yaxis.set_major_formatter(axis_formatter)
 
     # Title and Layout
@@ -170,3 +218,50 @@ def plot_psnr_vs_frame_bits_b(file_io, frame_bytes, psnr_values):
     plt.title("RD Curve: PSNR  vs Frame Size", fontsize=14)
     fig.tight_layout()
     plt.savefig(file_io.get_file_name("psnr_b.png"))
+
+data_formatter_func = lambda x, pos: '%1dMb' % (x * 1e-6) if x >= 1e6 else '%1dKb' % (x * 1e-3) if x >= 1e3 else '%1d' % x
+
+
+class RDPointSeries:
+    def __init__(self, series_name):
+        self.series_name = series_name
+        self.rd_points = []  # List to hold (total_bits, avg_psnr)
+
+    def add_point(self, total_bits, avg_psnr):
+        self.rd_points.append((total_bits, avg_psnr))
+
+    def get_points(self):
+        return self.rd_points
+
+def load_frame_metrics(file_path):
+    """Load FrameMetrics from a CSV file."""
+    df = pd.read_csv(file_path)
+    return df
+
+def calculate_series_metrics(files, series_name):
+    """Calculate RD points for a series of CSV files."""
+    series = RDPointSeries(series_name)
+    for file in files:
+        df = load_frame_metrics(file)
+        total_bits = df['file_bits'].sum()
+        avg_psnr = df['PSNR'].mean()
+        series.add_point(total_bits, avg_psnr)
+    return series
+
+def plot_rd_curves( series_collection):
+    """Plot multiple RD curves from a collection of RD point series."""
+    plt.figure(figsize=(12, 8))
+    for series in series_collection:
+        rd_points = series.get_points()
+        total_bits, avg_psnr = zip(*rd_points)
+        plt.plot(total_bits, avg_psnr, marker='x', label=series.series_name)
+
+    plt.title("Rate-Distortion Curves")
+    plt.xlabel("Total Bitstream Size (bits)")
+    plt.ylabel("Average PSNR (dB)")
+    plt.legend()
+    plt.grid(True)
+    # plt.show()
+
+    plt.savefig(f"../data/assign3_dels/ex2_rd.png")
+    plt.close('all')
