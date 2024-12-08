@@ -42,9 +42,11 @@ class PFrame(Frame):
         prev_rc_qp = encoder_config.quantization_factor
         rc_qp = encoder_config.quantization_factor
         prev_processed_block_cords = (0,0)
-        prev_frame_avg_qp = int(mean(self.prev_frame.rc_qp_per_row) - 0.1) + 1 # a ceil fn with offset of 0.1
         # logger.info(f"{self.index:2d}: prev_f_avg_qp {'f' if self.is_first_pass else 's'} = {mean(self.prev_frame.rc_qp_per_row):4.2f} | {prev_frame_avg_qp} : {self.prev_frame.rc_qp_per_row}")
         prev_pass_mv_field = []
+        prev_frame_avg_qp = 0
+        if encoder_config.RCflag > 1:
+            prev_frame_avg_qp = int(mean(self.prev_frame.rc_qp_per_row) - 0.1) + 1 # a ceil fn with offset of 0.1
         if encoder_config.RCflag == 3 and not self.is_first_pass:
             prev_pass_mv_field = self.prev_pass_frame.mv_field
 
@@ -80,7 +82,8 @@ class PFrame(Frame):
             self.entropy_encoded_dct_length = len(self.entropy_encoded_DCT_coffs)
             self.entropy_encoded_prediction_data_length = len(self.entropy_encoded_prediction_data)
 
-        logger.info(f"{self.index:2d}: prev_f_avg_qp {'f' if self.is_first_pass else 's'} = {mean(self.prev_frame.rc_qp_per_row):4.2f} | {prev_frame_avg_qp} : {self.rc_qp_per_row}")
+        if encoder_config.RCflag > 1:
+            logger.info(f"{self.index:2d}: prev_f_avg_qp {'f' if self.is_first_pass else 's'} = {mean(self.prev_frame.rc_qp_per_row):4.2f} | {prev_frame_avg_qp} : {self.rc_qp_per_row}")
 
         avg_mae = mae_of_blocks / num_of_blocks
         # sorted_mv_field = OrderedDict(sorted(mv_field.items(), key=lambda item: (item[0][1], item[0][0])))
