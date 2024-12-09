@@ -9,9 +9,11 @@ import numpy as np
 from skimage.metrics import peak_signal_noise_ratio
 
 from common import pad_frame
+from encoder.Frame import Frame
 from encoder.FrameMetrics import FrameMetrics
 from encoder.IFrame import IFrame
 from encoder.PFrame import PFrame
+from encoder.PredictionMode import PredictionMode
 from encoder.RateControl.RateControl import bit_budget_per_frame
 from encoder.RateControl.lookup import rc_lookup_file_path, get_combined_lookup_table
 from encoder.block_predictor import build_pre_interpolated_buffer
@@ -25,7 +27,7 @@ logger = get_logger()
 
 def encode_video(params: InputParameters):
     file_io = FileIOHelper(params)
-
+    scene_change_threshold = 1.3
     y_size = params.width * params.height
 
     reference_frames = deque(maxlen=params.encoder_config.nRefFrames)
@@ -34,7 +36,7 @@ def encode_video(params: InputParameters):
     interpolated_reference_frames = deque(maxlen=params.encoder_config.nRefFrames)
     interpolated_reference_frames.append(build_pre_interpolated_buffer(reference_frames[0]))
 
-    if params.encoder_config.RCflag:
+    if params.encoder_config.RCflag or 1:
         rc_lookup_file_path_i = rc_lookup_file_path(params.encoder_config, 'I' )
         rc_lookup_file_path_p = rc_lookup_file_path(params.encoder_config, 'P' )
         params.encoder_config.rc_lookup_table = get_combined_lookup_table(rc_lookup_file_path_i, rc_lookup_file_path_p)
@@ -56,7 +58,6 @@ def encode_video(params: InputParameters):
         block_size = params.encoder_config.block_size
         search_range = params.encoder_config.search_range
         I_Period = params.encoder_config.I_Period
-
         metrics_csv_writer = csv.writer(metrics_csv_fh)
         metrics_csv_writer.writerow(FrameMetrics.get_header())
         frame_index = 0
@@ -68,6 +69,8 @@ def encode_video(params: InputParameters):
             f" fracMeEnabled=[{params.encoder_config.fracMeEnabled}]"
             f" RateControl=[{params.encoder_config.RCflag}] @ [{params.encoder_config.targetBR} _bps]"
         )
+        prev_frame = Frame()
+        prev_frame.rc_qp_per_row = [params.encoder_config.quantization_factor] #arbitatry qp seeding for first frame
         video_enc_start_time = time.time()
         while True:
             frame_enc_start_time = time.time()
@@ -79,19 +82,21 @@ def encode_video(params: InputParameters):
             y_plane = np.frombuffer(y_frame, dtype=np.uint8).reshape((height, width))
             padded_frame = pad_frame(y_plane, block_size)
 
-            if (frame_index - 1) % I_Period == 0:
-                frame = IFrame(padded_frame)
-                reference_frames.clear()
-                interpolated_reference_frames.clear()
-            else:
-                frame = PFrame(padded_frame, reference_frames, interpolated_reference_frames)
+            first_pass_frame = get_first_pass_frame(frame_index, interpolated_reference_frames, padded_frame, reference_frames, params, prev_frame)
+            first_pass_frame.encode_mc_q_dct(params.encoder_config)
+            frame = first_pass_frame
 
-            frame.bit_budget = bit_budget_per_frame(params.encoder_config)
+            pframe_overage = first_pass_frame.get_overage_ratios(params.encoder_config)
+            # Second pass
+            if params.encoder_config.RCflag > 1:
+                is_scene_change = False
+                if first_pass_frame.is_pframe() and pframe_overage[1] > scene_change_threshold:
+                    frame.scaling_factor = (1 - pframe_overage[1])  * 0.95
+                    logger.info(f"scene change detected in pframe:  {sum(first_pass_frame.bits_per_row)} {pframe_overage[0]:4.2f} | {pframe_overage[1]:4.2f}")
+                    is_scene_change = True
+                frame = get_second_pass_frame(padded_frame, reference_frames, interpolated_reference_frames, params, first_pass_frame, is_scene_change, prev_frame)
+                frame.encode_mc_q_dct(params.encoder_config)
 
-            frame.encode_mc_q_dct(params.encoder_config)
-
-            # frame.entropy_encode_prediction_data(params.encoder_config)
-            # frame.entropy_encode_dct_coffs(block_size)
 
             # frame in encoded, rest is writing data to file frame_enc_time
             frame_enc_time = time.time() - frame_enc_start_time
@@ -132,14 +137,14 @@ def encode_video(params: InputParameters):
             frame_info_str = (
                 f"{frame_index:2}: {frame.prediction_mode} "
                 f" mae [{round(frame.avg_mae, 2):6.2f}] "
-                f"mv_extremes: [{mv_extremes[0]}, {mv_extremes[1]}] "
-                f" mae_comps [{round(frame.total_mae_comparisons, 2):7d}] "
+                # f"mv_extremes: [{mv_extremes[0]}, {mv_extremes[1]}] "
+                # f" mae_comps [{round(frame.total_mae_comparisons, 2):7d}] "
                 f"psnr [{round(frame_psnr, 2):6.2f}], "
                 f"q_dct_range: [{dct_coffs_extremes[0]:4}, {dct_coffs_extremes[1]:3}] "
-                f"size: [{encoded_frame_size:6}] "
-                f"SoB [{hex(start_of_bock_idx):7}] "
-                f"SoPD [{hex(start_of_prediction_data_idx):7}] "
-                f"SoDCTCoffs [{hex(start_of_dct_coffs_idx):7}] "
+                f"size: [{encoded_frame_size:6}] | [{(sum(frame.bits_per_row) + 7) // 8 :6}] diff: {(sum(frame.bits_per_row)+7)//8-encoded_frame_size + 6:4.2f} "
+                # f"SoB [{hex(start_of_bock_idx):7}] "
+                # f"SoPD [{hex(start_of_prediction_data_idx):7}] "
+                # f"SoDCTCoffs [{hex(start_of_dct_coffs_idx):7}] "
             )
             logger.info(frame_info_str)
 
@@ -148,6 +153,7 @@ def encode_video(params: InputParameters):
 
             reference_frames.append(frame.reconstructed_frame)
             interpolated_reference_frames.append(build_pre_interpolated_buffer(frame.reconstructed_frame))
+            prev_frame = frame
 
 
     end_time = time.time()
@@ -165,6 +171,37 @@ def encode_video(params: InputParameters):
     return
 
 
+def get_first_pass_frame(frame_index, interpolated_reference_frames, padded_frame, reference_frames, params: InputParameters, prev_frame:Frame):
+    if (frame_index - 1) % params.encoder_config.I_Period == 0:
+        first_pass_frame = IFrame(padded_frame)
+        reference_frames.clear()
+        interpolated_reference_frames.clear()
+    else:
+        first_pass_frame = PFrame(padded_frame, reference_frames, interpolated_reference_frames)
+    first_pass_frame.is_first_pass = True
+    first_pass_frame.prev_frame = prev_frame
+
+    first_pass_frame.index = frame_index
+    first_pass_frame.bit_budget = bit_budget_per_frame(params.encoder_config)
+    return first_pass_frame
+
+def get_second_pass_frame(padded_frame, reference_frames, interpolated_reference_frames, params:InputParameters, first_pass_frame: Frame, is_scene_change=False, prev_frame:Frame=None):
+    if is_scene_change or first_pass_frame.is_iframe():
+        reference_frames.clear()
+        interpolated_reference_frames.clear()
+        frame = IFrame(padded_frame)
+    else:
+        frame = PFrame(padded_frame, reference_frames, interpolated_reference_frames)
+    frame.is_first_pass = False
+    frame.prev_frame = prev_frame
+
+    frame.index = first_pass_frame.index
+    frame.bit_budget = bit_budget_per_frame(params.encoder_config)
+    frame.prev_pass_frame = first_pass_frame
+    return frame
+
+
 def round_to_nearest_multiple(arr, n):
     multiple = 2 ** n
     return np.round(arr / multiple) * multiple
+
