@@ -4,7 +4,7 @@ from assign1.ex2 import save_y_frames_to_file
 from assign3.Ex1 import create_lookups
 from decoder import decode_video
 from encoder.RateControl.lookup import generate_rc_lookup
-from encoder.encoder import encode_video
+from encoder.encoder import encode_video, encode_video_parallel
 from encoder.params import EncoderConfig
 from file_io import FileIOHelper
 from input_parameters import InputParameters
@@ -13,7 +13,7 @@ from metrics.metrics import plot_metrics
 
 def main():
     resolution = (352 // 2, 288 // 2)
-
+    parallel = 1
     # Add ParallelMode to the EncoderConfig to support parallelism
     encoder_config = EncoderConfig(
         block_size=16,
@@ -38,8 +38,12 @@ def main():
     # Save input frames (optional preprocessing)
     save_y_frames_to_file(input_params)
     
+    if parallel:
+        encode_video_parallel(input_params)
+    else:
+
     # Perform encoding based on the specified parallel mode
-    encode_video(input_params)
+        encode_video(input_params)
     
     # Plot metrics to analyze performance (PSNR, bitrate, etc.)
     plot_metrics(input_params)
