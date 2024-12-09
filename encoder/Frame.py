@@ -13,6 +13,7 @@ from encoder.entropy_encoder import zigzag_order, rle_encode, exp_golomb_encode,
 from encoder.params import EncoderConfig
 from file_io import write_y_only_frame, write_mv_to_file
 from input_parameters import InputParameters
+from concurrent.futures import ThreadPoolExecutor
 
 logger = get_logger()
 
@@ -69,6 +70,20 @@ class Frame:
 
         # logger.info(f"prediction : {len(self.entropy_encoded_prediction_data):6d} |  DCT: {len(self.entropy_encoded_DCT_coffs):6d}")
 
+    def process_frame(frame, reference_frames, encoder_config):
+    # Apply encoding to the frame
+        p_frame = Frame(curr_frame=frame, reference_frames=reference_frames)
+        p_frame.encode_mc_q_dct(encoder_config)
+        return p_frame.reconstructed_frame
+
+    def parallel_encode_frames(frames, reference_frames, encoder_config, num_workers):
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures = [
+                executor.submit(process_frame, frame, reference_frames, encoder_config)
+                for frame in frames
+            ]
+            reconstructed_frames = [future.result() for future in futures]
+        return reconstructed_frames
 
 
     def entropy_decode_dct_coffs(self, params: InputParameters):

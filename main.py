@@ -6,6 +6,5 @@ from encoder.params import EncoderConfig
 from input_parameters import InputParameters
 
 if __name__ == "__main__":
-    # assign1.ex2.save_y_frames_to_file(input_params)
     assign3.Deliverable.main()
 

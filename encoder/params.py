@@ -4,7 +4,7 @@ from common import get_logger
 
 logger= get_logger()
 class EncoderConfig:
-    def __init__(self, block_size, search_range, I_Period, quantization_factor,
+    def __init__(self,ParallelMode, block_size, search_range, I_Period, quantization_factor,
                  nRefFrames=1, fastME=False, fracMeEnabled=False,
                  RCflag=False, targetBR = 0, resolution=(352, 288)):
         self.block_size = block_size
@@ -20,6 +20,7 @@ class EncoderConfig:
         self.targetBR = targetBR
         self.resolution= resolution
         self.frame_rate = 30
+        self.ParallelMode = ParallelMode
         self.validate()
 
 

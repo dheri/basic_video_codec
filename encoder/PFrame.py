@@ -13,6 +13,7 @@ from encoder.dct import generate_quantization_matrix, rescale_block, apply_idct_
 from encoder.entropy_encoder import exp_golomb_encode, exp_golomb_decode
 from encoder.params import EncoderConfig, EncodedPBlock
 from input_parameters import InputParameters
+from concurrent.futures import ThreadPoolExecutor
 
 logger = get_logger()
 
@@ -23,6 +24,80 @@ class PFrame(Frame):
         self.prediction_mode = PredictionMode.INTER_FRAME
         self.mv_field :dict  = {}
         self.avg_mae = None
+
+    def encode_mc_q_dct_parallel(self, encoder_config: EncoderConfig):
+        block_size = encoder_config.block_size
+        height, width = self.curr_frame.shape
+        num_of_blocks = (height // block_size) * (width // block_size)
+
+        mv_field = {(0, 0): [0, 0]}
+        mae_of_blocks = 0
+
+        # Initialize output frames
+        self.reconstructed_frame = np.zeros_like(self.curr_frame, dtype=np.uint8)
+        residual_frame_with_mc = np.zeros_like(self.curr_frame, dtype=np.int8)
+        residual_frame_wo_mc = np.zeros_like(self.curr_frame, dtype=np.int8)
+        self.quantized_dct_residual_frame = np.zeros_like(self.curr_frame, dtype=np.int16)
+
+        prev_rc_qp = encoder_config.quantization_factor
+        rc_qp = encoder_config.quantization_factor
+        prev_processed_block_cords = (0, 0)
+
+        # Define a worker function to process blocks in parallel
+        def process_block_parallel(x, y):
+            return self.process_block(
+                x, y, width, height, mv_field, prev_processed_block_cords, encoder_config, rc_qp
+            )
+
+        for y in range(0, height, block_size):
+            row_idx = y // block_size
+            if encoder_config.RCflag:
+                row_bit_budget = calculate_row_bit_budget(self.bit_budget, row_idx, encoder_config)
+                rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'P')
+                logger.debug(f"[{row_idx:2d}] f_bb [{self.bit_budget:9.2f}] row_bb [{row_bit_budget:8.2f}] , qp=[{rc_qp}]")
+
+            # Process blocks in the row in parallel
+            futures = []
+            with ThreadPoolExecutor() as executor:
+                for x in range(0, width, block_size):
+                    futures.append(executor.submit(process_block_parallel, x, y))
+
+            # Collect results and update the frame
+            for future in futures:
+                encoded_block = future.result()
+                block_coords = encoded_block.block_coords
+                x, y = block_coords
+
+                # Update frames with the encoded block data
+                self.reconstructed_frame[y:y + block_size, x:x + block_size] = encoded_block.reconstructed_block
+                residual_frame_with_mc[y:y + block_size, x:x + block_size] = encoded_block.reconstructed_residual_block
+                residual_frame_wo_mc[y:y + block_size, x:x + block_size] = encoded_block.residual_block_wo_mc
+                self.quantized_dct_residual_frame[y:y + block_size, x:x + block_size] = encoded_block.quantized_dct_coffs
+
+                mae_of_blocks += encoded_block.mae
+                self.total_mae_comparisons += encoded_block.mae_comparisons_to_encode
+                mv_field[block_coords] = encoded_block.mv
+                prev_processed_block_cords = block_coords
+
+            # Update motion vector field
+            sorted_mv_field = OrderedDict(sorted(mv_field.items(), key=lambda item: (item[0][1], item[0][0])))
+            self.mv_field.update(sorted_mv_field)
+
+            # Perform entropy encoding for the row
+            rc_qp_diff = rc_qp - prev_rc_qp
+            self.entropy_encode_prediction_data_row(row_idx, encoder_config, rc_qp_diff)
+            self.entropy_encode_dct_coffs_row(row_idx, encoder_config)
+
+            bits_consumed = (len(self.entropy_encoded_DCT_coffs) - self.entropy_encoded_dct_length
+                             + len(self.entropy_encoded_prediction_data) - self.entropy_encoded_prediction_data_length
+                             + 8 * 6)
+            self.bit_budget -= bits_consumed
+            self.entropy_encoded_dct_length = len(self.entropy_encoded_DCT_coffs)
+            self.entropy_encoded_prediction_data_length = len(self.entropy_encoded_prediction_data)
+
+        self.avg_mae = mae_of_blocks / num_of_blocks
+        self.residual_frame = residual_frame_with_mc
+        self.residual_wo_mc_fram
 
     def encode_mc_q_dct(self, encoder_config: EncoderConfig):
         block_size = encoder_config.block_size

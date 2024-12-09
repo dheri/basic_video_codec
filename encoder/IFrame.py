@@ -8,6 +8,7 @@ from encoder.RateControl.RateControl import find_rc_qp_for_row, calculate_row_bi
 from encoder.dct import generate_quantization_matrix, rescale_block, apply_idct_2d
 from encoder.entropy_encoder import exp_golomb_encode, exp_golomb_decode
 from encoder.params import EncoderConfig, EncodedIBlock
+from concurrent.futures import ThreadPoolExecutor
 
 logger = get_logger()
 
@@ -17,6 +18,71 @@ class IFrame(Frame):
         super().__init__(curr_frame)
         self.prediction_mode = PredictionMode.INTRA_FRAME
         self.intra_modes = None
+
+    def encode_mc_q_dct_parallel(self, encoder_config: EncoderConfig):
+        curr_frame = self.curr_frame
+        block_size = encoder_config.block_size
+        height, width = curr_frame.shape
+
+        self.intra_modes = []  # To store the intra prediction modes
+        self.reconstructed_frame = np.zeros_like(curr_frame)
+        residual_w_mc_frame = np.zeros_like(curr_frame)
+        self.quantized_dct_residual_frame = np.zeros_like(curr_frame, dtype=np.int16)
+
+        mae_of_blocks = 0
+        prev_rc_qp = encoder_config.quantization_factor
+        rc_qp = encoder_config.quantization_factor
+
+        # Define a function to process a single block
+        def process_block_parallel(x, y):
+            curr_block = curr_frame[y:y + block_size, x:x + block_size]
+            return process_block(curr_block, self.reconstructed_frame, x, y, block_size, rc_qp)
+
+        # Parallel processing of rows and blocks
+        for y in range(0, height, block_size):
+            row_idx = y // block_size
+            if encoder_config.RCflag:
+                row_bit_budget = calculate_row_bit_budget(self.bit_budget, row_idx, encoder_config)
+                rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, 'I')
+                logger.debug(f"[{row_idx:2d}] f_bb [{self.bit_budget:9.2f}] row_bb [{row_bit_budget:8.2f}] , qp=[{rc_qp}]")
+
+            # Parallelize block processing within a row
+            futures = []
+            with ThreadPoolExecutor() as executor:
+                for x in range(0, width, block_size):
+                    futures.append(executor.submit(process_block_parallel, x, y))
+
+            # Collect results
+            for future in futures:
+                encoded_block = future.result()
+                block_x, block_y = encoded_block.block_coords
+                x, y = block_x, block_y
+
+                # Store intra mode and update MAE
+                self.intra_modes.append(encoded_block.mode)
+                mae_of_blocks += encoded_block.mae
+
+                # Update reconstructed frame and quantized residuals
+                self.reconstructed_frame[y:y + block_size, x:x + block_size] = encoded_block.reconstructed_block
+                self.quantized_dct_residual_frame[y:y + block_size, x:x + block_size] = encoded_block.quantized_dct_coffs
+                residual_w_mc_frame[y:y + block_size, x:x + block_size] = encoded_block.residual_block
+
+                self.total_mae_comparisons += encoded_block.mae_comparisons_to_encode
+
+            rc_qp_diff = rc_qp - prev_rc_qp
+            self.entropy_encode_prediction_data_row(row_idx, encoder_config, rc_qp_diff)
+            self.entropy_encode_dct_coffs_row(row_idx, encoder_config)
+            bits_consumed = (len(self.entropy_encoded_DCT_coffs) - self.entropy_encoded_dct_length
+                             + len(self.entropy_encoded_prediction_data) - self.entropy_encoded_prediction_data_length
+                             + 8 * 6)
+            self.bit_budget -= bits_consumed
+            self.entropy_encoded_dct_length = len(self.entropy_encoded_DCT_coffs)
+            self.entropy_encoded_prediction_data_length = len(self.entropy_encoded_prediction_data)
+
+        avg_mae = mae_of_blocks / ((height // block_size) * (width // block_size))
+        self.avg_mae = avg_mae
+        self.residual_frame = residual_w_mc_frame
+        self.residual_wo_mc_frame = residual_w_mc_frame
 
     def encode_mc_q_dct(self, encoder_config: EncoderConfig):
         curr_frame = self.curr_frame
