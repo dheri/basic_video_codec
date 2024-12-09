@@ -7,6 +7,8 @@ from skimage.metrics import peak_signal_noise_ratio
 
 from common import get_logger, split_into_blocks, merge_blocks, pad_with_zeros
 from encoder.PredictionMode import PredictionMode
+from encoder.RateControl.RateControl import calculate_constant_row_bit_budget, find_rc_qp_for_row, \
+    calculate_proportional_row_bit_budget
 from encoder.dct import apply_dct_2d, generate_quantization_matrix, quantize_block, rescale_block, apply_idct_2d
 from encoder.entropy_encoder import zigzag_order, rle_encode, exp_golomb_encode, exp_golomb_decode, rle_decode, \
     inverse_zigzag_order
@@ -39,7 +41,12 @@ class Frame:
         self.entropy_encoded_dct_length=0
         self.entropy_encoded_prediction_data_length=0
         self.rc_qp_per_row = []
-
+        self.bits_per_row = []
+        self.is_first_pass = True
+        self.prev_pass_frame : Frame | None = None # same idx
+        self.prev_frame : Frame | None = None # prev idx
+        self.index = 0
+        self.scaling_factor = 1
     def encode_mc_q_dct(self, encoder_config: EncoderConfig):
         raise NotImplementedError(f"{type(self)} need to be overridden")
 
@@ -160,6 +167,40 @@ class Frame:
             # Min/max for intra_modes
             return [np.min(self.intra_modes), np.max(self.intra_modes)]
 
+    def get_overage_ratios(self, encoder_config:EncoderConfig):
+        if not self.is_first_pass:
+            raise ValueError("why is overage being called in first pass?")
+        frame_bits_consumed = (len(self.entropy_encoded_DCT_coffs) + len(self.entropy_encoded_prediction_data)+ 8 * 6)
+        num_rows = encoder_config.resolution[1] // encoder_config.block_size
+        expected_i_frame_size = encoder_config.rc_lookup_table[encoder_config.quantization_factor]['I'] * num_rows
+        expected_p_frame_size = encoder_config.rc_lookup_table[encoder_config.quantization_factor]['P'] * num_rows
+        logger.info(f"overage [{num_rows}] : {frame_bits_consumed} | {frame_bits_consumed//num_rows} @ {encoder_config.quantization_factor} -> {round(frame_bits_consumed / expected_i_frame_size, 2)} | {round(frame_bits_consumed / expected_p_frame_size, 2)}")
+        return frame_bits_consumed/expected_i_frame_size, frame_bits_consumed/expected_p_frame_size
+    def is_iframe(self):
+        return self.prediction_mode == PredictionMode.INTRA_FRAME
+    def is_pframe(self):
+        return self.prediction_mode == PredictionMode.INTER_FRAME
+    def get_rc_qp(self, encoder_config, prev_frame_avg_qp, rc_qp, row_idx):
+        frame_type = 'I' if self.prediction_mode.INTRA_FRAME else 'P'
+        if encoder_config.RCflag:
+            row_bit_budget = 0
+            if encoder_config.RCflag == 1:
+                row_bit_budget = calculate_constant_row_bit_budget(self.bit_budget, row_idx, encoder_config)
+                rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, frame_type)
+            if encoder_config.RCflag > 1:
+                if self.is_first_pass:
+                    rc_qp = prev_frame_avg_qp
+                else:
+                    # TODO: This is second pass
+                    row_bit_budget, bit_usage_proportion = calculate_proportional_row_bit_budget(self, row_idx,
+                                                                                                 encoder_config)
+                    rc_qp = find_rc_qp_for_row(row_bit_budget, encoder_config.rc_lookup_table, frame_type,
+                                               scaling_factor=self.scaling_factor)
+
+                # logger.info(f"rc_qp == {rc_qp} for {row_bit_budget:7.2f} / [{self.bit_budget:9.2f}]")
+            self.rc_qp_per_row.append(rc_qp)
+            # logger.info(f" [{self.index}{'f' if self.is_first_pass else 's'} {row_idx:2d}] f_bb [{self.bit_budget:7.0f}] row_bb [{row_bit_budget:6.0f}] , qp=[{rc_qp}]")
+        return rc_qp
 
 def apply_dct_and_quantization(residual_block, block_size, quantization_factor):
     dct_coffs = apply_dct_2d(residual_block)

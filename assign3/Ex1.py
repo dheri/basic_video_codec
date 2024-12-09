@@ -14,7 +14,7 @@ from metrics.metrics import plot_metrics
 
 def create_lookups():
     sequences = [
-        ('e3_CIF.y', (352, 288), 2_400_000),
+        ('e3_CIF.y', (352, 288), 24_00_000),
         # ('e3_QCIF.y', (176,144),   960_000)
     ]
     block_sizes =[8, 16]
@@ -28,8 +28,8 @@ def create_lookup_for_seq(sequence, block_size, i_period):
     resolution = sequence[1]
     encoder_configs = [copy.deepcopy(EncoderConfig(
         block_size, 2, i_period, quantization_factor=qp, fastME=True, fracMeEnabled=True,
-        resolution=resolution,  RCflag=True, targetBR=sequence[2]))
-        for qp in range(int(math.log2(block_size) + 7) + 1)[4:5]
+        resolution=resolution,  RCflag=2, targetBR=sequence[2]))
+        for qp in range(int(math.log2(block_size) + 7) + 1)[6:7]
     ]
 
     params = InputParameters(
@@ -37,7 +37,7 @@ def create_lookup_for_seq(sequence, block_size, i_period):
         width=resolution[0],
         height=resolution[1],
         encoder_config=encoder_configs[0],
-        frames_to_process=31
+        frames_to_process=21
     )
     metric_files = []
 
